@@ -63,13 +63,30 @@ void print_formats() {
 }
 
 void print_insns() {
-  
-
+  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
+  ac_operand_list *operand;
+  ac_asm_insn_field *field;
+  ac_dec_instr *insn;
+  for (; pinsn != NULL; pinsn = pinsn->next) {
+    std::cout << pinsn->mnemonic
+              << ", " << pinsn->insn->id // fixme: check this pointer
+              << ", " << pinsn->insn->format // fixme: check this pointer
+              << ", " << pinsn->op_literal
+              << std::endl;  
+    for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
+      std::cout << "  " << operand->str << "(";
+      for (field = operand->fields; field != NULL; field = field->next) {
+        std::cout << field->name << ":" << field->size << ",";
+      }
+      std::cout << ")" << std::endl;
+    }
+  }
 }
 
 int main(int argc, char **argv) {
   parse_archc_description(argv);
-  print_formats();  
+  //print_formats();  
+  print_insns();
 
   return 0;
 }
