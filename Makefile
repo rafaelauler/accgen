@@ -6,10 +6,14 @@ ARCH_ACPP_LIB = -L/p/archc-tools/archc-newbingen-branch/src/acpp/.libs/
 
 CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB)
 
-all: genllvmbe
+objects = ArchEmitter.o
+all: $(objects) genllvmbe
 
-genllvmbe: genllvmbe.cpp
-	$(CXX) $(CXXFLAGS) $^ -o $@ -lacpp
+%.o: %.cpp %.h
+	$(CXX) $^ -c
+
+genllvmbe: genllvmbe.cpp InsnFormat.h $(objects)
+	$(CXX) $(CXXFLAGS) $^ -o $@ -lacpp 
 
 clean:
-	rm -f *.o genllvmbe
+	rm -f *.o *.gch genllvmbe
