@@ -8,81 +8,174 @@
 
 namespace backendgen {
 
-  class FormatField {
-  public:
-    FormatField(const char *name, int sizeInBits, 
-                int startBitPos, int endBitPos) : 
-      Name(name), SizeInBits(sizeInBits), StartBitPos(startBitPos), 
-      EndBitPos(endBitPos), GroupId(0) {}
+inline static std::string getStrForInteger(int Num) {
+  std::ostringstream NumStr;
+  NumStr << Num << std::flush;
+  return NumStr.str();
+}
 
-    ~FormatField() {}
-    const char *getName() const { return Name; }
-    unsigned getSizeInBits() const { return SizeInBits; }
-    unsigned getStartBitPos() const { return StartBitPos; }
-    unsigned getEndBitPos() const { return EndBitPos; }
-    void incGroupId() { GroupId++; }
-    unsigned getGroupId() { return GroupId; }
-  
-  private:
-    const char *Name;
-    unsigned SizeInBits;
-    unsigned StartBitPos;
-    unsigned EndBitPos;
-    unsigned GroupId;
-  };
-  
-  class InsnFormat {
-  public:
-    InsnFormat(const char *name, int sizeInBits) : 
-      Name(name), SizeInBits(sizeInBits), BaseLLVMFormatClassName("InstSP16"),
-      TmpLastField(-1), NumGroups(0) {}
+class FormatField {
+public:
+  FormatField(const char *name, int sizeInBits, 
+              int startBitPos, int endBitPos) : 
+    Name(name), SizeInBits(sizeInBits), StartBitPos(startBitPos), 
+    EndBitPos(endBitPos), GroupId(0) {}
 
-    ~InsnFormat() {}
-    const char *getName() const { return Name; }
-    unsigned getSizeInBits() const { return SizeInBits; }
+  ~FormatField() {}
+  const char *getName() const { return Name; }
+  unsigned getSizeInBits() const { return SizeInBits; }
+  unsigned getStartBitPos() const { return StartBitPos; }
+  unsigned getEndBitPos() const { return EndBitPos; }
+  unsigned setGroupId(unsigned Num) { GroupId = Num; }
+  unsigned getGroupId() { return GroupId; }
 
-    void addField(FormatField *FF) {
-      Fields.push_back(FF);
+private:
+  const char *Name;
+  unsigned SizeInBits;
+  unsigned StartBitPos;
+  unsigned EndBitPos;
+  unsigned GroupId;
+};
 
-      if (TmpLastField < 0)
-        TmpLastField = FF->getEndBitPos();
+class FieldGroup {
+private:
+  std::vector<FormatField *> FF;
+public:
+  FieldGroup() {}
+  ~FieldGroup() {}
 
-      if (FF->getEndBitPos() > TmpLastField) {
-        FF->incGroupId();
-        NumGroups++;
+  void addField(FormatField *F) {
+    FF.push_back(F);
+  }
+
+  std::vector<FormatField *>& getFields() {
+    return FF;
+  }
+};
+
+
+class InsnFormat {
+public:
+  InsnFormat(const char *name, int sizeInBits) : 
+    Name(name), SizeInBits(sizeInBits), BaseLLVMFormatClassName("InstSP16") {}
+
+  ~InsnFormat() {}
+
+  std::string getName() {
+    return std::string(Name);
+  }
+
+  std::string getName(unsigned GroupNum) {
+    std::string N = std::string(Name);
+
+    if (GroupNum != 0)
+      N.append("_" + getStrForInteger(GroupNum));
+    
+    return N;
+  }
+
+  unsigned getSizeInBits() const { return SizeInBits; }
+
+  int searchBackwards(unsigned LastFFIdx, unsigned FirstBitPos) const { 
+    for (int e = LastFFIdx, i = 0; e != i; --e) {
+      if (Fields[e]->getStartBitPos() == FirstBitPos)
+        return e;
+    }
+    return -1; // Should never reach here!
+  }
+
+  void recognizeGroups() {
+    
+    int LastFFIdx = -1, FFIdxWithMinBitPos = -1;
+    bool IsInGroupCtx = false;
+
+    for (unsigned i = 0, e = Fields.size(); i != e; ++i) {
+
+      if (LastFFIdx < 0 && FFIdxWithMinBitPos < 0)
+        LastFFIdx = FFIdxWithMinBitPos = i; 
+
+      if (i != LastFFIdx && 
+          (Fields[i]->getStartBitPos() > Fields[LastFFIdx]->getEndBitPos())) {
+
+        IsInGroupCtx = true;
+
+        // If the group is empty, search backwards for the first groups, 
+        // mark it as the first one. Example:
+        //
+        //  FirstFFIdx -+   LastFFIdx    i
+        //              |      |         |
+        //              |      |    +----+
+        //              v      v    v
+        //    31-15, [ 14-4, 3-3 | 14-10, 9-3 | 14-5, 4-3 ], 2-0
+        //
+        // The first group we recognize is 2), we should go back and include
+        // 1) as the first group, otherwise we miss it.
+        if (Groups.empty()) {
+          unsigned FirstFFIdx = searchBackwards(LastFFIdx, 
+                                                Fields[i]->getStartBitPos());
+          FieldGroup *FG = new FieldGroup();
+          Groups.push_back(FG);
+          for (unsigned fi = FirstFFIdx, fe = LastFFIdx+1; fi != fe; ++fi) {
+            FG->addField(Fields[fi]);
+            Fields[fi]->setGroupId(Groups.size());
+          }
+        }
+
+        FieldGroup *FG = new FieldGroup();
+        Groups.push_back(FG);
+        FG->addField(Fields[i]);
+        Fields[i]->setGroupId(Groups.size());
       }
 
-      TmpLastField = FF->getEndBitPos();
+      if (Fields[i]->getStartBitPos() < Fields[FFIdxWithMinBitPos]->getEndBitPos()) {
+        IsInGroupCtx = false;
+        FFIdxWithMinBitPos = i;
+      }
+
+      if (IsInGroupCtx) {
+        Groups[Groups.size()-1]->addField(Fields[i]);
+        Fields[i]->setGroupId(Groups.size());
+      }
+
+      LastFFIdx = i;
     }
 
-    FormatField *getField(unsigned Num) {
-      return Fields[Num];
-    }
+  }
 
-    std::vector<FormatField *> getFields() {
-      return Fields;
-    }
+  void addField(FormatField *FF) {
+    Fields.push_back(FF);
+  }
 
-    void setBaseLLVMFormatClassName(unsigned BaseNum) {
-      std::ostringstream NumStr;
-      NumStr << BaseNum << std::flush;
-      BaseLLVMFormatClassName.append("_" + NumStr.str());
-    }
+  FormatField *getField(unsigned Num) {
+    return Fields[Num];
+  }
 
-    std::string& getBaseLLVMFormatClassName() {
-      return BaseLLVMFormatClassName;
-    }
+  std::vector<FormatField *>& getFields(unsigned Grp) {
+    return Groups[Grp]->getFields();
+  }
 
-    unsigned getNumGroups() const { return NumGroups; } 
-  
-  private:
-    std::vector<FormatField *> Fields;
-    const char *Name;
-    unsigned SizeInBits;
-    std::string BaseLLVMFormatClassName;
-    int TmpLastField;
-    unsigned NumGroups;
-  };
+  std::vector<FormatField *>& getFields() {
+    return Fields;
+  }
+
+  void setBaseLLVMFormatClassName(unsigned BaseNum) {
+    BaseLLVMFormatClassName.append("_" + getStrForInteger(BaseNum));
+  }
+
+  std::string& getBaseLLVMFormatClassName() {
+    return BaseLLVMFormatClassName;
+  }
+
+  unsigned getNumGroups() const { return Groups.size(); } 
+
+private:
+  std::vector<FieldGroup*> Groups;
+  std::vector<FormatField*> Fields;
+  std::string BaseLLVMFormatClassName;
+
+  const char *Name;
+  unsigned SizeInBits;
+};
 
 
 };

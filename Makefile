@@ -10,10 +10,10 @@ objects = ArchEmitter.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h
-	$(CXX) $^ -c
+	$(CXX) $^ -g -c
 
 genllvmbe: genllvmbe.cpp InsnFormat.h $(objects)
-	$(CXX) $(CXXFLAGS) $^ -o $@ -lacpp 
+	$(CXX) $(CXXFLAGS) $^ -g -o $@ -lacpp 
 
 clean:
 	rm -f *.o *.gch genllvmbe

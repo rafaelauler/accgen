@@ -91,6 +91,8 @@ void DebugFormats() {
                 << ", size:" << Field->getSizeInBits()
                 << ", (" << Field->getStartBitPos()
                 << "," << Field->getEndBitPos() << ")"
+                << ", grpnum=" << Field->getGroupId()
+                << ","
                 << std::endl;
     }
   }
@@ -138,6 +140,8 @@ void BuildFormats() {
       IF->setBaseLLVMFormatClassName(FirstFields.size()-1);
       BaseFormatNames.push_back(IF);
     }
+
+    IF->recognizeGroups();
   }
 
   //DebugFormats();
@@ -176,7 +180,7 @@ void create_dir(const char *path) {
 int main(int argc, char **argv) {
   parse_archc_description(argv);
   //print_formats();  
-  //print_insns();
+  print_insns();
   const char *TmpDir = "llvmbackend";
   create_dir(TmpDir);
 
