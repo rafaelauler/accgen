@@ -16,7 +16,7 @@ public:
   ArchEmitter() {};
   ~ArchEmitter() {};
   virtual void EmitInstrutionFormatClasses
-    (std::map<char *, InsnFormat*> FormatMap, std::vector<InsnFormat*> BaseFormatNames, std::ofstream &O);
+    (std::map<std::string, InsnFormat*> FormatMap, std::vector<InsnFormat*> BaseFormatNames, std::ofstream &O);
   void EmitDeclareBitFieldMatch(FormatField &FF, std::ofstream &O);
   void EmitDeclareBitField(FormatField &FF, std::ofstream &O);
   void EmitDeclareClassArgs(InsnFormat &IF, std::ofstream &O, unsigned GrpNum);

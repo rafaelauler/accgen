@@ -12,7 +12,7 @@ all: $(objects) genllvmbe
 %.o: %.cpp %.h
 	$(CXX) $^ -g -c
 
-genllvmbe: genllvmbe.cpp InsnFormat.h $(objects)
+genllvmbe: genllvmbe.cpp InsnFormat.h Insn.h $(objects)
 	$(CXX) $(CXXFLAGS) $^ -g -o $@ -lacpp 
 
 clean:

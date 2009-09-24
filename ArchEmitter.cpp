@@ -1,14 +1,14 @@
 
+#include "Insn.h"
 #include "InsnFormat.h"
 #include "ArchEmitter.h"
 #include <map>
 #include <string.h>
 
-
 using namespace backendgen; 
 
-typedef std::map<char *, InsnFormat*> FormatMapTy;
-typedef std::map<char *, InsnFormat*>::iterator FormatMapIterTy;
+typedef std::map<std::string, InsnFormat*> FormatMapTy;
+typedef std::map<std::string, InsnFormat*>::iterator FormatMapIterTy;
 
 void ArchEmitter::EmitDeclareBitFieldMatch(FormatField &FF, std::ofstream &O) {
   O << "  let Inst{" 
@@ -140,3 +140,47 @@ void ArchEmitter::EmitInstrutionFormatClasses(FormatMapTy FormatMap,
   }
 }
 
+//void ArchEmitter::hasOperandType(std::vector<Insn *> VI, std::string OpTy) {
+//  
+//}
+//
+//void ArchEmitter::chooseInstructionToEmit(std::vector<Insn *> VI) {
+//
+//  // Try to emit a instruction without %lo, %hi, ...
+//  for (std::vector<Insn *>::iterator II = VI.begin(), 
+//       IE = VI.end(); II != IE; ++II) {
+//    Insn *I = *II;
+//    for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
+//      std::string &Name = I->getOperand(i)->getName();
+//      Name.find("")
+//    }
+//  }
+//  else if hasOperandType(VI, "imm")
+//    re
+//
+//  return VI[0];
+//}
+//
+//void ArchEmitter::EmitInstructions(InsnIdMapTy &IIM, std::ofstream &O) {
+//  for (InsnIdMapIter IM = IIM.begin(), EM = IIM.end(); IM != EM; ++IM) {
+//
+//    std::vector<Insn *> VI = IM->second;
+//    Insn *I = chooseInstructionToEmit(VI);
+//  
+//    std::cout << I->getName()
+//              << ", " << IM->first
+//              << ", " << I->getFormat()->getName()
+//              << ", " << I->getOperandsFmts()
+//              << std::endl;
+//    for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
+//      std::cout << "  " << I->getOperand(i)->getName() << "(";
+//      for (int fi = 0, fe = I->getOperand(i)->getNumFields(); fi != fe; ++fi) { 
+//        FormatField *FF = I->getOperand(i)->getField(fi);
+//        std::cout << FF->getName()
+//                  << ":" << FF->getSizeInBits()
+//                  << ",";
+//      }
+//      std::cout << ")" << std::endl;
+//    }
+//  }
+//}
