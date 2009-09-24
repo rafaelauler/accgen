@@ -217,6 +217,7 @@ void print_insns() {
               << ", " << pinsn->insn->id // fixme: check this pointer
               << ", " << pinsn->insn->format // fixme: check this pointer
               << ", " << pinsn->op_literal
+              << ", " << pinsn->insn->asm_str
               << std::endl;  
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
       std::cout << "  " << operand->str << "(";
