@@ -6,7 +6,7 @@ ARCH_ACPP_LIB = -L/p/archc-tools/archc-newbingen-branch/src/acpp/.libs/
 
 CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB)
 
-objects = ArchEmitter.o
+objects = ArchEmitter.o TemplateManager.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h

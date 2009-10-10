@@ -9,6 +9,7 @@
 #include "InsnFormat.h"
 #include "Insn.h"
 #include "ArchEmitter.h"
+#include "TemplateManager.h"
 #include <map>
 
 extern "C" { 
@@ -213,12 +214,18 @@ void print_insns() {
   ac_asm_insn_field *field;
   ac_dec_instr *insn;
   for (; pinsn != NULL; pinsn = pinsn->next) {
-    std::cout << pinsn->mnemonic
-              << ", " << pinsn->insn->id // fixme: check this pointer
-              << ", " << pinsn->insn->format // fixme: check this pointer
-              << ", " << pinsn->op_literal
-              << ", " << pinsn->insn->asm_str
-              << std::endl;  
+    if (pinsn->insn == NULL) {
+      std::cout << pinsn->mnemonic
+		<< ", * pseudo *" 
+      		<< ", " << pinsn->op_literal
+		<< std::endl;  
+    } else {
+      std::cout << pinsn->mnemonic
+		<< ", " << pinsn->insn->id 
+		<< ", " << pinsn->insn->format 
+		<< ", " << pinsn->op_literal
+		<< std::endl;  
+    }
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
       std::cout << "  " << operand->str << "(";
       for (field = operand->fields; field != NULL; field = field->next) {
@@ -255,6 +262,13 @@ int main(int argc, char **argv) {
   O.open(FormatsFile, std::ios::out | std::ios::trunc); 
   AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O);
   O.close();
+
+  // Create LLVM backend files based on template files
+  TemplateManager TM;
+  TM.SetArchName("sparc16");
+  TM.SetNumRegs(32);
+  TM.SetWorkingDir(TmpDir);
+  TM.CreateBackendFiles();
 
   return 0;
 }
