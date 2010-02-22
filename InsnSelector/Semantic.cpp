@@ -121,6 +121,10 @@ namespace backendgen {
       return 0;
     }
 
+    std::string OperatorTableManager::getOperatorName (OperatorType type) {
+      return ReverseOperatorMap[type];
+    }
+
     void Operator::setReturnType (const OperandType &OType) {
       ReturnType = OType;
     }
@@ -229,9 +233,87 @@ namespace backendgen {
 
     // RegisterOperand member functions
 
-    RegisterOperand::RegisterOperand(const RegisterClass *RegClass):
+    RegisterOperand::RegisterOperand(const RegisterClass *RegClass,
+				     const std::string &OpName):
       Operand(RegClass->getOperandType()) {
       MyRegClass = RegClass;
+      OperandName = OpName;
+    }
+        
+    // Instruction member functions    
+
+    // Destructor must deallocate all semantic nodes (expression tree)
+    Instruction::~Instruction() {
+      for (std::vector<const Tree*>::iterator I = Semantic.begin(),
+	     E = Semantic.end(); I != E; ++I)
+      {
+	delete *I;       
+      }
+    }
+
+    Instruction::Instruction(const std::string &N): Name(N) {      
+    }
+
+    std::string Instruction::getName() const {
+      return Name;
+    }
+
+    void Instruction::addSemantic(const Tree * Expression) {
+      Semantic.push_back(Expression);
+    }
+
+    void Instruction::print() {
+      std::cout << "Instruction \"" << Name << "\", semantic:\n";
+      for (std::vector<const Tree*>::iterator I = Semantic.begin(),
+	     E = Semantic.end(); I != E; ++I)
+      {
+	std::cout << "  ";
+	(*I)->print();       
+	std::cout << "\n";
+      }
+      std::cout << "\n\n";
+    }
+
+    // InstrManager member functions
+
+    InstrManager::~InstrManager() {
+      for (std::vector<Instruction*>::iterator I = Instructions.begin(),
+	     E = Instructions.end(); I != E; ++I)
+	{
+	  delete *I;
+	}
+    }
+
+    void InstrManager::addInstruction (Instruction *Instr) {
+      Instructions.push_back(Instr);
+    }
+
+    Instruction *InstrManager::getInstruction(const std::string &Name) {
+      Instruction *Pointer = NULL;
+      for (std::vector<Instruction*>::iterator I = Instructions.begin(),
+	     E = Instructions.end(); I != E; ++I)
+	{
+	  if ((*I)->getName() == Name) {
+	    Pointer = *I;
+	    break;
+	  }
+	} 
+      if (Pointer == NULL) {
+	Pointer = new Instruction(Name);
+	Instructions.push_back(Pointer);
+      }
+      return Pointer;
+    }
+
+    void InstrManager::printAll() {
+      std::cout << "Instruction Manager has a total of " << Instructions.size()
+		<< " instruction(s).\n";
+      std::cout << "==================================\n";
+      for (std::vector<Instruction*>::iterator I = Instructions.begin(),
+	     E = Instructions.end(); I != E; ++I)
+	{
+	  (*I)->print();	  
+	}
     }
 
   } // End namespace expression

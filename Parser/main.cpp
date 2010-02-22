@@ -9,10 +9,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "../InsnSelector/TransformationRules.h"
+#include "../InsnSelector/Semantic.h"
 
 using namespace backendgen;
+using namespace backendgen::expression;
 
 extern TransformationRules RuleManager;
+extern InstrManager InstructionManager;
 
 int yyparse();
 
@@ -22,6 +25,8 @@ main()
   int ret = yyparse();
 
   RuleManager.print();
+
+  InstructionManager.printAll();
 
   return ret;
 }

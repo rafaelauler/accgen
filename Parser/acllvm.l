@@ -48,6 +48,21 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return DEFINE;
 }
 
+<INITIAL>"semantic" {
+  yylval->num = 0;
+  return SEMANTIC;
+}
+
+<INITIAL>"instruction" {
+  yylval->num = 0;
+  return INSTRUCTION;
+}
+
+<INITIAL>"translate" {
+  yylval->num = 0;
+  return TRANSLATE;
+}
+
 <INITIAL>"registers" {
   yylval->num = 0;
   return REGISTERS;

@@ -31,6 +31,7 @@ namespace backendgen {
     bool createRule(expression::Tree* LHS, expression::Tree* RHS,
 		    bool Equivalence);
     void print();
+    ~TransformationRules();
   private:
     std::list<Rule> Rules;
   };

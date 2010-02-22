@@ -27,7 +27,8 @@ namespace backendgen {
     // An expression tree node.
     class Node {
     public:
-      virtual void print() { std::cout << "GenericNode";  }
+      virtual void print() const { std::cout << "GenericNode";  }
+      virtual ~Node() { }
     };
 
     // An expression tree, representing a single assertion of an
@@ -67,7 +68,7 @@ namespace backendgen {
     public:
       Operand (const OperandType &Type);
       Operand ();
-      virtual void print() {	
+      virtual void print() const {	
 	std::cout << "Operand" << Type.Type;  
       }
     private:      
@@ -83,7 +84,7 @@ namespace backendgen {
     public:
       Constant (const ConstType Val);
       Constant (const ConstType Val, const OperandType &Type);
-      virtual void print() { std::cout << Value;  }
+      virtual void print() const { std::cout << Value;  }
     private:
       ConstType Value;
     };
@@ -129,9 +130,38 @@ namespace backendgen {
     // Special class of operand:  a register class
     class RegisterOperand : public Operand {
       const RegisterClass *MyRegClass;
+      std::string OperandName;
     public:
-      RegisterOperand (const RegisterClass *RegClass);
-      virtual void print() { std::cout << MyRegClass->getName(); };
+      RegisterOperand (const RegisterClass *RegClass,
+		       const std::string &OpName);
+      virtual void print()  const { std::cout << MyRegClass->getName(); };
+    };
+
+
+    // Class representing an instruction and its semantics.
+    // A semantic may comprise several expression trees, ran
+    // in parallel.
+    class Instruction {
+    public:     
+      void addSemantic(const Tree * Expression);
+      Instruction(const std::string &N);
+      ~Instruction();
+      std::string getName() const;
+      void print();
+    private:
+      std::vector<const Tree *> Semantic;
+      const std::string Name;
+    };
+
+    // Manages instruction instances.
+    class InstrManager {
+    public:
+      void addInstruction (Instruction *Instr);
+      Instruction *getInstruction(const std::string &Name);
+      ~InstrManager();
+      void printAll();
+    private:
+      std::vector<Instruction*> Instructions;
     };
 
     // Operator types' interface.
@@ -154,6 +184,7 @@ namespace backendgen {
       OperatorType getType (const std::string &Type);
       void setAlias (const std::string &Op1, const std::string &Op2);
       int updateArity (OperatorType Type, int NewArity);
+      std::string getOperatorName (OperatorType type);
     private:
       OperatorMapType OperatorMap;
       ReverseOperatorMapType ReverseOperatorMap;
@@ -178,7 +209,7 @@ namespace backendgen {
 	//std::cerr << "Danger: accessing unexisting element\n";	
 	return Children[index];
       }
-      virtual void print() {
+      virtual void print() const {
 	std::cout << "(Operator" << Type.Type << "Arity" << Type.Arity << " ";
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
@@ -187,7 +218,15 @@ namespace backendgen {
 	  }	
 	std::cout << ") ";
       }
+      virtual ~Operator() {
+	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
+	  {
+	    delete Children[I];
+	  }
+      }
       void setReturnType (const OperandType &OType);
+      int getArity() {return Type.Arity;}
+      OperatorType getType() {return Type;}
     private:
       std::vector<Node *> Children;
       OperatorType Type;
@@ -195,15 +234,6 @@ namespace backendgen {
     };  
 
   } // end namespace expression
-  
-  // Contains a colletion of expression trees, representing assertions
-  // on storage elements of the processor. These encode insn. behaviour.
-  class Semantic {
-  private:
-    std::list<expression::Tree *> ExpressionTrees;
-  };
-
-
   
 
 } // end namespace backendgen

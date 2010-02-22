@@ -23,10 +23,13 @@ OperandTableManager OperandTable;
 OperatorTableManager OperatorTable;
 TransformationRules RuleManager;
 RegClassManager RegisterManager;
+InstrManager InstructionManager;
 unsigned LineNumber = 1;
 std::stack<Node *> Stack;
 std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
+
+void ClearStack();
 
   /*#define YYPARSE_PARAM scanner
     #define YYLEX_PARAM   scanner*/
@@ -50,7 +53,7 @@ void yyerror(char *error);
 %token<str> ID OPERATOR
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY
-%token<num> REGISTERS AS COMMA
+%token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -77,7 +80,43 @@ statement:         ruledef       {}
                    | opalias     {}
                    | operanddef  {}
                    | regclassdef {}
+                   | semanticdef {}
+                   | translate   {}
                    | error       {} 
+                   ;
+
+/* Translation request */
+
+translate:         TRANSLATE exp SEMICOLON
+                   {
+                   }
+                   ;
+
+/* Instruction semantic description. */
+
+semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
+                   RPAREN SEMICOLON
+                   {
+                     Instruction *Instr = InstructionManager.getInstruction($3);
+                     int I = Stack.size() - 1;
+                     while (I >= 0) {
+                       Instr->addSemantic(Stack.top());
+                       Stack.pop();
+                       --I;
+                     }
+                   }
+                   ;
+
+semanticlist:      /* empty */
+                   | semanticlist semantic
+                   {
+                   }
+                   ;
+
+semantic:          exp SEMICOLON
+                   {
+                     Stack.push($1);
+                   }
                    ;
 
 /* New operator definition. */
@@ -207,7 +246,18 @@ explist:  /* empty */ {}
 
 exp:      LPAREN operator explist RPAREN 
                     {
-                      int i = Stack.size() - 1;                      
+                      int i = dynamic_cast<Operator*>($2)->getArity();         
+	              if (i > Stack.size())
+                      {
+                        std::cerr << "Line " << LineNumber << ": Number"
+                          << " of operands does not match \"" << 
+                        OperatorTable.getOperatorName(
+                          dynamic_cast<Operator*>($2)->getType()) << "\""
+                          << " arity.\n";
+                        ClearStack();
+                        YYERROR;
+                      }    
+	              --i;
                       while (i >= 0) {
                         (*dynamic_cast<Operator*>($2))[i] = Stack.top();
                         Stack.pop();
@@ -217,7 +267,18 @@ exp:      LPAREN operator explist RPAREN
                     }
           | LPAREN operator COLON ID explist RPAREN
                     {
-                      int i = Stack.size() - 1;
+                      int i = dynamic_cast<Operator*>($2)->getArity();
+                      if (i > Stack.size())
+                      {
+                        std::cerr << "Line " << LineNumber << ": Number"
+                          << " of operands does not match \"" << 
+                        OperatorTable.getOperatorName(
+                          dynamic_cast<Operator*>($2)->getType()) << "\""
+                          << " arity.\n";
+                        ClearStack();
+                        YYERROR;
+                      }
+                      --i;
                       while (i >= 0) {
                         (*dynamic_cast<Operator*>($2))[i] = Stack.top();
                         Stack.pop();
@@ -228,11 +289,22 @@ exp:      LPAREN operator explist RPAREN
                       $$ = $2;
                     }
           | LPAREN CONST COLON ID NUM RPAREN    
-                    { 
+                    {                       
                       $$ = new Constant($5, OperandTable.getType($4)); 
                     }
           |  ID     { 
 	              $$ = new Operand(OperandTable.getType($1));
+                    }
+          | ID COLON ID
+                    { 
+                      RegisterClass *RegClass = RegisterManager.getRegClass($3);
+                      if (RegClass == NULL) {
+                        std::cerr << "Line " << LineNumber << ": Unknown"
+                          << " register class \"" << $3 << "\".\n";
+                        YYERROR;
+                      }
+                      else 
+                        $$ = new RegisterOperand(RegClass, $1);  
                     }
           ;
 
@@ -250,4 +322,15 @@ operator: OPERATOR      {
 void yyerror (char *error)
 {
   fprintf(stderr, "Line %d: %s\n", LineNumber, error);
+}
+
+void ClearStack() {
+  int I = Stack.size() - 1;
+  while (I >= 0)
+  {
+    //Stack.top()->print();
+    delete Stack.top();
+    Stack.pop();
+    --I;
+  }
 }

@@ -27,6 +27,9 @@ namespace backendgen {
   }
 
   void TransformationRules::print() {
+    std::cout << "Rules Manager has a total of " << Rules.size()
+	      << " rule(s).\n";
+    std::cout << "==================================\n";
     for (std::list<Rule>::const_iterator I = Rules.begin(), E = Rules.end();
 	 I != E; ++I)
       {
@@ -37,6 +40,16 @@ namespace backendgen {
 	  std::cout << "=> ";
 	I->RHS->print();
 	std::cout << ";\n";
+      }
+    std::cout << "\n";
+  }
+  
+  TransformationRules::~TransformationRules() {
+    for (std::list<Rule>::const_iterator I = Rules.begin(), E = Rules.end();
+	 I != E; ++I)
+      {
+	delete I->LHS;
+	delete I->RHS;
       }
   }
 
