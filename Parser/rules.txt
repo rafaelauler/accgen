@@ -1,0 +1,39 @@
+//===- rules.txt   Transformation rules definition file   -----------------===//
+//
+//              The ArchC Project - Compiler Backend Generation
+//
+//===----------------------------------------------------------------------===//
+//
+// BLABLA
+//
+//===----------------------------------------------------------------------===//
+
+// Operators
+
+define operator + as arity 2;
+define operator - as arity 2;
+define operator alias as add => +;
+define operator alias as sub => -;
+
+
+// Operands
+
+define operand int   as size 32;
+define operand short as size 16 like int;
+define operand byte  as size 8  like int;
+
+
+// Rules
+
+(+ (const:int 2) (const:int 2)) 
+ =>
+(const:int 4);
+
+(sub (const:int 2) (const:int 2))
+ <=>
+(const:int 0);
+
+define registers regs:int as (
+  r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15
+  r16 r17 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 r28 r29 r30 r31
+);

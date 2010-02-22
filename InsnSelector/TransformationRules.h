@@ -8,13 +8,13 @@
 // compiler backend generator tool.
 //
 //===----------------------------------------------------------------------===//
+#ifndef TRANSFORMATIONRULES_H
+#define TRANSFORMATIONRULES_H
 
+#include "Semantic.h"
+#include <list>
 
 namespace backendgen {  
-
-  namespace expression { 
-    class Tree;
-  }
 
   // A Rule represents a given transformation
   struct Rule {  
@@ -27,6 +27,10 @@ namespace backendgen {
   };
 
   class TransformationRules {
+  public:
+    bool createRule(expression::Tree* LHS, expression::Tree* RHS,
+		    bool Equivalence);
+    void print();
   private:
     std::list<Rule> Rules;
   };
@@ -35,3 +39,5 @@ namespace backendgen {
   
 
 }
+
+#endif
