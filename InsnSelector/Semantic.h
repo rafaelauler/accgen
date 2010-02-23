@@ -29,6 +29,9 @@ namespace backendgen {
     public:
       virtual void print() const { std::cout << "GenericNode";  }
       virtual ~Node() { }
+      virtual bool isOperand() { return false; }
+      virtual bool isOperator() { return false; }
+      virtual unsigned getType() { return 0; }
     };
 
     // An expression tree, representing a single assertion of an
@@ -66,13 +69,15 @@ namespace backendgen {
     // some class of storage in the processor.
     class Operand : public Node {
     public:
-      Operand (const OperandType &Type);
-      Operand ();
+      Operand (const OperandType &Type, const std::string &OpName);
       virtual void print() const {	
 	std::cout << "Operand" << Type.Type;  
       }
+      virtual bool isOperand() { return true; }
+      virtual unsigned getType() { return Type.Type; }
     private:      
       OperandType Type;
+      std::string OperandName;
     };
 
     typedef unsigned int ConstType;
@@ -82,7 +87,6 @@ namespace backendgen {
     // information.
     class Constant : public Operand {
     public:
-      Constant (const ConstType Val);
       Constant (const ConstType Val, const OperandType &Type);
       virtual void print() const { std::cout << Value;  }
     private:
@@ -130,13 +134,20 @@ namespace backendgen {
     // Special class of operand:  a register class
     class RegisterOperand : public Operand {
       const RegisterClass *MyRegClass;
-      std::string OperandName;
     public:
       RegisterOperand (const RegisterClass *RegClass,
 		       const std::string &OpName);
       virtual void print()  const { std::cout << MyRegClass->getName(); };
     };
 
+
+    // Another specialization of operand: an immediate
+    // We need to explicitly identify immediates, so we know when
+    // we can fiddle directly with these bits
+    class ImmediateOperand : public Operand {
+    public:
+      ImmediateOperand (const OperandType &Type, const std::string &OpName);
+    };
 
     // Class representing an instruction and its semantics.
     // A semantic may comprise several expression trees, ran
@@ -153,6 +164,8 @@ namespace backendgen {
       const std::string Name;
     };
 
+    typedef std::vector<Instruction*>::const_iterator InstrIterator;
+
     // Manages instruction instances.
     class InstrManager {
     public:
@@ -160,6 +173,8 @@ namespace backendgen {
       Instruction *getInstruction(const std::string &Name);
       ~InstrManager();
       void printAll();
+      InstrIterator getBegin();
+      InstrIterator getEnd();
     private:
       std::vector<Instruction*> Instructions;
     };
@@ -218,6 +233,8 @@ namespace backendgen {
 	  }	
 	std::cout << ") ";
       }
+      virtual bool isOperator() { return true; }
+      virtual unsigned getType() { return (unsigned) Type.Type; }
       virtual ~Operator() {
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
@@ -226,7 +243,7 @@ namespace backendgen {
       }
       void setReturnType (const OperandType &OType);
       int getArity() {return Type.Arity;}
-      OperatorType getType() {return Type;}
+      OperatorType getOpType() {return Type;}
     private:
       std::vector<Node *> Children;
       OperatorType Type;

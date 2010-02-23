@@ -25,10 +25,12 @@ TransformationRules RuleManager;
 RegClassManager RegisterManager;
 InstrManager InstructionManager;
 unsigned LineNumber = 1;
+// Expression stack used to process operators parameters
 std::stack<Node *> Stack;
+// Register stack used to process register lists, when defining register classes
 std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
-
+// Clear stack and cleanly deallocated elements when an error occur
 void ClearStack();
 
   /*#define YYPARSE_PARAM scanner
@@ -53,7 +55,7 @@ void yyerror(char *error);
 %token<str> ID OPERATOR
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY
-%token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE
+%token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -61,15 +63,7 @@ void yyerror(char *error);
 
 %%
 
-/*
-program:  
-          | ruledef
-          | opdef
-	  | error
-	  ;
-*/
-
-/* A statement list */ 
+/* A statement list, our initial rule */ 
 
 statementlist:     /* empty */
                    | statementlist statement
@@ -235,12 +229,12 @@ ruledef:  exp EQUIVALENCE exp SEMICOLON
 
 explist:  /* empty */ {}
           | explist exp  { Stack.push($2); }
-          | explist ANY  {
+          | explist ID COLON ANY  {
                            OperandType NewType;
                            NewType.Type = 0;
                            NewType.Size = 0;
 			   NewType.DataType = 0;
-                           Stack.push(new Operand(NewType));
+                           Stack.push(new Operand(NewType, $2));
                          }
           ; 
 
@@ -252,7 +246,7 @@ exp:      LPAREN operator explist RPAREN
                         std::cerr << "Line " << LineNumber << ": Number"
                           << " of operands does not match \"" << 
                         OperatorTable.getOperatorName(
-                          dynamic_cast<Operator*>($2)->getType()) << "\""
+                          dynamic_cast<Operator*>($2)->getOpType()) << "\""
                           << " arity.\n";
                         ClearStack();
                         YYERROR;
@@ -273,7 +267,7 @@ exp:      LPAREN operator explist RPAREN
                         std::cerr << "Line " << LineNumber << ": Number"
                           << " of operands does not match \"" << 
                         OperatorTable.getOperatorName(
-                          dynamic_cast<Operator*>($2)->getType()) << "\""
+                          dynamic_cast<Operator*>($2)->getOpType()) << "\""
                           << " arity.\n";
                         ClearStack();
                         YYERROR;
@@ -288,21 +282,22 @@ exp:      LPAREN operator explist RPAREN
                         OperandTable.getType($4));
                       $$ = $2;
                     }
-          | LPAREN CONST COLON ID NUM RPAREN    
+          | CONST COLON ID NUM
                     {                       
-                      $$ = new Constant($5, OperandTable.getType($4)); 
+                      $$ = new Constant($4, OperandTable.getType($3)); 
                     }
-          |  ID     { 
-	              $$ = new Operand(OperandTable.getType($1));
+          | ID      { 
+                      $$ = new Operand(OperandTable.getType($1), "E");
+                    }
+          | IMM COLON ID COLON ID
+                    {
+                      $$ = new ImmediateOperand(OperandTable.getType($5), $3);
                     }
           | ID COLON ID
                     { 
                       RegisterClass *RegClass = RegisterManager.getRegClass($3);
-                      if (RegClass == NULL) {
-                        std::cerr << "Line " << LineNumber << ": Unknown"
-                          << " register class \"" << $3 << "\".\n";
-                        YYERROR;
-                      }
+                      if (RegClass == NULL)
+                        $$ = new Operand(OperandTable.getType($3), $1); 
                       else 
                         $$ = new RegisterOperand(RegClass, $1);  
                     }

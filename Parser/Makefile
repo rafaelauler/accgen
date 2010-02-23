@@ -2,7 +2,7 @@
 
 test: lex.o parser.o main.o
 	$(MAKE) -C ../InsnSelector
-	g++ $(CXX_FLAGS) main.o lex.o parser.o ../InsnSelector/Semantic.o ../InsnSelector/TransformationRules.o -o test
+	g++ $(CXX_FLAGS) main.o lex.o parser.o ../InsnSelector/Semantic.o ../InsnSelector/TransformationRules.o ../InsnSelector/Search.o -o test
 
 main.o: main.cpp
 	g++ $(CXX_FLAGS) -c main.cpp -o main.o

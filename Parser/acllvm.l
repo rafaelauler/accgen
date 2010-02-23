@@ -68,6 +68,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return REGISTERS;
 }
 
+<INITIAL>"imm" {
+  yylval->num = 0;
+  return IMM;
+}
+
 <INITIAL>"as" {
   yylval->num = 0;
   return AS;

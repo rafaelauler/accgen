@@ -1,6 +1,6 @@
 CXX = g++
 
-objects = Semantic.o TransformationRules.o
+objects = Semantic.o TransformationRules.o Search.o
 
 all: $(objects)
 

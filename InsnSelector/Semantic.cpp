@@ -129,19 +129,14 @@ namespace backendgen {
       ReturnType = OType;
     }
 
-    Operand::Operand (const OperandType &Type) {
+    Operand::Operand (const OperandType &Type, const std::string &OpName) {
       this->Type = Type;
+      OperandName = OpName;
     }
-
-    Operand::Operand () {}
 
     Constant::Constant (const ConstType Val, const OperandType &Type):
-      Operand(Type)
+      Operand(Type, "C")
     {
-      Value = Val;
-    }
-
-    Constant::Constant (const ConstType Val) {
       Value = Val;
     }
 
@@ -235,10 +230,14 @@ namespace backendgen {
 
     RegisterOperand::RegisterOperand(const RegisterClass *RegClass,
 				     const std::string &OpName):
-      Operand(RegClass->getOperandType()) {
-      MyRegClass = RegClass;
-      OperandName = OpName;
+      Operand(RegClass->getOperandType(), OpName) {
+      MyRegClass = RegClass;      
     }
+
+    // ImmediateOperand member functions
+    ImmediateOperand::ImmediateOperand(const OperandType &Type, 
+				       const std::string &OpName):
+      Operand(Type, OpName) {}
         
     // Instruction member functions    
 
@@ -314,6 +313,14 @@ namespace backendgen {
 	{
 	  (*I)->print();	  
 	}
+    }
+
+    InstrIterator InstrManager::getBegin() {
+      return Instructions.begin();
+    }
+
+    InstrIterator InstrManager::getEnd() {
+      return Instructions.end();
     }
 
   } // End namespace expression

@@ -53,4 +53,12 @@ namespace backendgen {
       }
   }
 
+  RuleIterator TransformationRules::getBegin() {
+    return Rules.begin();
+  }
+
+  RuleIterator TransformationRules::getEnd() {
+    return Rules.end();
+  }
+
 } // end namespace backendgen

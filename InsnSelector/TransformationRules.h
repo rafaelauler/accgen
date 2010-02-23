@@ -26,12 +26,16 @@ namespace backendgen {
     bool Equivalence;
   };
 
+  typedef std::list<Rule>::const_iterator RuleIterator;
+
   class TransformationRules {
   public:
     bool createRule(expression::Tree* LHS, expression::Tree* RHS,
 		    bool Equivalence);
     void print();
     ~TransformationRules();
+    RuleIterator getBegin();
+    RuleIterator getEnd();
   private:
     std::list<Rule> Rules;
   };
