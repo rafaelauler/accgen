@@ -113,6 +113,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return CONST;
 }
 
+<INITIAL>"cost" {
+  yylval->num = 0;
+  return COST;
+}
+
 <INITIAL>"like" {
   yylval->num = 0;
   return LIKE;

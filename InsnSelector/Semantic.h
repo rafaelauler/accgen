@@ -29,9 +29,11 @@ namespace backendgen {
     public:
       virtual void print() const { std::cout << "GenericNode";  }
       virtual ~Node() { }
-      virtual bool isOperand() { return false; }
-      virtual bool isOperator() { return false; }
-      virtual unsigned getType() { return 0; }
+      virtual bool isOperand() const { return false; }
+      virtual bool isOperator() const { return false; }
+      virtual unsigned getType() const { return 0; }
+      virtual unsigned getSize() const { return 0; }
+      virtual Node* clone() const { return new Node(*this); }
     };
 
     // An expression tree, representing a single assertion of an
@@ -73,8 +75,11 @@ namespace backendgen {
       virtual void print() const {	
 	std::cout << "Operand" << Type.Type;  
       }
-      virtual bool isOperand() { return true; }
-      virtual unsigned getType() { return Type.Type; }
+      virtual bool isOperand() const { return true; }
+      virtual unsigned getType() const { return Type.Type; }
+      virtual unsigned getSize() const { return Type.Size; }
+      virtual Node* clone() const { return new Operand(*this); }
+      const std::string& getOperandName() const {return OperandName;}
     private:      
       OperandType Type;
       std::string OperandName;
@@ -89,6 +94,7 @@ namespace backendgen {
     public:
       Constant (const ConstType Val, const OperandType &Type);
       virtual void print() const { std::cout << Value;  }
+      virtual Node* clone() const { return new Constant(*this); }
     private:
       ConstType Value;
     };
@@ -138,6 +144,7 @@ namespace backendgen {
       RegisterOperand (const RegisterClass *RegClass,
 		       const std::string &OpName);
       virtual void print()  const { std::cout << MyRegClass->getName(); };
+      virtual Node* clone() const { return new RegisterOperand(*this); }
     };
 
 
@@ -147,7 +154,12 @@ namespace backendgen {
     class ImmediateOperand : public Operand {
     public:
       ImmediateOperand (const OperandType &Type, const std::string &OpName);
+      virtual Node* clone() const { return new ImmediateOperand(*this); }
     };
+
+    typedef std::vector<const Tree *>::const_iterator SemanticIterator;
+
+    typedef unsigned CostType;
 
     // Class representing an instruction and its semantics.
     // A semantic may comprise several expression trees, ran
@@ -155,29 +167,42 @@ namespace backendgen {
     class Instruction {
     public:     
       void addSemantic(const Tree * Expression);
-      Instruction(const std::string &N);
+      Instruction(const std::string &N, const CostType Cost);
       ~Instruction();
       std::string getName() const;
-      void print();
+      void print() const;
+      SemanticIterator getBegin() const;
+      SemanticIterator getEnd() const;
+      CostType getCost() const {return Cost;}
     private:
       std::vector<const Tree *> Semantic;
       const std::string Name;
+      CostType Cost;
     };
 
     typedef std::vector<Instruction*>::const_iterator InstrIterator;
+    
 
     // Manages instruction instances.
     class InstrManager {
     public:
       void addInstruction (Instruction *Instr);
-      Instruction *getInstruction(const std::string &Name);
+      Instruction *getInstruction(const std::string &Name, const CostType Cost);
       ~InstrManager();
       void printAll();
-      InstrIterator getBegin();
-      InstrIterator getEnd();
+      InstrIterator getBegin() const;
+      InstrIterator getEnd() const;
     private:
       std::vector<Instruction*> Instructions;
     };
+
+    // Encodes special (specific) operators that we must know in order to
+    // perform some transformations
+    enum KnownOperators {AddOp=1, SubOp, DecompOp};
+
+    const std::string AddOpStr = "+";
+    const std::string SubOpStr = "-";
+    const std::string DecompOpStr = "dec";        
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 
@@ -224,6 +249,11 @@ namespace backendgen {
 	//std::cerr << "Danger: accessing unexisting element\n";	
 	return Children[index];
       }
+      Node* operator[] (int index) const {
+	//if (index >= Type.Arity)
+	//std::cerr << "Danger: accessing unexisting element\n";	
+	return Children[index];
+      }
       virtual void print() const {
 	std::cout << "(Operator" << Type.Type << "Arity" << Type.Arity << " ";
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
@@ -233,17 +263,35 @@ namespace backendgen {
 	  }	
 	std::cout << ") ";
       }
-      virtual bool isOperator() { return true; }
-      virtual unsigned getType() { return (unsigned) Type.Type; }
+      virtual bool isOperator() const { return true; }
+      virtual unsigned getType() const { return (unsigned) Type.Type; }
+      virtual unsigned getSize() const { return ReturnType.Size; }
+      virtual Node* clone() const { 
+	Operator* Pointer = new Operator(*this);
+	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
+	  {
+	    (*Pointer)[I] = Children[I]->clone();
+	  }	
+	return Pointer; 
+      }
       virtual ~Operator() {
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
-	    delete Children[I];
+	    if (Children[I] != NULL)
+	      delete Children[I];
+	  }
+      }
+      void detachNode() { 
+	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
+	  {	    
+	    Children[I] = NULL;
 	  }
       }
       void setReturnType (const OperandType &OType);
-      int getArity() {return Type.Arity;}
-      OperatorType getOpType() {return Type;}
+      unsigned getReturnTypeSize() const {return ReturnType.Size;}
+      unsigned getReturnTypeType() const {return ReturnType.Type;}
+      int getArity() const {return Type.Arity;}
+      OperatorType getOpType() const {return Type;}
     private:
       std::vector<Node *> Children;
       OperatorType Type;

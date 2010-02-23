@@ -19,13 +19,24 @@ using namespace backendgen::expression;
 
 namespace backendgen {
 
+  typedef std::list<const Instruction*> InstrList;
+
+  // This struct stores a result. This is a list of instructions
+  // implementing the requested expression and its cost information.
+  struct SearchResult {
+    InstrList *Instructions;
+    CostType Cost;
+    SearchResult();
+    ~SearchResult();
+  };
+
   // Main interface for search algorithms
   class Search {
     TransformationRules& RulesMgr;    
     InstrManager& InstructionsMgr;
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
-    std::list<Instruction*>* operator() (Tree* Expression);
+    SearchResult* operator() (const Tree* Expression);
   };
 
 }

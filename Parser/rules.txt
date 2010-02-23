@@ -15,6 +15,7 @@ define operator -        as arity 2;
 define operator transfer as arity 2;
 define operator if       as arity 3;
 define operator equal    as arity 2;
+define operator dec      as arity 2;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -29,13 +30,16 @@ define operand bit   as size 1  like int;
 
 // Rules
 
-(+ (const:int 2) (const:int 2)) 
+(+ const:int:2 const:int:2) 
  =>
-(const:int 4);
+const:int:4;
 
-(sub (const:int 2) (const:int 2))
+//(transfer a4:regs (+ a1:regs (+ a2:regs a3:regs))) => 
+//(dec (transfer t4:regs (+ t4:regs const:int:0)) (+ a2:
+
+(sub const:int:2 const:int:2)
  <=>
-(const:int 0);
+const:int:0;
 
 // Machine description
 
@@ -55,8 +59,11 @@ define instruction add semantic as (
 
   (transfer Op3:GPR (+ Op1:GPR Op2:GPR));
 
-  (transfer Z:CPSRbitZ (if (equal Op3:GPR (const:int 0) ) (const:bit 0) 
-     (const:bit 1) ) );
+  (transfer Z:CPSRbitZ (if (equal Op3:GPR const:int:0 ) const:bit:0 
+     const:bit:1 ) );
 
 //  (transfer V:
-);
+) cost 1;
+
+
+translate (transfer a3:int (+ a1:int a2:int));

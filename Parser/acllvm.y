@@ -14,6 +14,7 @@
 
 #include "../InsnSelector/TransformationRules.h"
 #include "../InsnSelector/Semantic.h"
+#include "../InsnSelector/Search.h"
 #include <stack>
 
 using namespace backendgen::expression;
@@ -55,7 +56,7 @@ void yyerror(char *error);
 %token<str> ID OPERATOR
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY
-%token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM
+%token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -83,15 +84,30 @@ statement:         ruledef       {}
 
 translate:         TRANSLATE exp SEMICOLON
                    {
+		     Search S(RuleManager, InstructionManager);
+		     SearchResult *R = S($2);
+		     std::cout << "Translation results\n=======\n";
+		     if (R == NULL)
+		       std::cout << "Not found!\n";
+		     else {
+		       for (InstrList::iterator I = 
+			      R->Instructions->begin(), 
+			      E = R->Instructions->end(); I != E; ++I)
+			 {
+			   (*I)->print();
+			 }
+		     }
+		     std::cout << "\n";
                    }
                    ;
 
 /* Instruction semantic description. */
 
 semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
-                   RPAREN SEMICOLON
+                   RPAREN COST NUM SEMICOLON
                    {
-                     Instruction *Instr = InstructionManager.getInstruction($3);
+                     Instruction *Instr = 
+		       InstructionManager.getInstruction($3, $10);
                      int I = Stack.size() - 1;
                      while (I >= 0) {
                        Instr->addSemantic(Stack.top());
@@ -282,9 +298,9 @@ exp:      LPAREN operator explist RPAREN
                         OperandTable.getType($4));
                       $$ = $2;
                     }
-          | CONST COLON ID NUM
+          | CONST COLON ID COLON NUM
                     {                       
-                      $$ = new Constant($4, OperandTable.getType($3)); 
+                      $$ = new Constant($5, OperandTable.getType($3)); 
                     }
           | ID      { 
                       $$ = new Operand(OperandTable.getType($1), "E");

@@ -84,7 +84,15 @@ namespace backendgen {
 	OperatorType NewType;
 	
 	NewType.Arity = 0;
-	NewType.Type = hash<std::string>(TypeName);
+	// Try to recognize known operators and use the adequate code
+	if (TypeName == AddOpStr)
+	  NewType.Type = AddOp;
+	else if (TypeName == SubOpStr)
+	  NewType.Type = SubOp;
+	else if (TypeName == DecompOpStr)
+	  NewType.Type = DecompOp;
+	else // User defined operator
+	  NewType.Type = hash<std::string>(TypeName);
 
 	// Avoiding collisions
 	while (ReverseOperatorMap.find(NewType) != ReverseOperatorMap.end()) {
@@ -250,7 +258,8 @@ namespace backendgen {
       }
     }
 
-    Instruction::Instruction(const std::string &N): Name(N) {      
+    Instruction::Instruction(const std::string &N,
+			     const CostType Cost): Name(N), Cost(Cost) {      
     }
 
     std::string Instruction::getName() const {
@@ -261,9 +270,9 @@ namespace backendgen {
       Semantic.push_back(Expression);
     }
 
-    void Instruction::print() {
+    void Instruction::print() const {
       std::cout << "Instruction \"" << Name << "\", semantic:\n";
-      for (std::vector<const Tree*>::iterator I = Semantic.begin(),
+      for (std::vector<const Tree*>::const_iterator I = Semantic.begin(),
 	     E = Semantic.end(); I != E; ++I)
       {
 	std::cout << "  ";
@@ -272,7 +281,15 @@ namespace backendgen {
       }
       std::cout << "\n\n";
     }
-
+    
+    SemanticIterator Instruction::getBegin() const {
+      return Semantic.begin();
+    }
+    
+    SemanticIterator Instruction::getEnd() const {
+      return Semantic.end();
+    }
+    
     // InstrManager member functions
 
     InstrManager::~InstrManager() {
@@ -287,7 +304,8 @@ namespace backendgen {
       Instructions.push_back(Instr);
     }
 
-    Instruction *InstrManager::getInstruction(const std::string &Name) {
+    Instruction *InstrManager::getInstruction(const std::string &Name,
+					      const CostType Cost) {
       Instruction *Pointer = NULL;
       for (std::vector<Instruction*>::iterator I = Instructions.begin(),
 	     E = Instructions.end(); I != E; ++I)
@@ -298,7 +316,7 @@ namespace backendgen {
 	  }
 	} 
       if (Pointer == NULL) {
-	Pointer = new Instruction(Name);
+	Pointer = new Instruction(Name, Cost);
 	Instructions.push_back(Pointer);
       }
       return Pointer;
@@ -315,11 +333,11 @@ namespace backendgen {
 	}
     }
 
-    InstrIterator InstrManager::getBegin() {
+    InstrIterator InstrManager::getBegin() const {
       return Instructions.begin();
     }
 
-    InstrIterator InstrManager::getEnd() {
+    InstrIterator InstrManager::getEnd() const {
       return Instructions.end();
     }
 
