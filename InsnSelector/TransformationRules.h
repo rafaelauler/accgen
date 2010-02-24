@@ -35,6 +35,7 @@ namespace backendgen {
     bool BackwardMatch(const expression::Tree* Expression) const;
     expression::Tree* ForwardApply(const expression::Tree* Expression) const;
     expression::Tree* BackwardApply(const expression::Tree* Expression) const;
+    void Print(std::ostream &S) const;
   };
 
   typedef std::list<Rule>::const_iterator RuleIterator;
@@ -43,7 +44,7 @@ namespace backendgen {
   public:
     bool createRule(expression::Tree* LHS, expression::Tree* RHS,
 		    bool Equivalence);
-    void print();
+    void print(std::ostream &S);
     ~TransformationRules();
     RuleIterator getBegin();
     RuleIterator getEnd();

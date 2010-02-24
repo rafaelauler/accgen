@@ -244,6 +244,17 @@ namespace backendgen {
     return SeverTree(Transformed);
   }
 
+  void Rule::Print(std::ostream &S) const
+  {
+    LHS->print(S);
+    if (Equivalence)
+      S << "<=> ";
+    else
+      S << "=> ";
+    RHS->print(S);
+    S << ";";
+  }
+
   // TransformationRules member functions
   bool TransformationRules::createRule(Tree* LHS,
 				       Tree* RHS,
@@ -253,22 +264,22 @@ namespace backendgen {
     Rules.push_back(newRule);
   }
 
-  void TransformationRules::print() {
-    std::cout << "Rules Manager has a total of " << Rules.size()
+  void TransformationRules::print(std::ostream &S) {
+    S << "Rules Manager has a total of " << Rules.size()
 	      << " rule(s).\n";
-    std::cout << "==================================\n";
+    S << "==================================\n";
     for (std::list<Rule>::const_iterator I = Rules.begin(), E = Rules.end();
 	 I != E; ++I)
       {
-	I->LHS->print();
+	I->LHS->print(S);
 	if (I->Equivalence)
-	  std::cout << "<=> ";
+	  S << "<=> ";
 	else
-	  std::cout << "=> ";
-	I->RHS->print();
-	std::cout << ";\n";
+	  S << "=> ";
+	I->RHS->print(S);
+	S << ";\n";
       }
-    std::cout << "\n";
+    S << "\n";
   }
   
   TransformationRules::~TransformationRules() {

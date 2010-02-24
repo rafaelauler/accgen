@@ -16,6 +16,7 @@ using namespace backendgen::expression;
 
 extern TransformationRules RuleManager;
 extern InstrManager InstructionManager;
+extern OperandTableManager OperandTable;
 
 int yyparse();
 
@@ -24,9 +25,11 @@ main()
 {
   int ret = yyparse();
 
-  RuleManager.print();
+  RuleManager.print(std::cout);
 
-  InstructionManager.printAll();
+  InstructionManager.printAll(std::cout);
+
+  OperandTable.printAll(std::cout);
 
   return ret;
 }

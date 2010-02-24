@@ -12,8 +12,22 @@
 #include "Search.h"  
 #include <climits>
 
+#define DEBUG
+
 namespace backendgen {
 
+  // Debug methods
+
+#ifdef DEBUG
+  inline void DbgPrint(const std::string &text) {
+    std::cerr << text;
+  } 
+#define Dbg(x) x
+#else
+  inline void DbgPrint(const std::string &text) {}
+#define Dbg(x)
+#endif
+  
   // SearchResult member functions
 
   SearchResult::SearchResult() {
@@ -172,7 +186,7 @@ namespace backendgen {
   // a rule has been applied to issue a transformation) is equal
   // to what we need (our goal). Recursively calls TransformExpression
   // to try to compare (and maybe transform) the children nodes.
-  bool Search::TransformExpressionAux(Tree* Transformed, 
+  bool Search::TransformExpressionAux(const Tree* Transformed, 
 				      const Tree* InsnSemantic,
 				      SearchResult* Result) {
     // First check the top level node
@@ -220,6 +234,12 @@ namespace backendgen {
   SearchResult* Search::TransformExpression(const Tree* Expression,
 					    const Tree* InsnSemantic)
   {   
+    DbgPrint("Entering TransformExpression\n  Expression: ");
+    Dbg(Expression->print(std::cerr));
+    DbgPrint("\n  Goal:");
+    Dbg(InsnSemantic->print(std::cerr));
+    DbgPrint("\n\n");
+
     SearchResult* Result = new SearchResult();
 
     const unsigned PO = PrimaryOperatorType(Expression);
@@ -233,6 +253,12 @@ namespace backendgen {
       Result->Cost = 0;
       return Result;
     }      
+
+    // See if we obtain success without applying a transformation
+    // at this level
+    if (TransformExpressionAux(Expression, InsnSemantic, Result) == true)      	
+	return Result;
+      
     
     // Try to apply transformations that bring Expression
     // closer to this instruction (specifically, to this
@@ -255,8 +281,12 @@ namespace backendgen {
 	// Case analysis 1: Suppose this rule does not decompose the
 	// tree
 	if ((!Forward || !I->Decomposition) &&
-	    (Forward || !I->Composition)) {
-	
+	    (Forward || !I->Composition)) {       
+
+	  DbgPrint("Applying non-decomposing rule:\n  ");
+	  Dbg(I->Print(std::cerr));
+	  DbgPrint("\n");
+
 	  // Apply
 	  Tree* Transformed = Forward? I->ForwardApply(Expression) :
 	    I->BackwardApply(Expression);
@@ -275,6 +305,10 @@ namespace backendgen {
 	} 
 
 	// Case analysis 2: This rule decomposes the tree
+	DbgPrint("Applying decomposing rule\n");
+	Dbg(I->Print(std::cerr));
+	DbgPrint("\n");
+
 	Tree* Transformed = NULL;
 	SearchResult* ChildResult = 
 	  ApplyDecompositionRule(&*I, Expression, InsnSemantic, Transformed);
@@ -308,6 +342,10 @@ namespace backendgen {
   // This operator overload effectively starts the search
   SearchResult* Search::operator() (const Tree* Expression)
   {
+    DbgPrint("Search started on ");
+    Dbg(Expression->print(std::cerr));
+    DbgPrint("\nTrying direct match\n");
+
     SearchResult* Result = new SearchResult();
     // First, see if this expression is directly computable by
     // an available instruction, or part of this instruction    
@@ -333,6 +371,8 @@ namespace backendgen {
     if (Result->Cost != INT_MAX)
       return Result;
 
+    DbgPrint("Trying decomposition rules\n");
+
     // Look for decomposition rules and try to recursively search
     // for implementations for decomposed parts
     for (RuleIterator I = RulesMgr.getBegin(), E = RulesMgr.getEnd();
@@ -357,6 +397,8 @@ namespace backendgen {
     // If found something, return it
     if (Result->Cost != INT_MAX)
       return Result;
+
+    DbgPrint("Trying transformations\n");
 
     // In the third step, apply transformation rules to bring
     // the expression semantics closer to something we might

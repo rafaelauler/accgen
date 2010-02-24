@@ -94,7 +94,7 @@ translate:         TRANSLATE exp SEMICOLON
 			      R->Instructions->begin(), 
 			      E = R->Instructions->end(); I != E; ++I)
 			 {
-			   (*I)->print();
+			   (*I)->print(std::cout);
 			 }
 		     }
 		     delete $2;
@@ -257,15 +257,7 @@ ruledef:  exp EQUIVALENCE exp SEMICOLON
 /* Expressions */
 
 explist:  /* empty */ {}
-          | explist exp  { Stack.push($2); }
-          | explist ID COLON ANY  {
-                           OperandType NewType;
-                           NewType.Type = 0;
-                           NewType.Size = 0;
-			   NewType.DataType = 0;
-                           Stack.push(new Operand(NewType, $2));
-			   free($2);
-                         }
+          | explist exp  { Stack.push($2); }         
           ; 
 
 exp:      LPAREN operator explist RPAREN 
@@ -337,6 +329,16 @@ exp:      LPAREN operator explist RPAREN
                         $$ = new RegisterOperand(RegClass, $1);  
 		      free($1);
 		      free($3);
+                    }
+          | ID COLON ANY  
+	            {
+                      OperandType NewType;
+                      NewType.Type = 0;
+                      NewType.Size = 0;
+		      NewType.DataType = 0;
+                      //Stack.push(new Operand(NewType, $1));
+		      $$ = new Operand(NewType, $1);
+		      free($1);
                     }
           ;
 

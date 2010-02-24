@@ -30,6 +30,8 @@ define operand bit   as size 1  like int;
 
 // Rules
 
+AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
+
 (+ const:int:2 const:int:2) 
  =>
 const:int:4;
@@ -65,5 +67,6 @@ define instruction add semantic as (
 //  (transfer V:
 ) cost 1;
 
-
 translate (transfer a3:int (+ a1:int a2:int));
+
+//translate (transfer a3:int (+ a1:int a2:int));

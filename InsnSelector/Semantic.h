@@ -27,7 +27,7 @@ namespace backendgen {
     // An expression tree node.
     class Node {
     public:
-      virtual void print() const { std::cout << "GenericNode";  }
+      virtual void print(std::ostream& S) const { S << "GenericNode";  }
       virtual ~Node() { }
       virtual bool isOperand() const { return false; }
       virtual bool isOperator() const { return false; }
@@ -62,6 +62,7 @@ namespace backendgen {
       OperandType getType(const std::string &Name);
       int updateSize (OperandType Type, unsigned int NewSize);
       void setCompatible (const std::string &O1, const std::string &O2);
+      void printAll (std::ostream& S) const;
     private:
       TypeMapType TypeMap;
       ReverseTypeMapType ReverseTypeMap;
@@ -72,15 +73,15 @@ namespace backendgen {
     class Operand : public Node {
     public:
       Operand (const OperandType &Type, const std::string &OpName);
-      virtual void print() const {	
-	std::cout << "Operand" << Type.Type;  
+      virtual void print(std::ostream &S) const {	
+	S << "Operand" << Type.Type;  
       }
       virtual bool isOperand() const { return true; }
       virtual unsigned getType() const { return Type.Type; }
       virtual unsigned getSize() const { return Type.Size; }
       virtual Node* clone() const { return new Operand(*this); }
       const std::string& getOperandName() const {return OperandName;}
-    private:      
+    protected:      
       OperandType Type;
       std::string OperandName;
     };
@@ -93,7 +94,7 @@ namespace backendgen {
     class Constant : public Operand {
     public:
       Constant (const ConstType Val, const OperandType &Type);
-      virtual void print() const { std::cout << Value;  }
+      virtual void print(std::ostream &S) const { S << Value;  }
       virtual Node* clone() const { return new Constant(*this); }
     private:
       ConstType Value;
@@ -143,7 +144,9 @@ namespace backendgen {
     public:
       RegisterOperand (const RegisterClass *RegClass,
 		       const std::string &OpName);
-      virtual void print()  const { std::cout << MyRegClass->getName(); };
+      virtual void print(std::ostream &S)  const { 
+	S << MyRegClass->getName() << ":" << Type.Type;
+      };
       virtual Node* clone() const { return new RegisterOperand(*this); }
     };
 
@@ -170,7 +173,7 @@ namespace backendgen {
       Instruction(const std::string &N, const CostType Cost);
       ~Instruction();
       std::string getName() const;
-      void print() const;
+      void print(std::ostream &S) const;
       SemanticIterator getBegin() const;
       SemanticIterator getEnd() const;
       CostType getCost() const {return Cost;}
@@ -189,7 +192,7 @@ namespace backendgen {
       void addInstruction (Instruction *Instr);
       Instruction *getInstruction(const std::string &Name, const CostType Cost);
       ~InstrManager();
-      void printAll();
+      void printAll(std::ostream &S);
       InstrIterator getBegin() const;
       InstrIterator getEnd() const;
     private:
@@ -256,14 +259,14 @@ namespace backendgen {
 	//std::cerr << "Danger: accessing unexisting element\n";	
 	return Children[index];
       }
-      virtual void print() const {
-	std::cout << "(Operator" << Type.Type << "Arity" << Type.Arity << " ";
+      virtual void print(std::ostream &S) const {
+	S << "(Operator" << Type.Type << "Arity" << Type.Arity << " ";
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
-	    Children[I]->print();
-	    std::cout << " ";
+	    Children[I]->print(S);
+	    S << " ";
 	  }	
-	std::cout << ") ";
+	S << ") ";
       }
       virtual bool isOperator() const { return true; }
       virtual unsigned getType() const { return (unsigned) Type.Type; }

@@ -71,6 +71,20 @@ namespace backendgen {
       return 0;
     }
 
+    void OperandTableManager::printAll (std::ostream& S) const {
+      S << "Operand Manager has a total of " << TypeMap.size()
+	<< " operand(s).\n";
+      S << "==================================\n";
+      for (TypeMapType::const_iterator I = TypeMap.begin(), E = TypeMap.end();
+	   I != E; ++I)
+	{
+	  S << "Name: " << I->first << " Type: " << I->second.Type
+	    << " Size: " << I->second.Size << " DataType: " 
+	    << I->second.DataType << "\n";
+	}
+      S << "\n";
+    }
+
     void OperandTableManager::setCompatible (const std::string &O1,
 					     const std::string &O2) {
       OperandType Type = getType(O1);
@@ -277,16 +291,16 @@ namespace backendgen {
       Semantic.push_back(Expression);
     }
 
-    void Instruction::print() const {
-      std::cout << "Instruction \"" << Name << "\", semantic:\n";
+    void Instruction::print(std::ostream &S) const {
+      S << "Instruction \"" << Name << "\", semantic:\n";
       for (std::vector<const Tree*>::const_iterator I = Semantic.begin(),
 	     E = Semantic.end(); I != E; ++I)
       {
-	std::cout << "  ";
-	(*I)->print();       
-	std::cout << "\n";
+	S << "  ";
+	(*I)->print(S);       
+	S << "\n";
       }
-      std::cout << "\n\n";
+      S << "\n\n";
     }
     
     SemanticIterator Instruction::getBegin() const {
@@ -329,14 +343,14 @@ namespace backendgen {
       return Pointer;
     }
 
-    void InstrManager::printAll() {
-      std::cout << "Instruction Manager has a total of " << Instructions.size()
+    void InstrManager::printAll(std::ostream &S) {
+      S << "Instruction Manager has a total of " << Instructions.size()
 		<< " instruction(s).\n";
-      std::cout << "==================================\n";
+      S << "==================================\n";
       for (std::vector<Instruction*>::iterator I = Instructions.begin(),
 	     E = Instructions.end(); I != E; ++I)
 	{
-	  (*I)->print();	  
+	  (*I)->print(S);	  
 	}
     }
 

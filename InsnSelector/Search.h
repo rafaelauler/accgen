@@ -39,8 +39,8 @@ namespace backendgen {
 				      const Tree* InsnSemantic);
     SearchResult* ApplyDecompositionRule(const Rule *R, const Tree* Expression,
 					 const Tree* Goal, Tree *& MatchedGoal);
-    bool TransformExpressionAux(Tree* Transformed, const Tree* InsnSemantic,
-				SearchResult* Result);
+    bool TransformExpressionAux(const Tree* Transformed,
+				const Tree* InsnSemantic, SearchResult* Result);
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
     SearchResult* operator() (const Tree* Expression);
