@@ -34,6 +34,8 @@ namespace backendgen {
   class Search {
     TransformationRules& RulesMgr;    
     InstrManager& InstructionsMgr;
+    inline bool HasCloseSemantic(unsigned InstrPO, unsigned ExpPO);
+    SearchResult* TransformExpression(const Tree* Expression);
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
     SearchResult* operator() (const Tree* Expression);

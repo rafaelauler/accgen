@@ -66,6 +66,7 @@ namespace backendgen {
     return false;
   }
 
+  // Deallocated a decompose list
   inline void DeleteDecomposeList(std::list<Tree*>* List)
   {
     for (std::list<Tree*>::iterator I = List->begin(),
@@ -74,6 +75,75 @@ namespace backendgen {
 	delete *I;
       }
     delete List;
+  }
+
+  // Extracts an expression's primary operator type
+  inline unsigned PrimaryOperatorType (const Tree* Expression)
+  {
+    if (!Expression->isOperator())
+      return 0;
+
+    const Operator* O = dynamic_cast<const Operator*>(Expression);
+    if (O->getType() == IfOp) {
+      return PrimaryOperatorType((*O)[0]);
+    } else if (O->getType() == AssignOp) {
+      return PrimaryOperatorType((*O)[1]);
+    }
+
+    return O->getType();
+  }
+
+  inline bool Search::HasCloseSemantic(unsigned InstrPO, unsigned ExpPO)
+  {
+    // See if primary operators match naturally
+    if (InstrPO == ExpPO)
+      return true;
+
+    // See if primary operators will match after a transformation
+    for (RuleIterator I = RulesMgr.getBegin(), E = RulesMgr.getEnd();
+	 I != E; ++I)
+      {
+	if (PrimaryOperatorType(I->LHS) == ExpPO &&
+	    PrimaryOperatorType(I->RHS) == InstrPO)
+	  return true;
+	if (I->Equivalence && PrimaryOperatorType(I->RHS) == ExpPO &&
+	    PrimaryOperatorType(I->LHS) == InstrPO)
+	  return true;
+      }
+    return false;
+  }
+
+  // Try to apply transformation rules to bring
+  // the expression semantics closer to something we might
+  // know.
+  SearchResult* Search::TransformExpression(const Tree* Expression)
+  {    
+    // Try to find an instruction "semantically close" of the 
+    // expression. The instruction must match expression's top
+    // operator, or there exists a transformation that makes this
+    // matching feasible.
+    const unsigned PO = PrimaryOperatorType(Expression);
+    for (InstrIterator I = InstructionsMgr.getBegin(), 
+	   E = InstructionsMgr.getEnd(); I != E; ++I) 
+      {
+	for (SemanticIterator I1 = (*I)->getBegin(), E1 = (*I)->getEnd();
+	     I1 != E1; ++I1)
+	  {
+	    // Prune unworthy trials (heuristic)
+	    if (!HasCloseSemantic(PrimaryOperatorType(*I1), PO))
+	      continue;
+
+	    // Try to apply transformations that bring Expression
+	    // closer to this instruction (specifically, to this
+	    // fragment of instruction), node by node.
+	    for (RuleIterator I = RulesMgr.getBegin(), E = RulesMgr.getEnd();
+		 I != E; ++I)
+	      {
+	       
+	      }
+	  }
+      }
+
   }
   
   // This operator overload effectively starts the search
@@ -105,7 +175,7 @@ namespace backendgen {
       return Result;
 
     // Look for decomposition rules and try to recursively search
-    // for implementations
+    // for implementations for decomposed parts
     for (RuleIterator I = RulesMgr.getBegin(), E = RulesMgr.getEnd();
 	 I != E; ++I)
       {
@@ -153,6 +223,7 @@ namespace backendgen {
     // the expression semantics closer to something we might
     // know.
 
+    
 
     // We can't find anything
     delete Result;

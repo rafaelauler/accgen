@@ -55,6 +55,7 @@ namespace backendgen {
   // when the matched nodes are removed), so the expression can
   // be properly rewritten. This is returned as a list of nodes.
   // If this is list is NULL, the matching failed.
+  template <bool JustCompare> 
   AnnotatedTreeList* MatchExpByRule(const Tree* R, const Tree* E) 
   {
     bool isOperator;
@@ -68,6 +69,8 @@ namespace backendgen {
 	AnnotatedTreeList* Result = new AnnotatedTreeList();
 	// Leaf? Cast to operand
 	if (!isOperator) {	
+	  if (JustCompare)
+	    return reinterpret_cast<AnnotatedTreeList*>(1);
 	  const Operand* Op = dynamic_cast<const Operand*>(R);
 	  AnnotatedTree AT(Op->getOperandName(), E);
 	  Result->push_back(AT);
@@ -80,7 +83,15 @@ namespace backendgen {
 	const Operator *RO = dynamic_cast<const Operator*>(R),
 	  *EO = dynamic_cast<const Operator*>(E);
 	for (int I = 0, E = RO->getArity(); I != E; ++I) {
-	  AnnotatedTreeList* ChildResult = MatchExpByRule((*RO)[I], (*EO)[I]);
+	  AnnotatedTreeList* ChildResult = 
+	    MatchExpByRule<JustCompare>((*RO)[I], (*EO)[I]);
+
+	  if (JustCompare) {
+	    if (ChildResult == 0)
+	      return 0;
+	    else
+	      continue;
+	  }
 	  
 	  if (ChildResult == NULL) {
 	    delete Result;
@@ -90,6 +101,8 @@ namespace backendgen {
 	  Result->merge(*ChildResult);	
 	  delete ChildResult;
 	}
+	if (JustCompare)
+	  return reinterpret_cast<AnnotatedTreeList*>(1);
 	return Result;
       }
     // We can also match if a rule operand matches an expression operator
@@ -101,6 +114,8 @@ namespace backendgen {
 	      || R->getSize() == 0))
 	    || R->getType() == 0) 
 	  {
+	    if (JustCompare)
+	      return reinterpret_cast<AnnotatedTreeList*>(1);
 	    AnnotatedTreeList* Result = new AnnotatedTreeList();
 	    const Operand* Op = dynamic_cast<const Operand*>(R);
 	    AnnotatedTree AT(Op->getOperandName(), E);
@@ -108,6 +123,8 @@ namespace backendgen {
 	    return Result;
 	  }
       }
+    if (JustCompare)
+      return 0;
     return NULL;
   }
 
@@ -143,7 +160,7 @@ namespace backendgen {
   // transform it in Patt2. Otherwise, return NULL;
   Tree* Apply(const Tree *Patt1, const Tree* Patt2, const Tree* Expression)
   {
-    AnnotatedTreeList *List = MatchExpByRule(Patt1, Expression);
+    AnnotatedTreeList *List = MatchExpByRule<false>(Patt1, Expression);
 
     // Match failed?
     if (List == NULL)
@@ -154,6 +171,18 @@ namespace backendgen {
     delete List;
 
     return Result;
+  }
+
+  bool Rule::ForwardMatch(const expression::Tree* Expression) const {
+    if (reinterpret_cast<int>(MatchExpByRule<true>(LHS, Expression)) == 1)
+      return true;
+    return false;
+  }
+
+  bool Rule::BackwardMatch(const expression::Tree* Expression) const {
+    if (reinterpret_cast<int>(MatchExpByRule<true>(RHS, Expression)) == 1)
+      return true;
+    return false;
   }
 
   Tree* Rule::ForwardApply(const Tree* Expression) const

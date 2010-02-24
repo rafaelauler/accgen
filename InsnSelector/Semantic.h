@@ -198,11 +198,13 @@ namespace backendgen {
 
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
-    enum KnownOperators {AddOp=1, SubOp, DecompOp};
+    enum KnownOperators {AddOp=1, SubOp, DecompOp, IfOp, AssignOp, LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
     const std::string DecompOpStr = "dec";        
+    const std::string IfOpStr = "if";
+    const std::string AssignOpStr = "transfer";
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 

@@ -91,8 +91,15 @@ namespace backendgen {
 	  NewType.Type = SubOp;
 	else if (TypeName == DecompOpStr)
 	  NewType.Type = DecompOp;
-	else // User defined operator
+	else if (TypeName == IfOpStr)
+	  NewType.Type = IfOp;
+	else if (TypeName == AssignOpStr)
+	  NewType.Type = AssignOp;
+	else { // User defined operator
 	  NewType.Type = hash<std::string>(TypeName);
+	  if (NewType.Type < LastOp)
+	    NewType.Type += LastOp;
+	}
 
 	// Avoiding collisions
 	while (ReverseOperatorMap.find(NewType) != ReverseOperatorMap.end()) {

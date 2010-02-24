@@ -31,6 +31,8 @@ namespace backendgen {
     Rule(expression::Tree* LHS, expression::Tree* RHS, bool Equivalence);
     std::list<expression::Tree*>* Decompose(const expression::Tree* Expression)
     const;
+    bool ForwardMatch(const expression::Tree* Expression) const;
+    bool BackwardMatch(const expression::Tree* Expression) const;
     expression::Tree* ForwardApply(const expression::Tree* Expression) const;
     expression::Tree* BackwardApply(const expression::Tree* Expression) const;
   };
