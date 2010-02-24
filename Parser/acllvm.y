@@ -97,6 +97,7 @@ translate:         TRANSLATE exp SEMICOLON
 			   (*I)->print();
 			 }
 		     }
+		     delete $2;
 		     std::cout << "\n";
                    }
                    ;
@@ -108,6 +109,7 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
                    {
                      Instruction *Instr = 
 		       InstructionManager.getInstruction($3, $10);
+		     free($3);
                      int I = Stack.size() - 1;
                      while (I >= 0) {
                        Instr->addSemantic(Stack.top());
@@ -135,6 +137,7 @@ opdef:    DEFINE OPERATOR2 oper AS ARITY NUM SEMICOLON
              {
                OperatorType NewType = OperatorTable.getType($3);
                OperatorTable.updateArity(NewType, $6);
+	       free($3);
              }
           ;
 
@@ -145,6 +148,8 @@ oper: OPERATOR | ID;
 opalias:  DEFINE OPERATOR2 ALIAS AS oper LEADSTO oper SEMICOLON
              {
 	       OperatorTable.setAlias($5, $7);  
+	       free($5);
+	       free($7);
              }
           ;
 
@@ -153,6 +158,7 @@ opalias:  DEFINE OPERATOR2 ALIAS AS oper LEADSTO oper SEMICOLON
 operanddef: DEFINE OPERAND ID AS SIZE NUM SEMICOLON
              {
                OperandType NewType = OperandTable.getType($3); 
+	       free($3);
                OperandTable.updateSize(NewType, $6);
              }
             | DEFINE OPERAND ID AS SIZE NUM LIKE ID SEMICOLON
@@ -160,6 +166,8 @@ operanddef: DEFINE OPERAND ID AS SIZE NUM SEMICOLON
                OperandType NewType = OperandTable.getType($3); 
                OperandTable.updateSize(NewType, $6);
                OperandTable.setCompatible($3, $8);
+	       free($3);
+	       free($8);
              }
           ;
 
@@ -169,6 +177,8 @@ regclassdef: DEFINE REGISTERS ID COLON ID AS LPAREN regdefs RPAREN SEMICOLON
              {
                RegisterClass *RegClass = new RegisterClass($3,
                  OperandTable.getType($5));
+	       free($3);
+	       free($5);
                RegisterManager.addRegClass(RegClass);
                int I = RegStack.size() - 1;
                while (I >= 0) {
@@ -194,6 +204,7 @@ regdef:      ID                {
                                    Reg = new Register($1);
                                    RegisterManager.addRegister(Reg);
                                  }
+				 free($1);
                                  RegStack.push(Reg);
                                }
              | ID LPAREN subregdefs RPAREN
@@ -204,6 +215,7 @@ regdef:      ID                {
                                    Reg = new Register($1);
                                    RegisterManager.addRegister(Reg);
                                  }
+				 free($1);
                                  int I = SubRegStack.size() - 1;
                                  while (I >= 0) {
                                    Register *SubReg = SubRegStack.top();
@@ -226,6 +238,7 @@ subregdef:   ID                {
                                    Reg = new Register($1);
                                    RegisterManager.addRegister(Reg);
                                  }
+				 free($1);
                                  SubRegStack.push(Reg);
                                }
 
@@ -251,6 +264,7 @@ explist:  /* empty */ {}
                            NewType.Size = 0;
 			   NewType.DataType = 0;
                            Stack.push(new Operand(NewType, $2));
+			   free($2);
                          }
           ; 
 
@@ -296,18 +310,23 @@ exp:      LPAREN operator explist RPAREN
                       }
                       dynamic_cast<Operator*>($2)->setReturnType(
                         OperandTable.getType($4));
+		      free($4);
                       $$ = $2;
                     }
           | CONST COLON ID COLON NUM
                     {                       
                       $$ = new Constant($5, OperandTable.getType($3)); 
+		      free($3);
                     }
           | ID      { 
                       $$ = new Operand(OperandTable.getType($1), "E");
+		      free($1);
                     }
           | IMM COLON ID COLON ID
                     {
                       $$ = new ImmediateOperand(OperandTable.getType($5), $3);
+		      free($3);
+		      free($5);
                     }
           | ID COLON ID
                     { 
@@ -316,15 +335,19 @@ exp:      LPAREN operator explist RPAREN
                         $$ = new Operand(OperandTable.getType($3), $1); 
                       else 
                         $$ = new RegisterOperand(RegClass, $1);  
+		      free($1);
+		      free($3);
                     }
           ;
 
 
 operator: OPERATOR      { 
                           $$ = new Operator(OperatorTable.getType($1));
+			  free($1);
                         }
           | ID          { 
                           $$ = new Operator(OperatorTable.getType($1));
+			  free($1);
                         }
           ;
 
