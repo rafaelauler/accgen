@@ -22,9 +22,14 @@ namespace backendgen {
   inline void DbgPrint(const std::string &text) {
     std::cerr << text;
   } 
+  inline void DbgIndent(unsigned CurDepth) {
+    for (int I = 0; I < CurDepth; ++I)
+      std::cerr << " ";
+  }
 #define Dbg(x) x
 #else
   inline void DbgPrint(const std::string &text) {}
+  inline void DbgIndent(unsigned CurDepth) {}
 #define Dbg(x)
 #endif
   
@@ -46,6 +51,22 @@ namespace backendgen {
 		 InstrManager& InstructionsMgr):
     RulesMgr(RulesMgr), InstructionsMgr(InstructionsMgr)
   { }
+
+  // A special comparison that considers if the node type has value 0,
+  // in which cases this type matches all
+  inline bool EqualTypes(unsigned T1, unsigned T2)
+  {
+    return (T1 == T2 || T1 == 0 || T2 == 0);
+  }
+
+  // A special comparison that considers if the node type or size has value 0,
+  // in which cases this type matches all
+  template<class T>
+  inline bool EqualNodeTypes(const T &T1, const T &T2)
+  {
+    return ((T1.Type == T2.Type || T1.Type == 0 || T2.Type == 0) &&
+	    (T1.Size <= T2.Size || T1.Size == 0 || T2.Size == 0));
+  }
 
   // Auxiliary function returns true if two trees are directly
   // equivalent
@@ -115,18 +136,18 @@ namespace backendgen {
   inline bool Search::HasCloseSemantic(unsigned InstrPO, unsigned ExpPO)
   {
     // See if primary operators match naturally
-    if (InstrPO == ExpPO)
+    if (EqualTypes(InstrPO, ExpPO))
       return true;
 
     // See if primary operators will match after a transformation
     for (RuleIterator I = RulesMgr.getBegin(), E = RulesMgr.getEnd();
 	 I != E; ++I)
       {
-	if (PrimaryOperatorType(I->LHS) == ExpPO &&
-	    PrimaryOperatorType(I->RHS) == InstrPO)
+	if (EqualTypes(PrimaryOperatorType(I->LHS), ExpPO) &&
+	    EqualTypes(PrimaryOperatorType(I->RHS), InstrPO))
 	  return true;
-	if (I->Equivalence && PrimaryOperatorType(I->RHS) == ExpPO &&
-	    PrimaryOperatorType(I->LHS) == InstrPO)
+	if (I->Equivalence && EqualTypes(PrimaryOperatorType(I->RHS), ExpPO)
+	    && EqualTypes(PrimaryOperatorType(I->LHS), InstrPO))
 	  return true;
       }
     return false;
@@ -140,7 +161,8 @@ namespace backendgen {
   SearchResult* Search::ApplyDecompositionRule(const Rule *R,
 					       const Tree* Expression,
 					       const Tree* Goal,
-					       Tree *& MatchedGoal)
+					       Tree *& MatchedGoal,
+					       unsigned CurDepth)
   {
     if (!R->Decomposition && !R->Composition)
       return NULL;
@@ -162,16 +184,19 @@ namespace backendgen {
 	    continue;
 	  }	    
 	}
-	SearchResult* ChildResult = (*this)(*I);
+	SearchResult* ChildResult = (*this)(*I, CurDepth + 1);
 	// Failed to find an implementatin for this child?
-	if (ChildResult == NULL) {
+	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
 	  delete CandidateSolution;	  
+	  if (ChildResult) delete ChildResult;
 	  DeleteDecomposeList(DecomposeList);
 	  return NULL;	  
 	}
 
 	// Integrate results
 	CandidateSolution->Instructions->merge(*(ChildResult->Instructions));
+	if (CandidateSolution->Cost == INT_MAX) 
+	  CandidateSolution->Cost = 0;
 	CandidateSolution->Cost += ChildResult->Cost;
 	delete ChildResult;
       }
@@ -188,7 +213,8 @@ namespace backendgen {
   // to try to compare (and maybe transform) the children nodes.
   bool Search::TransformExpressionAux(const Tree* Transformed, 
 				      const Tree* InsnSemantic,
-				      SearchResult* Result) {
+				      SearchResult* Result,
+				      unsigned CurDepth) {    
     // First check the top level node
     if (Compare<true>(Transformed, InsnSemantic) == false) {
       return false;
@@ -199,32 +225,49 @@ namespace backendgen {
       Result->Cost = 0;
       return true;
     }
+
+    SearchResult* TempResults = new SearchResult();
     
     const Operator* O = dynamic_cast<const Operator*>(Transformed);
     const Operator* OIns = dynamic_cast<const Operator*>(InsnSemantic);
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	SearchResult* SRChild = 
-	  TransformExpression((*O)[I], (*OIns)[I]);
+	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1);
 	
 	// Failed
 	if (SRChild->Cost == INT_MAX) {
+	  DbgIndent(CurDepth);
+	  DbgPrint("Recursive call failed\n");
+	  delete TempResults;
 	  delete SRChild;
 	  return false;
 	}
 	
 	// This child matches without decomposition
-	if (SRChild->Cost == 0) {
+	if (SRChild->Instructions->size() == 0) {
+	  DbgIndent(CurDepth);	  
+	  DbgPrint("Recursive call matched without decomposition\n");	   
+	  if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;
 	  delete SRChild;
 	  continue;
 	}
 	
+	DbgIndent(CurDepth);
+	DbgPrint("Recursive call was successful\n");
 	// This child matched, but applied a decomposition rule and
 	// we need to integrate its results
-	Result->Cost += SRChild->Cost;
-	Result->Instructions->merge(*(SRChild->Instructions));
+	if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;
+	TempResults->Cost += SRChild->Cost;
+	TempResults->Instructions->merge(*(SRChild->Instructions));
 	delete SRChild;
       }
+    // Everything went ok, integrate TempResults with Results    
+    if (Result->Cost == INT_MAX)
+      Result->Cost = 0;
+    Result->Cost += TempResults->Cost;
+    Result->Instructions->merge(*(TempResults->Instructions));
+    delete TempResults;
     return true;
   }
 
@@ -232,33 +275,54 @@ namespace backendgen {
   // the expression semantics closer to something we might
   // know (the Instruction Semantic)
   SearchResult* Search::TransformExpression(const Tree* Expression,
-					    const Tree* InsnSemantic)
+					    const Tree* InsnSemantic,
+					    unsigned CurDepth)
   {   
-    DbgPrint("Entering TransformExpression\n  Expression: ");
+    DbgIndent(CurDepth);
+    DbgPrint("Entering TransformExpression\n        Expression: ");
     Dbg(Expression->print(std::cerr));
-    DbgPrint("\n  Goal:");
+    DbgPrint("\n        Goal:");
     Dbg(InsnSemantic->print(std::cerr));
     DbgPrint("\n\n");
 
     SearchResult* Result = new SearchResult();
 
+    // Cancel this trial if it has exceeded maximum recursive depth allowed
+    if (CurDepth == MAXDEPTH) {
+      DbgIndent(CurDepth);
+      DbgPrint("Maximum recursive depth reached.\n");
+      return Result;
+    }
+
     const unsigned PO = PrimaryOperatorType(Expression);
 
     // Prune unworthy trials (heuristic)
-    if (!HasCloseSemantic(PrimaryOperatorType(InsnSemantic), PO))
+    if (!HasCloseSemantic(PrimaryOperatorType(InsnSemantic), PO)) {
+      DbgIndent(CurDepth);
+      DbgPrint("CloseSemantic heuristic pruned this trial.\n");
       return Result;
+    }
 
     // See if we already have a match
     if (Compare<false>(Expression, InsnSemantic) == true) {
+      DbgIndent(CurDepth);
+      DbgPrint("Already matches!\n");
       Result->Cost = 0;
       return Result;
     }      
 
+    DbgIndent(CurDepth);
+    DbgPrint("Trying to transform children without applying any rule");   
+    DbgPrint(" at the top level node...\n");
+
     // See if we obtain success without applying a transformation
     // at this level
-    if (TransformExpressionAux(Expression, InsnSemantic, Result) == true)      	
+    if (TransformExpressionAux(Expression, InsnSemantic, Result, CurDepth) 
+	== true)      	
 	return Result;
       
+    DbgIndent(CurDepth);
+    DbgPrint("Fail. Trying transformation rules...\n");
     
     // Try to apply transformations that bring Expression
     // closer to this instruction (specifically, to this
@@ -269,11 +333,12 @@ namespace backendgen {
 	bool Forward = true;
 	// See if makes sense applying this rule
 	if (!I->ForwardMatch(Expression) || 
-	    PrimaryOperatorType(I->RHS) != PrimaryOperatorType(InsnSemantic)) 
+	    !EqualTypes(PrimaryOperatorType(I->RHS),
+			PrimaryOperatorType(InsnSemantic))) 
 	  {
 	    if (!I->BackwardMatch(Expression) || 
-		PrimaryOperatorType(I->LHS) != 
-		PrimaryOperatorType(InsnSemantic))
+		!EqualTypes(PrimaryOperatorType(I->LHS), 
+			    PrimaryOperatorType(InsnSemantic)))
 	      continue;
 	    Forward = false;
 	  }
@@ -283,7 +348,9 @@ namespace backendgen {
 	if ((!Forward || !I->Decomposition) &&
 	    (Forward || !I->Composition)) {       
 
+	  DbgIndent(CurDepth);
 	  DbgPrint("Applying non-decomposing rule:\n  ");
+	  DbgIndent(CurDepth);
 	  Dbg(I->Print(std::cerr));
 	  DbgPrint("\n");
 
@@ -295,7 +362,8 @@ namespace backendgen {
 	  // equals our goal
 	  // This may involve recursive calls to this function (to transform
 	  // and adapt the children nodes).
-	  if (TransformExpressionAux(Transformed, InsnSemantic, Result) == true)
+	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
+				     CurDepth) == true)
 	    {
 	      delete Transformed;
 	      return Result;
@@ -305,16 +373,19 @@ namespace backendgen {
 	} 
 
 	// Case analysis 2: This rule decomposes the tree
+	DbgIndent(CurDepth);
 	DbgPrint("Applying decomposing rule\n");
+	DbgIndent(CurDepth);
 	Dbg(I->Print(std::cerr));
 	DbgPrint("\n");
 
 	Tree* Transformed = NULL;
 	SearchResult* ChildResult = 
-	  ApplyDecompositionRule(&*I, Expression, InsnSemantic, Transformed);
+	  ApplyDecompositionRule(&*I, Expression, InsnSemantic, Transformed,
+				 CurDepth);
 	
 	//Failed
-	if (ChildResult == false) {
+	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
 	  if (Transformed != NULL)
 	    delete Transformed;
 	  continue;
@@ -327,26 +398,50 @@ namespace backendgen {
 	// equals our goal
 	// This may involve recursive calls to this function (to transform
 	// and adapt the children nodes).
-	if (TransformExpressionAux(Transformed, InsnSemantic, Result) == true)
+	if (TransformExpressionAux(Transformed, InsnSemantic, Result,
+				   CurDepth) == true)
 	  {
+	    DbgIndent(CurDepth);
+	    DbgPrint("Decomposition was successful\n");
+	    if (Result->Cost == INT_MAX) Result->Cost = 0;
+	    Result->Cost += ChildResult->Cost;
+	    Result->Instructions->merge(*(ChildResult->Instructions));
+	    delete ChildResult;
 	    delete Transformed;
 	    return Result;
 	  }
+	DbgIndent(CurDepth);
+	DbgPrint("Failed to match decomposed tree with our requisites\n");
+	delete ChildResult;
 	delete Transformed;			    			 
       } // end for(RuleIterator)
+
+    DbgIndent(CurDepth);
+    DbgPrint("Fail to prove both expressions are equivalent.\n");
 
     // We tried but could not find anything
     return Result;
   }
   
   // This operator overload effectively starts the search
-  SearchResult* Search::operator() (const Tree* Expression)
+  SearchResult* Search::operator() (const Tree* Expression, unsigned CurDepth)
   {
+    DbgIndent(CurDepth);
     DbgPrint("Search started on ");
     Dbg(Expression->print(std::cerr));
-    DbgPrint("\nTrying direct match\n");
+    DbgPrint("\n");
 
     SearchResult* Result = new SearchResult();
+
+    // Cancel this trial if it has exceeded maximum recursive depth allowed
+    if (CurDepth == MAXDEPTH) {
+      DbgIndent(CurDepth);
+      DbgPrint("Maximum recursive depth reached.\n");
+      return Result;
+    }
+
+    DbgIndent(CurDepth);
+    DbgPrint("Trying direct match\n");
     // First, see if this expression is directly computable by
     // an available instruction, or part of this instruction    
     for (InstrIterator I = InstructionsMgr.getBegin(), 
@@ -368,9 +463,13 @@ namespace backendgen {
       }
 
     // If found something, return it
-    if (Result->Cost != INT_MAX)
+    if (Result->Cost != INT_MAX) {
+      DbgIndent(CurDepth);
+      DbgPrint("Direct match successful\n");
       return Result;
+    }
 
+    DbgIndent(CurDepth);
     DbgPrint("Trying decomposition rules\n");
 
     // Look for decomposition rules and try to recursively search
@@ -381,7 +480,8 @@ namespace backendgen {
 	Tree* dummy;
 	SearchResult* CandidateSolution = ApplyDecompositionRule(&*I, 
 								 Expression,
-								 NULL, dummy);
+								 NULL, dummy,
+								 CurDepth);
 
 	if (CandidateSolution == NULL)
 	  continue;
@@ -398,6 +498,7 @@ namespace backendgen {
     if (Result->Cost != INT_MAX)
       return Result;
 
+    DbgIndent(CurDepth);
     DbgPrint("Trying transformations\n");
 
     // In the third step, apply transformation rules to bring
@@ -414,7 +515,7 @@ namespace backendgen {
 	     I1 != E1; ++I1)
 	  {
 	    SearchResult* CandidateSolution = 
-	      TransformExpression(Expression, *I1);
+	      TransformExpression(Expression, *I1, CurDepth);
 
 	    // Failed
 	    if (CandidateSolution->Cost == INT_MAX) {
@@ -422,11 +523,15 @@ namespace backendgen {
 	      continue;
 	    }	     
 
+	    // Integrate our instruction
+	    CandidateSolution->Cost += (*I)->getCost();
+	    CandidateSolution->Instructions->push_back(*I);
+
 	    // Check if it is a good solution
 	    if (CandidateSolution->Cost <= Result->Cost)
 	      {
 		delete Result;
-		Result = CandidateSolution;
+		Result = CandidateSolution;		
 	      }	
 	  }
       }
@@ -436,8 +541,7 @@ namespace backendgen {
       return Result;    
 
     // We can't find anything
-    delete Result;
-    return NULL;
+    return Result;
   }
 
 }

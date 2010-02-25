@@ -30,20 +30,25 @@ namespace backendgen {
     ~SearchResult();
   };
 
+  const unsigned MAXDEPTH = 10;
+
   // Main interface for search algorithms
   class Search {
     TransformationRules& RulesMgr;    
     InstrManager& InstructionsMgr;
     inline bool HasCloseSemantic(unsigned InstrPO, unsigned ExpPO);
     SearchResult* TransformExpression(const Tree* Expression,
-				      const Tree* InsnSemantic);
+				      const Tree* InsnSemantic, 
+				      unsigned CurDepth);
     SearchResult* ApplyDecompositionRule(const Rule *R, const Tree* Expression,
-					 const Tree* Goal, Tree *& MatchedGoal);
+					 const Tree* Goal, Tree *& MatchedGoal,
+					 unsigned CurDepth);
     bool TransformExpressionAux(const Tree* Transformed,
-				const Tree* InsnSemantic, SearchResult* Result);
+				const Tree* InsnSemantic, SearchResult* Result,
+				unsigned CurDepth);
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
-    SearchResult* operator() (const Tree* Expression);
+    SearchResult* operator() (const Tree* Expression, unsigned CurDepth);
   };
 
 }

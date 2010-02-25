@@ -85,17 +85,22 @@ statement:         ruledef       {}
 translate:         TRANSLATE exp SEMICOLON
                    {
 		     Search S(RuleManager, InstructionManager);
-		     SearchResult *R = S($2);
+		     SearchResult *R = S($2, 0);
 		     std::cout << "Translation results\n=======\n";
 		     if (R == NULL)
 		       std::cout << "Not found!\n";
 		     else {
-		       for (InstrList::iterator I = 
-			      R->Instructions->begin(), 
-			      E = R->Instructions->end(); I != E; ++I)
-			 {
-			   (*I)->print(std::cout);
-			 }
+		       if (R->Instructions->size() == 0)
+			 std::cout << "Not found!\n";
+		       else {
+			 for (InstrList::iterator I = 
+				R->Instructions->begin(), 
+				E = R->Instructions->end(); I != E; ++I)
+			   {
+			     (*I)->print(std::cout);
+			   }
+		       }
+		       delete R;
 		     }
 		     delete $2;
 		     std::cout << "\n";

@@ -24,6 +24,7 @@ define operator alias    as sub => -;
 
 define operand int   as size 32;
 define operand regs  as size 32 like int;
+define operand immed as size 32 like int;
 define operand short as size 16 like int;
 define operand byte  as size 8  like int;
 define operand bit   as size 1  like int;
@@ -32,16 +33,10 @@ define operand bit   as size 1  like int;
 
 AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
 
-(+ const:int:2 const:int:2) 
- =>
-const:int:4;
+AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 //(transfer a4:regs (+ a1:regs (+ a2:regs a3:regs))) => 
 //(dec (transfer t4:regs (+ t4:regs const:int:0)) (+ a2:
-
-(sub const:int:2 const:int:2)
- <=>
-const:int:0;
 
 // Machine description
 
@@ -57,16 +52,28 @@ define registers CPSRbitV:bit as ( V );  // bit Overflow
 define registers CPSRbitZ:bit as ( Z );  // bit Zero
 define registers CPSRbitC:bit as ( C );  // bit Carry
 
+// Add instruction with two registers operands
 define instruction add semantic as (
 
   (transfer Op3:GPR (+ Op1:GPR Op2:GPR));
 
-  (transfer Z:CPSRbitZ (if (equal Op3:GPR const:int:0 ) const:bit:0 
-     const:bit:1 ) );
+//  (transfer Z:CPSRbitZ (if (equal Op3:GPR const:int:0 ) const:bit:0 
+//     const:bit:1 ) );
 
 //  (transfer V:
 ) cost 1;
 
-translate (transfer a3:int (+ a1:int a2:int));
+//Add instruction with immediate operand
+define instruction add2 semantic as (
+
+  (transfer Op3:GPR (+ Op1:GPR Op2:immed));
+
+) cost 1;
+
+define instruction xor semantic as (
+  (transfer Op3:GPR const:int:0);
+) cost 1;
+
+translate (transfer a3:regs (+ a1:immed a2:immed));
 
 //translate (transfer a3:int (+ a1:int a2:int));
