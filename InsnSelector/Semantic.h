@@ -81,6 +81,9 @@ namespace backendgen {
       virtual unsigned getSize() const { return Type.Size; }
       virtual Node* clone() const { return new Operand(*this); }
       const std::string& getOperandName() const {return OperandName;}
+      void changeOperandName(const std::string &NewName) {
+	OperandName = NewName;
+      }
     protected:      
       OperandType Type;
       std::string OperandName;

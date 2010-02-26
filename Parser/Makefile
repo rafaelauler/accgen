@@ -10,22 +10,22 @@ main.o: main.cpp
 parser.o:	acllvm.tab.c lex.h ../InsnSelector/Semantic.h ../InsnSelector/TransformationRules.h
 	g++ $(CXX_FLAGS) -c acllvm.tab.c -o parser.o
 
-lex.o:	acllvm.tab.h lex.yy.c ../InsnSelector/Semantic.h ../InsnSelector/TransformationRules.h
-	g++ $(CXX_FLAGS) -c lex.yy.c -o lex.o
+lex.o:	acllvm.tab.h lex.yybe.c ../InsnSelector/Semantic.h ../InsnSelector/TransformationRules.h
+	g++ $(CXX_FLAGS) -c lex.yybe.c -o lex.o
 
 acllvm.tab.h: acllvm.y
-	bison -d acllvm.y
+	bison --name-prefix=yybe -d acllvm.y
 
 acllvm.tab.c: acllvm.y
-	bison -d acllvm.y
+	bison --name-prefix=yybe -d acllvm.y
 
 lex.h:	acllvm.l
-	flex --header-file=lex.h acllvm.l
+	flex -Pyybe --header-file=lex.h acllvm.l
 
-lex.yy.c:	acllvm.l
-	flex --header-file=lex.h acllvm.l
+lex.yybe.c:	acllvm.l
+	flex -Pyybe --header-file=lex.h acllvm.l
 
 
 clean:
-	-rm *~ lex.yy.c acllvm.tab.h acllvm.tab.c *.o lex.h test
+	-rm *~ lex.yybe.c acllvm.tab.h acllvm.tab.c *.o lex.h test
 	$(MAKE) clean -C ../InsnSelector

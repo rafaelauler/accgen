@@ -184,6 +184,9 @@ void BuildInsn() {
 
   for (; pinsn != NULL; pinsn = pinsn->next) {
 
+    if (pinsn->insn == NULL)
+      continue; // Pseudo!
+
     Insn *I = new Insn(pinsn->mnemonic, 
                        pinsn->op_literal, 
                        FormatMap[pinsn->insn->format]);

@@ -12,6 +12,8 @@
 
 #include "TransformationRules.h"
 #include <iostream>
+#include <sstream>
+#include <cstdlib>
 
 namespace backendgen {
 
@@ -43,7 +45,7 @@ namespace backendgen {
     Decomposition = FindOperator(RHS, DecompOp);
   }
 
-  typedef std::pair<const std::string&,const Tree*> AnnotatedTree;
+  typedef std::pair<std::string,const Tree*> AnnotatedTree;
   typedef std::list<AnnotatedTree> AnnotatedTreeList;
   
   // This auxiliary function is similar to Search.cpp:Compare(),
@@ -66,11 +68,12 @@ namespace backendgen {
 	 E->getSize() == 0)) ||
 	 R->getType() == 0) )
       {
-	AnnotatedTreeList* Result = new AnnotatedTreeList();
+	AnnotatedTreeList* Result = NULL;
+	if (!JustCompare) Result = new AnnotatedTreeList();
+
 	// Leaf? Cast to operand
 	if (!isOperator) {	
-	  if (JustCompare) {
-	    delete Result;
+	  if (JustCompare) {	    
 	    return reinterpret_cast<AnnotatedTreeList*>(1);
 	  }
 	  const Operand* Op = dynamic_cast<const Operand*>(R);
@@ -103,8 +106,7 @@ namespace backendgen {
 	  Result->merge(*ChildResult);	
 	  delete ChildResult;
 	}
-	if (JustCompare) {
-	  delete Result;
+	if (JustCompare) {	  
 	  return reinterpret_cast<AnnotatedTreeList*>(1);
 	}
 	return Result;
@@ -132,9 +134,13 @@ namespace backendgen {
     return NULL;
   }
 
-  // Traverse tree looking for leafs an its instantiation names.
+  // Traverse tree looking for leafs and its instantiation names.
   // When found, substitute the node with one provided by the
   // annotated tree list
+  // Also, generate names for operands not matched, so as to avoid
+  // using generic names defined in rules. When generating a name,
+  // stores it in the anotated tree, so as to properly substitute
+  // similar names with the same generated names.
   void SubstituteLeafs(Tree** T, AnnotatedTreeList* List) {
     if ((*T)->isOperator()) {
       Operator *O = dynamic_cast<Operator*>(*T);
@@ -147,16 +153,25 @@ namespace backendgen {
 
     if ((*T)->isOperand()) {
       Operand *O = dynamic_cast<Operand*>(*T);
+      bool Matched = false;
       for (AnnotatedTreeList::const_iterator I = List->begin(),
 	     E = List->end(); I != E; ++I)
 	{
 	  if (I->first == O->getOperandName()) {
 	    delete *T;
+	    Matched = true;
 	    *T = I->second->clone();
 	    break;
 	  }
 	}
-      
+      if (!Matched) {
+	std::string Name = O->getOperandName();
+	std::stringstream SS;
+	SS << Name << rand();
+	O->changeOperandName(SS.str());
+	AnnotatedTree AT(Name, O);
+	List->push_back(AT);
+      }      
     }
   }
 

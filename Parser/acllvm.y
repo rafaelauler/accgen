@@ -12,9 +12,9 @@
 
 %{
 
-#include "../InsnSelector/TransformationRules.h"
-#include "../InsnSelector/Semantic.h"
-#include "../InsnSelector/Search.h"
+#include "InsnSelector/TransformationRules.h"
+#include "InsnSelector/Semantic.h"
+#include "InsnSelector/Search.h"
 #include <stack>
 
 using namespace backendgen::expression;
@@ -33,9 +33,6 @@ std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
 // Clear stack and cleanly deallocated elements when an error occur
 void ClearStack();
-
-  /*#define YYPARSE_PARAM scanner
-    #define YYLEX_PARAM   scanner*/
 
 %}
 
@@ -350,8 +347,7 @@ exp:      LPAREN operator explist RPAREN
                       OperandType NewType;
                       NewType.Type = 0;
                       NewType.Size = 0;
-		      NewType.DataType = 0;
-                      //Stack.push(new Operand(NewType, $1));
+		      NewType.DataType = 0;   
 		      $$ = new Operand(NewType, $1);
 		      free($1);
                     }
@@ -379,7 +375,6 @@ void ClearStack() {
   int I = Stack.size() - 1;
   while (I >= 0)
   {
-    //Stack.top()->print();
     delete Stack.top();
     Stack.pop();
     --I;

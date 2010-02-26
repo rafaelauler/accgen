@@ -29,7 +29,7 @@ class AReg<bits<`'m4log(__nregs__)`'> num, string n> : Register<n> {
 //  Registers
 //===----------------------------------------------------------------------===//
 
-let Namespace = "Mips" in {
+let Namespace = "`'__arch__`'" in {
 
   // General Purpose Registers
   def ZERO : MipsGPRReg< 0, "ZERO">, DwarfRegNum<[0]>;

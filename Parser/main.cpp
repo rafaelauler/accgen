@@ -18,12 +18,12 @@ extern TransformationRules RuleManager;
 extern InstrManager InstructionManager;
 extern OperandTableManager OperandTable;
 
-int yyparse();
+int yybeparse();
 
 int
 main()
 {
-  int ret = yyparse();
+  int ret = yybeparse();
 
   RuleManager.print(std::cout);
 
