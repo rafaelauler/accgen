@@ -14,10 +14,10 @@ lex.o:	acllvm.tab.h lex.yy.c ../InsnSelector/Semantic.h ../InsnSelector/Transfor
 	g++ $(CXX_FLAGS) -c lex.yy.c -o lex.o
 
 acllvm.tab.h: acllvm.y
-	bison -v -d acllvm.y
+	bison -d acllvm.y
 
 acllvm.tab.c: acllvm.y
-	bison -v -d acllvm.y
+	bison -d acllvm.y
 
 lex.h:	acllvm.l
 	flex --header-file=lex.h acllvm.l

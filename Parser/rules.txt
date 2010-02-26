@@ -12,6 +12,7 @@
 
 define operator +        as arity 2;
 define operator -        as arity 2;
+define operator xor      as arity 2;
 define operator transfer as arity 2;
 define operator if       as arity 3;
 define operator equal    as arity 2;
@@ -35,8 +36,7 @@ AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
 
 AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
-//(transfer a4:regs (+ a1:regs (+ a2:regs a3:regs))) => 
-//(dec (transfer t4:regs (+ t4:regs const:int:0)) (+ a2:
+const:int:0 <=> (xor Reg:regs Reg:regs);
 
 // Machine description
 
@@ -54,24 +54,16 @@ define registers CPSRbitC:bit as ( C );  // bit Carry
 
 // Add instruction with two registers operands
 define instruction add semantic as (
-
   (transfer Op3:GPR (+ Op1:GPR Op2:GPR));
-
-//  (transfer Z:CPSRbitZ (if (equal Op3:GPR const:int:0 ) const:bit:0 
-//     const:bit:1 ) );
-
-//  (transfer V:
 ) cost 1;
 
 //Add instruction with immediate operand
 define instruction add2 semantic as (
-
   (transfer Op3:GPR (+ Op1:GPR Op2:immed));
-
 ) cost 1;
 
 define instruction xor semantic as (
-  (transfer Op3:GPR const:int:0);
+  (transfer Op3:GPR (xor Op1:GPR Op2:GPR));
 ) cost 1;
 
 translate (transfer a3:regs (+ a1:immed a2:immed));

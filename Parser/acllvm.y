@@ -103,7 +103,7 @@ translate:         TRANSLATE exp SEMICOLON
 			     for (NameListType::const_iterator I2 = 
 				    (*I1)->begin(), E2 = (*I1)->end();
 				  I2 != E2; ++I2) {
-			       std::cout << **I2 << " ";
+			       std::cout << *I2 << " ";
 			     }
 			     std::cout << "\n";
 			     ++I1;

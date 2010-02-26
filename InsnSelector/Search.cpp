@@ -77,7 +77,7 @@ namespace backendgen {
       if (dynamic_cast<const Constant*>(Exp)) 
 	return Result;
       const Operand* O = dynamic_cast<const Operand*>(Exp);
-      Result->push_back(&(O->getOperandName()));
+      Result->push_back(O->getOperandName());
       return Result;
     }
 
@@ -194,6 +194,81 @@ namespace backendgen {
     return false;
   }
 
+  // Auxiliary function used to integrate the results of a recursive
+  // call to Search, which itself returns a particular SearchResult,
+  // with the current SearchResult being held by a caller function.
+  inline
+  void MergeSearchResults(SearchResult* Destination, SearchResult* Source)
+  {
+    // Assure the source is valid
+    if (Source == NULL)
+      return;
+
+    // If we are merging results, we need at least _have_ a result.
+    assert (Source->Cost != INT_MAX);
+
+    // Check OperandsDefs. If a current definition list is under construction,
+    // it will haveno instruction associated and therefore the list of
+    // OperandsDefs will be greater than the list of Instructions. If both
+    // destination and source have a definition list under constructions,
+    // we need to merge both.
+    if (Destination->OperandsDefs->size() > Destination->Instructions->size()
+	&& Source->OperandsDefs->size() > Source->Instructions->size())
+      {
+	// The list under construction is necessarily the last one
+	Destination->OperandsDefs->back()
+	  ->splice(Destination->OperandsDefs->back()->end(), 
+		   *(Source->OperandsDefs->back()));
+	// Already transfered its contents, now delete it.
+	delete Source->OperandsDefs->back();
+	Source->OperandsDefs->pop_back();
+      }
+    // In the other case, exactly one has a list under construction, or none.
+    // We don't bother with this, as we simply transfer all remaining
+    // definitions from source to destination.
+    Destination->OperandsDefs->splice(Destination->OperandsDefs->begin(),
+				      *(Source->OperandsDefs));
+    // Now tranfer discovered instructions in Source
+    Destination->Instructions->splice(Destination->Instructions->begin(),
+				      *(Source->Instructions));
+    // Now merge cost
+
+    // If Destination doesn't have a solution yet, set its cost to zero
+    // so as to properly sum with Source's cost;
+    if (Destination->Cost == INT_MAX) 
+      Destination->Cost = 0;
+    Destination->Cost += Source->Cost;
+
+    //Merge successful
+    return;
+  }
+
+  // This auxiliary function is used by search routines whenever an
+  // operand is matched and we need to store its name (operand definition)
+  // in the SearchResult record. As we not know yet the instruction
+  // to whom this operand pertains, we may need to allocate an orphan
+  // operandsdefs list (without an associated instruction). To be easily
+  // located, this orphan list is necessarily the last one in the list
+  // of operands definitions. The list may be already allocated, so we also
+  // check for this case in this function.
+  void UpdateCurrentOperandDefinition(SearchResult* Result,
+				      NameListType* Definitions) {
+    // The orphan list is already allocated, so we just merge these
+    // new definitions in it
+    if (Result->OperandsDefs->size() > Result->Instructions->size()) 
+      {
+	Result->OperandsDefs->back()
+	  ->splice(Result->OperandsDefs->back()->end(), *Definitions);
+	delete Definitions;
+	return;
+      }
+
+    // Otherwise, we need to allocate the orphan list. In fact, we directly
+    // use "Definitions" as the new member list.
+    Result->OperandsDefs->push_back(Definitions);
+    return;  
+  }
+
   // Apply a special kind of rule that disconnects the tree, and 
   // recursively tries to find implementations for each resulting tree.
   // If Goal is not NULL, then some tree in the decomposed set must
@@ -235,11 +310,7 @@ namespace backendgen {
 	}
 
 	// Integrate results
-	CandidateSolution->Instructions->merge(*(ChildResult->Instructions));
-	if (CandidateSolution->Cost == INT_MAX) 
-	  CandidateSolution->Cost = 0;
-	CandidateSolution->Cost += ChildResult->Cost;
-	CandidateSolution->OperandsDefs->merge(*(ChildResult->OperandsDefs));
+	MergeSearchResults(CandidateSolution, ChildResult);
 	delete ChildResult;
       }
 	
@@ -265,11 +336,7 @@ namespace backendgen {
     // Transformation revealed that these expressions match directly
     if (Transformed->isOperand()) {
       Result->Cost = 0;
-      // Current instruction operands not allocated?
-      if(Result->OperandsDefs->size() <= Result->Instructions->size())
-	Result->OperandsDefs->push_back(ExtractLeafsNames(Transformed));
-      else 
-	Result->OperandsDefs->back()->merge(*(ExtractLeafsNames(Transformed)));
+      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed));
       return true;
     }
 
@@ -291,53 +358,14 @@ namespace backendgen {
 	  return false;
 	}
 	
-	// This child matches without decomposition
-	if (SRChild->Instructions->size() == 0) {
-	  DbgIndent(CurDepth);	  
-	  DbgPrint("Recursive call matched without decomposition\n");	   
-	  if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;	  
-	  // Current instruction operands not allocated?
-	  if(TempResults->OperandsDefs->size() 
-	     <= TempResults->Instructions->size())
-	    TempResults->OperandsDefs
-	      ->merge(*(SRChild->OperandsDefs));
-	  else 
-	    TempResults->OperandsDefs->back()
-	      ->merge(*(SRChild->OperandsDefs->back()));
-	  
-	  delete SRChild;
-	  continue;
-	}
-	
 	DbgIndent(CurDepth);
-	DbgPrint("Recursive call was successful\n");
-	// This child matched, but applied a decomposition rule and
-	// we need to integrate its results
-	if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;
-	TempResults->Cost += SRChild->Cost;
-	TempResults->Instructions->splice(TempResults->Instructions->begin(),
-					  *(SRChild->Instructions));
-	TempResults->OperandsDefs->splice(TempResults->OperandsDefs->begin(),
-					  *(SRChild->OperandsDefs));
+	DbgPrint("Recursive call was successful\n");	
+	// Match for child was successful, so we need to integrate its results
+	MergeSearchResults(TempResults, SRChild);
 	delete SRChild;
       }
     // Everything went ok, integrate TempResults with Results    
-    if (Result->Cost == INT_MAX)
-      Result->Cost = 0;
-    Result->Cost += TempResults->Cost;
-    // See if Result already has a list of in progress operands names
-    // and TempResults also
-    if (Result->OperandsDefs->size() > Result->Instructions->size() &&
-	TempResults->OperandsDefs->size() > TempResults->Instructions->size())
-      {
-	Result->OperandsDefs->back()
-	  ->merge(*(TempResults->OperandsDefs->back()));
-	TempResults->OperandsDefs->pop_back();
-      }
-    Result->Instructions->splice(Result->Instructions->begin(),
-				 *(TempResults->Instructions));    
-    Result->OperandsDefs->splice(Result->OperandsDefs->begin(),
-				 *(TempResults->OperandsDefs));
+    MergeSearchResults(Result, TempResults);
     delete TempResults;
     return true;
   }
@@ -379,7 +407,7 @@ namespace backendgen {
       DbgIndent(CurDepth);
       DbgPrint("Already matches!\n");
       Result->Cost = 0;
-      Result->OperandsDefs->push_back(ExtractLeafsNames(Expression));
+      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Expression));
       return Result;
     }      
 
@@ -475,12 +503,7 @@ namespace backendgen {
 	  {
 	    DbgIndent(CurDepth);
 	    DbgPrint("Decomposition was successful\n");
-	    if (Result->Cost == INT_MAX) Result->Cost = 0;
-	    Result->Cost += ChildResult->Cost;
-	    Result->Instructions->splice(Result->Instructions->begin(),
-					 (*(ChildResult->Instructions)));
-	    Result->OperandsDefs->splice(Result->OperandsDefs->begin(),
-					 *(ChildResult->OperandsDefs));
+	    MergeSearchResults(Result, ChildResult);
 	    delete ChildResult;
 	    delete Transformed;
 	    return Result;
@@ -533,7 +556,8 @@ namespace backendgen {
 		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
 		Result->Instructions->push_back(*I);
-		Result->OperandsDefs->push_back(ExtractLeafsNames(Expression));
+		UpdateCurrentOperandDefinition(Result, 
+					       ExtractLeafsNames(Expression));
 		break;
 	      }
 	  }
@@ -568,7 +592,9 @@ namespace backendgen {
 	  {
 	    delete Result;
 	    Result = CandidateSolution;
-	  }	
+	  }
+	else
+	  delete CandidateSolution;
       }
 
     // If found something, return it
@@ -613,6 +639,8 @@ namespace backendgen {
 		delete Result;
 		Result = CandidateSolution;		
 	      }	
+	    else
+	      delete CandidateSolution;
 	  }
       }
 

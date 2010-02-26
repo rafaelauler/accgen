@@ -19,12 +19,17 @@ using namespace backendgen::expression;
 
 namespace backendgen {
 
-  typedef std::list<const std::string*> NameListType;
+  typedef std::list<std::string> NameListType;
   typedef std::list<NameListType*> OperandsDefsType;
   typedef std::list<const Instruction*> InstrList;
 
   // This struct stores a result. This is a list of instructions
   // implementing the requested expression and its cost information.
+  // Also, an associated list of operands definitions is available.
+  // For each instruction, there is a list of operands definitions with
+  // names to use as the operands of this instruction. This implies that
+  // in complete search results, the list of operandsdefs is of the same
+  // size of the list of instructions.
   struct SearchResult {
     InstrList *Instructions;
     CostType Cost;
@@ -33,7 +38,7 @@ namespace backendgen {
     ~SearchResult();
   };
 
-  const unsigned MAXDEPTH = 8;
+  const unsigned MAXDEPTH = 10;
 
   // Main interface for search algorithms
   class Search {
