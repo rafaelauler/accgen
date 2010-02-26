@@ -69,8 +69,10 @@ namespace backendgen {
 	AnnotatedTreeList* Result = new AnnotatedTreeList();
 	// Leaf? Cast to operand
 	if (!isOperator) {	
-	  if (JustCompare)
+	  if (JustCompare) {
+	    delete Result;
 	    return reinterpret_cast<AnnotatedTreeList*>(1);
+	  }
 	  const Operand* Op = dynamic_cast<const Operand*>(R);
 	  AnnotatedTree AT(Op->getOperandName(), E);
 	  Result->push_back(AT);
@@ -101,8 +103,10 @@ namespace backendgen {
 	  Result->merge(*ChildResult);	
 	  delete ChildResult;
 	}
-	if (JustCompare)
+	if (JustCompare) {
+	  delete Result;
 	  return reinterpret_cast<AnnotatedTreeList*>(1);
+	}
 	return Result;
       }
     // We can also match if a rule operand matches an expression operator

@@ -93,10 +93,20 @@ translate:         TRANSLATE exp SEMICOLON
 		       if (R->Instructions->size() == 0)
 			 std::cout << "Not found!\n";
 		       else {
+			 OperandsDefsType::const_iterator I1 =
+			   R->OperandsDefs->begin();
 			 for (InstrList::iterator I = 
 				R->Instructions->begin(), 
 				E = R->Instructions->end(); I != E; ++I)
-			   {
+			   {			     
+			     std::cout << "Operands for this insn: ";
+			     for (NameListType::const_iterator I2 = 
+				    (*I1)->begin(), E2 = (*I1)->end();
+				  I2 != E2; ++I2) {
+			       std::cout << **I2 << " ";
+			     }
+			     std::cout << "\n";
+			     ++I1;
 			     (*I)->print(std::cout);
 			   }
 		       }

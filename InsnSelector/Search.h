@@ -19,6 +19,8 @@ using namespace backendgen::expression;
 
 namespace backendgen {
 
+  typedef std::list<const std::string*> NameListType;
+  typedef std::list<NameListType*> OperandsDefsType;
   typedef std::list<const Instruction*> InstrList;
 
   // This struct stores a result. This is a list of instructions
@@ -26,11 +28,12 @@ namespace backendgen {
   struct SearchResult {
     InstrList *Instructions;
     CostType Cost;
+    OperandsDefsType *OperandsDefs;
     SearchResult();
     ~SearchResult();
   };
 
-  const unsigned MAXDEPTH = 10;
+  const unsigned MAXDEPTH = 8;
 
   // Main interface for search algorithms
   class Search {

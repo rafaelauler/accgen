@@ -11,8 +11,9 @@
 
 #include "Search.h"  
 #include <climits>
+#include <cassert>
 
-#define DEBUG
+//#define DEBUG
 
 namespace backendgen {
 
@@ -38,10 +39,17 @@ namespace backendgen {
   SearchResult::SearchResult() {
     Instructions = new InstrList();
     Cost = INT_MAX;
+    OperandsDefs = new OperandsDefsType();
   }
 
   SearchResult::~SearchResult() {
     delete Instructions;
+    for (OperandsDefsType::iterator I = OperandsDefs->begin(),
+	   E = OperandsDefs->end(); I != E; ++I)
+      {
+	delete *I;
+      }
+    delete OperandsDefs;
   }
 
   // Search member functions
@@ -52,9 +60,42 @@ namespace backendgen {
     RulesMgr(RulesMgr), InstructionsMgr(InstructionsMgr)
   { }
 
+  // This auxiliary function searches for leafs in an expression and
+  // gets their names and put they in a list.
+  // With this information, we know what names to use as operands
+  // of instructions.
+  NameListType* ExtractLeafsNames(const Tree* Exp) {	
+    // Sanity check
+    if (Exp == NULL)
+      return NULL;
+    
+    NameListType* Result = new NameListType();
+
+    // A leaf
+    if (Exp->isOperand()) {
+      // Constants does not have names, ignore them
+      if (dynamic_cast<const Constant*>(Exp)) 
+	return Result;
+      const Operand* O = dynamic_cast<const Operand*>(Exp);
+      Result->push_back(&(O->getOperandName()));
+      return Result;
+    }
+
+    // An operator
+    const Operator* O = dynamic_cast<const Operator*>(Exp);
+    for (int I = 0, E = O->getArity(); I != E; ++I) 
+      {
+	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;
+      }
+    return Result;
+  }
+
   // A special comparison that considers if the node type has value 0,
   // in which cases this type matches all
-  inline bool EqualTypes(unsigned T1, unsigned T2)
+  inline bool EqualTypes(const unsigned T1, const unsigned T2)
   {
     return (T1 == T2 || T1 == 0 || T2 == 0);
   }
@@ -62,7 +103,7 @@ namespace backendgen {
   // A special comparison that considers if the node type or size has value 0,
   // in which cases this type matches all
   template<class T>
-  inline bool EqualNodeTypes(const T &T1, const T &T2)
+  inline bool EqualNodeTypes(const T &T1, const T &T2) 
   {
     return ((T1.Type == T2.Type || T1.Type == 0 || T2.Type == 0) &&
 	    (T1.Size <= T2.Size || T1.Size == 0 || T2.Size == 0));
@@ -71,7 +112,7 @@ namespace backendgen {
   // Auxiliary function returns true if two trees are directly
   // equivalent
   template <bool JustTopLevel>
-  bool Compare (const Tree *E1, const Tree *E2) 
+  bool Compare (const Tree *E1, const Tree *E2)
   {
     bool isOperator;
     // Notes: We match if E2 implements the same operation if
@@ -198,6 +239,7 @@ namespace backendgen {
 	if (CandidateSolution->Cost == INT_MAX) 
 	  CandidateSolution->Cost = 0;
 	CandidateSolution->Cost += ChildResult->Cost;
+	CandidateSolution->OperandsDefs->merge(*(ChildResult->OperandsDefs));
 	delete ChildResult;
       }
 	
@@ -223,6 +265,11 @@ namespace backendgen {
     // Transformation revealed that these expressions match directly
     if (Transformed->isOperand()) {
       Result->Cost = 0;
+      // Current instruction operands not allocated?
+      if(Result->OperandsDefs->size() <= Result->Instructions->size())
+	Result->OperandsDefs->push_back(ExtractLeafsNames(Transformed));
+      else 
+	Result->OperandsDefs->back()->merge(*(ExtractLeafsNames(Transformed)));
       return true;
     }
 
@@ -248,7 +295,16 @@ namespace backendgen {
 	if (SRChild->Instructions->size() == 0) {
 	  DbgIndent(CurDepth);	  
 	  DbgPrint("Recursive call matched without decomposition\n");	   
-	  if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;
+	  if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;	  
+	  // Current instruction operands not allocated?
+	  if(TempResults->OperandsDefs->size() 
+	     <= TempResults->Instructions->size())
+	    TempResults->OperandsDefs
+	      ->merge(*(SRChild->OperandsDefs));
+	  else 
+	    TempResults->OperandsDefs->back()
+	      ->merge(*(SRChild->OperandsDefs->back()));
+	  
 	  delete SRChild;
 	  continue;
 	}
@@ -259,14 +315,29 @@ namespace backendgen {
 	// we need to integrate its results
 	if (TempResults->Cost == INT_MAX) TempResults->Cost = 0;
 	TempResults->Cost += SRChild->Cost;
-	TempResults->Instructions->merge(*(SRChild->Instructions));
+	TempResults->Instructions->splice(TempResults->Instructions->begin(),
+					  *(SRChild->Instructions));
+	TempResults->OperandsDefs->splice(TempResults->OperandsDefs->begin(),
+					  *(SRChild->OperandsDefs));
 	delete SRChild;
       }
     // Everything went ok, integrate TempResults with Results    
     if (Result->Cost == INT_MAX)
       Result->Cost = 0;
     Result->Cost += TempResults->Cost;
-    Result->Instructions->merge(*(TempResults->Instructions));
+    // See if Result already has a list of in progress operands names
+    // and TempResults also
+    if (Result->OperandsDefs->size() > Result->Instructions->size() &&
+	TempResults->OperandsDefs->size() > TempResults->Instructions->size())
+      {
+	Result->OperandsDefs->back()
+	  ->merge(*(TempResults->OperandsDefs->back()));
+	TempResults->OperandsDefs->pop_back();
+      }
+    Result->Instructions->splice(Result->Instructions->begin(),
+				 *(TempResults->Instructions));    
+    Result->OperandsDefs->splice(Result->OperandsDefs->begin(),
+				 *(TempResults->OperandsDefs));
     delete TempResults;
     return true;
   }
@@ -308,6 +379,7 @@ namespace backendgen {
       DbgIndent(CurDepth);
       DbgPrint("Already matches!\n");
       Result->Cost = 0;
+      Result->OperandsDefs->push_back(ExtractLeafsNames(Expression));
       return Result;
     }      
 
@@ -405,7 +477,10 @@ namespace backendgen {
 	    DbgPrint("Decomposition was successful\n");
 	    if (Result->Cost == INT_MAX) Result->Cost = 0;
 	    Result->Cost += ChildResult->Cost;
-	    Result->Instructions->merge(*(ChildResult->Instructions));
+	    Result->Instructions->splice(Result->Instructions->begin(),
+					 (*(ChildResult->Instructions)));
+	    Result->OperandsDefs->splice(Result->OperandsDefs->begin(),
+					 *(ChildResult->OperandsDefs));
 	    delete ChildResult;
 	    delete Transformed;
 	    return Result;
@@ -454,9 +529,11 @@ namespace backendgen {
 	    if (Compare<false>(Expression, *I2) && 
 		Result->Cost >= (*I)->getCost())
 	      {
+		delete Result;
+		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
-		Result->Instructions->clear();
 		Result->Instructions->push_back(*I);
+		Result->OperandsDefs->push_back(ExtractLeafsNames(Expression));
 		break;
 	      }
 	  }
@@ -526,6 +603,9 @@ namespace backendgen {
 	    // Integrate our instruction
 	    CandidateSolution->Cost += (*I)->getCost();
 	    CandidateSolution->Instructions->push_back(*I);
+	    // OperandsDefs for this insn should already be in the list
+	    // thanks to TransformExpression that decoded its operands
+	    // from the expression
 
 	    // Check if it is a good solution
 	    if (CandidateSolution->Cost <= Result->Cost)
