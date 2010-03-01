@@ -163,45 +163,6 @@ namespace backendgen {
       virtual Node* clone() const { return new ImmediateOperand(*this); }
     };
 
-    typedef std::vector<const Tree *>::const_iterator SemanticIterator;
-
-    typedef unsigned CostType;
-
-    // Class representing an instruction and its semantics.
-    // A semantic may comprise several expression trees, ran
-    // in parallel.
-    class Instruction {
-    public:     
-      void addSemantic(const Tree * Expression);
-      Instruction(const std::string &N, const CostType Cost);
-      ~Instruction();
-      std::string getName() const;
-      void print(std::ostream &S) const;
-      SemanticIterator getBegin() const;
-      SemanticIterator getEnd() const;
-      CostType getCost() const {return Cost;}
-    private:
-      std::vector<const Tree *> Semantic;
-      const std::string Name;
-      CostType Cost;
-    };
-
-    typedef std::vector<Instruction*>::const_iterator InstrIterator;
-    
-
-    // Manages instruction instances.
-    class InstrManager {
-    public:
-      void addInstruction (Instruction *Instr);
-      Instruction *getInstruction(const std::string &Name, const CostType Cost);
-      ~InstrManager();
-      void printAll(std::ostream &S);
-      InstrIterator getBegin() const;
-      InstrIterator getEnd() const;
-    private:
-      std::vector<Instruction*> Instructions;
-    };
-
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
     enum KnownOperators {AddOp=1, SubOp, DecompOp, IfOp, AssignOp, LastOp};

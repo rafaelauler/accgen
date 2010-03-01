@@ -13,6 +13,7 @@
 
 #include "TransformationRules.h"
 #include "Semantic.h"
+#include "../Instruction.h"
 #include <list>
 
 using namespace backendgen::expression;
@@ -21,7 +22,10 @@ namespace backendgen {
 
   typedef std::list<std::string> NameListType;
   typedef std::list<NameListType*> OperandsDefsType;
-  typedef std::list<const Instruction*> InstrList;
+  // This pair stores the instruction and the specific semantic of that
+  // instruction that matched our purposes in the search. (Remember
+  // an instruction may have many semantic trees describing its behaviour).
+  typedef std::list<std::pair<const Instruction*, SemanticIterator> > InstrList;
 
   // This struct stores a result. This is a list of instructions
   // implementing the requested expression and its cost information.
@@ -31,9 +35,9 @@ namespace backendgen {
   // in complete search results, the list of operandsdefs is of the same
   // size of the list of instructions.
   struct SearchResult {
-    InstrList *Instructions;
+    InstrList *Instructions;    
     CostType Cost;
-    OperandsDefsType *OperandsDefs;
+    OperandsDefsType *OperandsDefs;    
     SearchResult();
     ~SearchResult();
   };

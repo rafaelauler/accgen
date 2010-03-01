@@ -59,7 +59,17 @@ public:
   InsnFormat(const char *name, int sizeInBits) : 
     Name(name), SizeInBits(sizeInBits), BaseLLVMFormatClassName("InstSP16") {}
 
-  ~InsnFormat() {}
+  // Deallocate lists
+  ~InsnFormat() {
+    for (std::vector<FormatField*>::const_iterator I = Fields.begin(), 
+	   E = Fields.end(); I != E; ++I) {
+      delete *I;
+    }
+    for (std::vector<FieldGroup*>::const_iterator I = Groups.begin(), 
+	   E = Groups.end(); I != E; ++I) {
+      delete *I;
+    }
+  }
 
   std::string getName() {
     return std::string(Name);

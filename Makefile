@@ -8,7 +8,7 @@ ARCH_ACPP_LIB = -L$(ARCH_SRC_DIR)/acpp/.libs/
 
 CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB)
 
-objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o
+objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h
@@ -45,7 +45,7 @@ lex.yybe.c: Parser/acllvm.l
 # End of specific entries
 #
 
-genllvmbe: genllvmbe.cpp InsnFormat.h Insn.h $(objects)
+genllvmbe: genllvmbe.cpp InsnFormat.h $(objects)
 	$(CXX) $(CXXFLAGS) $^ -g -o $@ -lacpp 
 
 clean:

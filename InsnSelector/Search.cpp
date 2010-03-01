@@ -555,7 +555,7 @@ namespace backendgen {
 		delete Result;
 		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
-		Result->Instructions->push_back(*I);
+		Result->Instructions->push_back(std::make_pair(*I,I2));
 		UpdateCurrentOperandDefinition(Result, 
 					       ExtractLeafsNames(Expression));
 		break;
@@ -628,7 +628,7 @@ namespace backendgen {
 
 	    // Integrate our instruction
 	    CandidateSolution->Cost += (*I)->getCost();
-	    CandidateSolution->Instructions->push_back(*I);
+	    CandidateSolution->Instructions->push_back(std::make_pair(*I,I1));
 	    // OperandsDefs for this insn should already be in the list
 	    // thanks to TransformExpression that decoded its operands
 	    // from the expression

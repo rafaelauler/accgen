@@ -15,7 +15,9 @@
 #include "InsnSelector/TransformationRules.h"
 #include "InsnSelector/Semantic.h"
 #include "InsnSelector/Search.h"
+#include "Instruction.h"
 #include <stack>
+#include <map>
 
 using namespace backendgen::expression;
 using namespace backendgen;
@@ -25,6 +27,7 @@ OperatorTableManager OperatorTable;
 TransformationRules RuleManager;
 RegClassManager RegisterManager;
 InstrManager InstructionManager;
+std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
 // Expression stack used to process operators parameters
 std::stack<Node *> Stack;
@@ -104,7 +107,7 @@ translate:         TRANSLATE exp SEMICOLON
 			     }
 			     std::cout << "\n";
 			     ++I1;
-			     (*I)->print(std::cout);
+			     (I->first)->print(std::cout);
 			   }
 		       }
 		       delete R;
@@ -119,8 +122,26 @@ translate:         TRANSLATE exp SEMICOLON
 semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
                    RPAREN COST NUM SEMICOLON
                    {
+		     if (InsnOccurrencesMap.find($3) 
+			 == InsnOccurrencesMap.end())
+		       InsnOccurrencesMap[$3] = 1;
                      Instruction *Instr = 
-		       InstructionManager.getInstruction($3, $10);
+		       InstructionManager.getInstruction
+		       ($3, InsnOccurrencesMap[$3]++);
+		     if (Instr == NULL) {
+		       if (InsnOccurrencesMap[$3] > 2) {
+			 std::cerr << "Line " << LineNumber << 
+			   ": Excessive semantic overload for" <<
+			   " instruction \"" << $3 << "\".\n";
+		       } else {
+			 std::cerr << "Line " << LineNumber << 
+			   ": Undefined instruction \"" << $3 << "\".\n";
+		       }
+		       free($3);
+		       ClearStack();
+		       YYERROR;
+		     }
+		     Instr->setCost($10);
 		     free($3);
                      int I = Stack.size() - 1;
                      while (I >= 0) {

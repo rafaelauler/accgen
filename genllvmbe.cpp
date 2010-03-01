@@ -1,3 +1,12 @@
+//===- genllvbe.cpp - Main implementatino file             --*- C++ -*-----===//
+//
+//              The ArchC Project - Compiler Backend Generation
+//
+//===----------------------------------------------------------------------===//
+//
+//
+//===----------------------------------------------------------------------===//
+
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
@@ -7,19 +16,39 @@
 #include <unistd.h>
 
 #include "InsnFormat.h"
-#include "Insn.h"
+#include "Instruction.h"
 #include "ArchEmitter.h"
 #include "TemplateManager.h"
+#include "CMemWatcher.h"
 #include <map>
 
 extern "C" { 
   #include "acpp.h"
 }
 
+// Some parser dependent data and code
+extern FILE* yybein;
+extern int yybeparse();
+
+// Defined in semantics parser 
+extern backendgen::InstrManager InstructionManager;
+
 char *file_name = NULL; /* name of the main ArchC file */
 char *isa_filename_with_path = NULL;
 
 using namespace backendgen;
+
+// Function responsible for parsing backend generation information
+// available in FileName
+void ParseBackendInformation(const char* FileName) {
+  yybein = fopen(FileName, "r");
+  if (yybein == NULL) { 
+    std::cerr << "Could not open backend information file\"" << FileName 
+	   << "\".\n";
+    exit(EXIT_FAILURE);
+  }
+  yybeparse();
+}
 
 void parse_archc_description(char **argv) {
   /* Initializes the pre-processor */
@@ -109,10 +138,9 @@ void BuildFormats() {
   // Fulfill all instruction formats with their fields.
   for (pformat = format_ins_list; pformat != NULL; pformat = pformat->next) {
     InsnFormat *IF = new InsnFormat(pformat->name, pformat->size);
-
-    // XXX: Hardcoded for big endian
     unsigned startbit, endbit;
     for (pfield = pformat->fields; pfield != NULL; pfield = pfield->next) {
+      // Calculation adequate for both endianess
       endbit = pformat->size - pfield->first_bit - 1;
       startbit = endbit + pfield->size - 1;
       IF->addField(new FormatField(pfield->name, pfield->size, startbit, endbit));
@@ -149,13 +177,19 @@ void BuildFormats() {
   //DebugFormats();
 }
 
+void DeallocateFormats() {
+  for (FormatMapIter I = FormatMap.begin(), E = FormatMap.end(); I != E; ++I) {
+    delete I->second;
+  }
+}
+
 InsnIdMapTy InsnIdMap;
 
 void DebugInsn() {
   for (InsnIdMapIter IM = InsnIdMap.begin(), EM = InsnIdMap.end(); IM != EM; ++IM) {
-    std::vector<Insn *> VI = IM->second;
-    for (std::vector<Insn *>::iterator II = VI.begin(), IE = VI.end(); II != IE; ++II) {
-      Insn *I = *II;
+    std::vector<Instruction *> VI = IM->second;
+    for (std::vector<Instruction *>::iterator II = VI.begin(), IE = VI.end(); II != IE; ++II) {
+      Instruction *I = *II;
       std::cout << I->getName()
                 << ", " << IM->first
                 << ", " << I->getFormat()->getName()
@@ -187,18 +221,18 @@ void BuildInsn() {
     if (pinsn->insn == NULL)
       continue; // Pseudo!
 
-    Insn *I = new Insn(pinsn->mnemonic, 
-                       pinsn->op_literal, 
-                       FormatMap[pinsn->insn->format]);
+    Instruction *I = new Instruction(pinsn->insn->name, 
+				     pinsn->op_literal, 
+				     FormatMap[pinsn->insn->format]);
 
-    // XXX: Hardcoded for big endian
     unsigned startbit, endbit;
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
       InsnOperand *IO = new InsnOperand(operand->str);
       for (field = operand->fields; field != NULL; field = field->next) {
         endbit = pinsn->insn->size - field->first_bit - 1;
         startbit = endbit + field->size - 1;
-        IO->addField(new FormatField(field->name, field->size, startbit, endbit));
+        IO->addField(new FormatField(field->name, field->size, startbit, 
+				     endbit));
       }
       I->addOperand(IO);
     }
@@ -206,9 +240,10 @@ void BuildInsn() {
 
     //if (InsnIdMap.find(pinsn->insn->id) == InsnIdMap.end())
     InsnIdMap[pinsn->insn->id].push_back(I);
+    InstructionManager.addInstruction(I);
   }
 
-  DebugInsn();
+  //DebugInsn();
 }
 
 void print_insns() {
@@ -241,6 +276,67 @@ void print_insns() {
   }
 }
 
+// FIXME: This function seems to propose an impossible task
+void DeallocateACParser() {
+  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list(), *ppinsn;
+  ac_operand_list *operand, *poperand;
+  ac_asm_insn_field *field, *pfield;
+  for (; pinsn != NULL; pinsn = ppinsn) {    
+    free(pinsn->mnemonic);
+    free(pinsn->op_literal);
+    for (operand = pinsn->operands; operand != NULL; operand = poperand) {
+      free(operand->str);
+      for (field = operand->fields; field != NULL; field = pfield) {
+	free(field->name);
+	pfield = field->next;
+	free(field);
+      }
+      poperand = operand->next;
+      free(operand);
+    }
+    ppinsn = pinsn->next;
+    free(pinsn);
+  }
+  ac_dec_format* pformat, *ppformat;
+  ac_dec_field* ofield, *pofield;
+  for (pformat = format_ins_list; pformat != NULL; pformat = ppformat) {
+    free(pformat->name);
+    for (ofield = pformat->fields; ofield != NULL; ofield = pofield) {
+      free(ofield->name);
+      pofield = ofield->next;
+      free(ofield);
+    }
+    ppformat = pformat->next;
+    free(pformat);
+  }
+  for (pformat = format_reg_list; pformat != NULL; pformat = ppformat) {
+    free(pformat->name);
+    for (ofield = pformat->fields; ofield != NULL; ofield = pofield) {
+      free(ofield->name);
+      pofield = ofield->next;
+      free(ofield);
+    }
+    ppformat = pformat->next;
+    free(pformat);
+  }
+  ac_dec_instr *pinstr, *ppinstr;
+  for (pinstr = instr_list; pinstr != NULL; pinstr = ppinstr) {
+    free(pinstr->name);
+    //free(pinstr->mnemonic);
+    //free(pinstr->asm_str);
+    free(pinstr->format);
+    ac_dec_list *plist, *pplist;
+    //for (plist = pinstr->dec_list; plist != NULL && plist != (ac_dec_list*)1;
+    //	 plist = pplist) {
+    //  free(plist->name);
+    //  pplist = plist->next;
+    //  free(plist);
+    //}
+    ppinstr = pinstr->next;
+    free(pinstr);
+  }
+}
+
 void create_dir(const char *path) {
   struct stat sb;
   if (stat(path, &sb) == -1) {
@@ -249,14 +345,31 @@ void create_dir(const char *path) {
 }
 
 int main(int argc, char **argv) {
+  std::cout << "ArchC LLVM Backend Generator (version 0.1).\n";
+  if (argc != 4) {
+    std::cerr << "Wrong number of parameters.\n";
+    std::cerr << "Usage is: " << argv[0] << " <project folder> <project file>"
+	      << " <backend info file>\n\n";
+    std::cerr << "Example: " << argv[0] << " /l/ArchC/ARM/ arm.ac" 
+	      << "arm-be.ac\n\n";
+    exit(EXIT_FAILURE);
+  }
+
+  helper::CMemWatcher *MemWatcher = helper::CMemWatcher::Instance();
+  // FIXME: Temporary fix for myriad of leaks. DeallocateACParser()
+  // should be used instead.
+  MemWatcher->InstallHooks();
   parse_archc_description(argv);
+  MemWatcher->UninstallHooks();
   //print_formats();  
   //print_insns();
   const char *TmpDir = "llvmbackend";
   create_dir(TmpDir);
 
+  // Build information needed to parse backend generation file
   BuildFormats();
-  BuildInsn();
+  BuildInsn();  
+  ParseBackendInformation(argv[3]);
 
   // Create the LLVM Instruction Formats file for Sparc16
   const char *FormatsFile = "llvmbackend/Sparc16InstrFormats.td";
@@ -273,5 +386,11 @@ int main(int argc, char **argv) {
   TM.SetWorkingDir(TmpDir);
   TM.CreateBackendFiles();
 
+  DeallocateFormats();
+  MemWatcher->ReportStatistics(std::cout);
+  MemWatcher->FreeAll();
+  helper::CMemWatcher::Destroy();
+  //  DeallocateACParser();
+  
   return 0;
 }
