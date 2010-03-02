@@ -195,7 +195,8 @@ void DebugInsn() {
                 << ", " << I->getFormat()->getName()
                 << ", " << I->getOperandsFmts()
                 << " "; //std::endl;
-      std::cout << I->getFmtStr() << std::endl;
+      //std::cout << I->getFmtStr();
+      std::cout << std::endl;
       for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
         std::cout << "  " << I->getOperand(i)->getName() << "(";
         for (int fi = 0, fe = I->getOperand(i)->getNumFields(); fi != fe; ++fi) { 
@@ -223,7 +224,8 @@ void BuildInsn() {
 
     Instruction *I = new Instruction(pinsn->insn->name, 
 				     pinsn->op_literal, 
-				     FormatMap[pinsn->insn->format]);
+				     FormatMap[pinsn->insn->format],
+				     pinsn->mnemonic);
 
     unsigned startbit, endbit;
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
@@ -236,7 +238,7 @@ void BuildInsn() {
       }
       I->addOperand(IO);
     }
-    I->parseOperandsFmts();
+    //I->parseOperandsFmts();
 
     //if (InsnIdMap.find(pinsn->insn->id) == InsnIdMap.end())
     InsnIdMap[pinsn->insn->id].push_back(I);

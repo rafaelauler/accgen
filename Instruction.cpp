@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 #include "Instruction.h"
 #include "InsnFormat.h"
+#include <cstdlib>
+#include <cassert>
 
 namespace backendgen {
 
@@ -44,7 +46,7 @@ namespace backendgen {
   }
 
   void Instruction::replaceStr(std::string &s, std::string Src, 
-			       std::string New, size_t initPos) {
+			       std::string New, size_t initPos) const {
     size_t pos = s.find(Src, initPos);
     if (pos == std::string::npos)
       return;
@@ -68,6 +70,66 @@ namespace backendgen {
   
   std::string Instruction::getName() const {
     return Name;
+  }
+
+  inline unsigned ExtractOperandNumber(const std::string& OpName) {
+    std::string::size_type idx;
+    idx = OpName.find_first_of("0123456789");
+    if (idx == std::string::npos)
+      return 0;
+    return atoi(OpName.substr(idx).c_str());
+  }
+
+  void Instruction::emitAssembly(std::list<std::string>* Operands,
+				 SemanticIterator SI, std::ostream& S) 
+    const {
+    // Discover which operands are available in the Operands string list
+    // (the other operands are "don't care" values and must be processed
+    // by side effect compensation algorithms)
+    std::list<const Tree*> Queue;
+    std::list<unsigned> OperandsIndexes;
+    // Put into queue the top level operator of this semantic.
+    Queue.push_back(*SI);
+    while(Queue.size() > 0) {
+      const Tree* Element = Queue.front();
+      Queue.pop_front();
+      const Operand* Op = dynamic_cast<const Operand*>(Element);
+      // If operand
+      if (Op != NULL) {
+	OperandsIndexes.push_back(ExtractOperandNumber(Op->getOperandName()));
+	continue;
+      }
+      // Otherwise we have an operator
+      const Operator* O = dynamic_cast<const Operator*>(Element);
+      assert (O != NULL && "Unexpected tree node type");
+      for (int I = 0, E = O->getArity(); I != E; ++I) {
+	Queue.push_back((*O)[I]);
+      }
+    }
+    // Now we emit assembly with don't cares when we don't know the
+    // operand value
+    S << Mnemonic;
+    std::string AssemblyOperands = OperandFmts;
+    for (unsigned I = 0, E = getNumOperands(); I != E; ++I) {
+      // Search for this operand
+      std::list<std::string>::const_iterator OI = Operands->begin();
+      for (std::list<unsigned>::const_iterator I2 = OperandsIndexes.begin(),
+	     E2 = OperandsIndexes.end(); I2 != E2; ++I2) {
+	assert(OI != Operands->end() && "Invalid operands names list");
+	if (*I2 == I+1) 
+	  break;	
+	++OI;
+      }
+      std::string OperandName;
+      // If not found
+      if (OI == Operands->end())
+	OperandName = "XXX"; // we don't known this operand's value
+      else
+	OperandName = *OI;
+      replaceStr(AssemblyOperands, "%", OperandName);
+    }
+    S << AssemblyOperands;
+    S << "\n";
   }
   
   void Instruction::addSemantic(const Tree * Expression) {

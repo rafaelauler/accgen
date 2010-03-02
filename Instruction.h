@@ -59,9 +59,9 @@ typedef unsigned CostType;
 class Instruction {
  public:     
   void addSemantic(const Tree * Expression);
-  Instruction(const std::string name, std::string operandFmts,
-	      InsnFormat *insnFormat) : Name(name), OperandFmts(operandFmts),
-					IF(insnFormat) {}
+  Instruction(const std::string name, const std::string operandFmts,
+	      InsnFormat *insnFormat, const std::string Mnemonic) : 
+    Name(name), OperandFmts(operandFmts), IF(insnFormat), Mnemonic(Mnemonic) {}
   void setCost(const CostType Cost) {this->Cost = Cost;}
   ~Instruction();
   std::string getName() const;
@@ -77,19 +77,22 @@ class Instruction {
   InsnFormat *getFormat() { return IF; }
   
   InsnOperand *getOperand(unsigned Num) { return Operands[Num]; }
-  unsigned getNumOperands() { return Operands.size(); }
+  unsigned getNumOperands() const { return Operands.size(); }
   std::string &getOperandsFmts() { return OperandFmts; }
-  std::string &getFmtStr() { return FmtStr; }
+  //  std::string &getFmtStr() { return FmtStr; }
   void replaceStr(std::string &s, std::string Src, std::string New,
-		  size_t initPos = 0);  
+		  size_t initPos = 0) const;  
   void parseOperandsFmts();
+  void emitAssembly(std::list<std::string>* Operands, SemanticIterator SI,
+		    std::ostream& S) const;
 
  private:
   std::vector<const Tree *> Semantic;
   const std::string Name;
   CostType Cost;
   // ArchC related information
-  std::string OperandFmts, FmtStr;
+  std::string OperandFmts; //FmtStr;
+  const std::string Mnemonic;
   InsnFormat *IF;
   std::vector<InsnOperand *> Operands;
 };

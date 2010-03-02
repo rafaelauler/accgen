@@ -54,16 +54,16 @@ define registers CPSRbitC:bit as ( C );  // bit Carry
 
 // Add instruction with two registers operands
 define instruction add1 semantic as (
-  (transfer Op3:GPR (+ Op1:GPR Op2:GPR));
+  (transfer Op3:GPR (+ Op4:GPR Op5:GPR));
 ) cost 1;
 
 //Add instruction with immediate operand
 define instruction add3 semantic as (
-  (transfer Op3:GPR (+ Op1:GPR Op2:immed));
+  (transfer Op3:GPR (+ Op4:GPR Op5:immed));
 ) cost 1;
 
 define instruction eor1 semantic as (
-  (transfer Op3:GPR (xor Op1:GPR Op2:GPR));
+  (transfer Op3:GPR (xor Op4:GPR Op5:GPR));
 ) cost 1;
 
 translate (transfer a3:regs (+ a1:immed a2:immed));

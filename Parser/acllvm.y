@@ -99,15 +99,16 @@ translate:         TRANSLATE exp SEMICOLON
 				R->Instructions->begin(), 
 				E = R->Instructions->end(); I != E; ++I)
 			   {			     
-			     std::cout << "Operands for this insn: ";
-			     for (NameListType::const_iterator I2 = 
-				    (*I1)->begin(), E2 = (*I1)->end();
-				  I2 != E2; ++I2) {
-			       std::cout << *I2 << " ";
-			     }
-			     std::cout << "\n";
+			     //std::cout << "Operands for this insn: ";
+			     //for (NameListType::const_iterator I2 = 
+			     //    (*I1)->begin(), E2 = (*I1)->end();
+			     //	  I2 != E2; ++I2) {
+			     //  std::cout << *I2 << " ";
+			     //}
+			     //std::cout << "\n";
+			     I->first->emitAssembly(*I1, I->second, std::cout);
 			     ++I1;
-			     (I->first)->print(std::cout);
+			     //(I->first)->print(std::cout);
 			   }
 		       }
 		       delete R;
