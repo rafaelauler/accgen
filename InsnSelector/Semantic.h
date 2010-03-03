@@ -42,6 +42,10 @@ namespace backendgen {
 
     // We may have several operand types, albeit some predefined
     // values exist.
+    enum KnownTypes {IntType=1, LastType};
+
+    const std::string IntTypeStr = "int";
+
     struct OperandType {
       unsigned int Type;
       unsigned int Size;
@@ -109,6 +113,8 @@ namespace backendgen {
       Register(const std::string &RegName);
       void addSubClass(Register *Reg);
       const std::string &getName();
+      std::list<Register*>::const_iterator getSubsBegin() const;
+      std::list<Register*>::const_iterator getSubsEnd() const;
     private:
       std::string Name;
       std::list<Register*> SubClasses;      
@@ -122,6 +128,8 @@ namespace backendgen {
       bool addRegister(Register *Reg);
       const std::string &getName() const;
       OperandType getOperandType() const;
+      std::set<Register*>::const_iterator getBegin() const;
+      std::set<Register*>::const_iterator getEnd() const;
     private:
       std::set<Register *> Registers;    
       std::string Name;
@@ -136,6 +144,10 @@ namespace backendgen {
       bool addRegister(Register *Reg);
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
+      std::set<RegisterClass*>::const_iterator getBegin() const;
+      std::set<RegisterClass*>::const_iterator getEnd() const;
+      std::set<Register*>::const_iterator getRegsBegin() const;
+      std::set<Register*>::const_iterator getRegsEnd() const;
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;

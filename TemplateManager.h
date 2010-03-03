@@ -7,7 +7,10 @@
 #define TEMPLATEMANAGER_H
 
 //==-- includes --==//
-#include <stdlib.h>
+#include "InsnSelector/TransformationRules.h"
+#include "InsnSelector/Semantic.h"
+#include "InsnSelector/Search.h"
+#include <cstdlib>
 
 //==-- Class prototypes --==//
 
@@ -18,15 +21,25 @@ class TemplateManager {
   // given architecture
   const char * ArchName;
   int NumRegs;
+  TransformationRules& RuleManager;
+  InstrManager& InstructionManager;
+  RegClassManager& RegisterClassManager;
+  OperandTableManager& OperandTable;
   // Working directory where macro files are created and output
   // is stored.
   const char * WorkingDir;
   
   // Private members
   void CreateM4File();
-  
+  std::string generateRegistersDefinitions();
+  std::string generateRegisterClassesDefinitions();
+
  public:
-  explicit TemplateManager(): ArchName(NULL), NumRegs(0), WorkingDir(NULL) {}
+  explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
+			   RegClassManager& RM, OperandTableManager &OM):
+    ArchName(NULL), NumRegs(0), WorkingDir(NULL),
+    RuleManager(TR), InstructionManager(IM), RegisterClassManager(RM),
+    OperandTable(OM) {}
   ~TemplateManager() {}
 
   void SetArchName (const char * name) { ArchName = name; }

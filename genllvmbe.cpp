@@ -20,6 +20,7 @@
 #include "ArchEmitter.h"
 #include "TemplateManager.h"
 #include "CMemWatcher.h"
+#include "InsnSelector/Semantic.h"
 #include <map>
 
 extern "C" { 
@@ -32,6 +33,9 @@ extern int yybeparse();
 
 // Defined in semantics parser 
 extern backendgen::InstrManager InstructionManager;
+extern backendgen::expression::OperandTableManager OperandTable;
+extern backendgen::TransformationRules RuleManager;
+extern backendgen::expression::RegClassManager RegisterManager;
 
 char *file_name = NULL; /* name of the main ArchC file */
 char *isa_filename_with_path = NULL;
@@ -382,7 +386,8 @@ int main(int argc, char **argv) {
   O.close();
 
   // Create LLVM backend files based on template files
-  TemplateManager TM;
+  TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
+		     OperandTable);
   TM.SetArchName("sparc16");
   TM.SetNumRegs(32);
   TM.SetWorkingDir(TmpDir);

@@ -38,13 +38,22 @@ namespace backendgen {
 	OperandType NewType;
 
 	NewType.Size = 32;
-	NewType.Type = hash<std::string>(Name);	
-	NewType.DataType = NewType.Type;
+
+	// Try to recognize known types and use the adequate code
+	if (Name == IntTypeStr)
+	  NewType.Type = IntType;
+	else {
+	  NewType.Type = hash<std::string>(Name);	
+	  if (NewType.Type < LastType)
+	    NewType.Type += LastType;
+	}
 
 	// Avoiding collisions
 	while (ReverseTypeMap.find(NewType) != ReverseTypeMap.end()) {
 	  ++NewType.Type;	  
 	}
+
+	NewType.DataType = NewType.Type;
 	
 	TypeMap[Name] = NewType;
 	ReverseTypeMap[NewType] = Name;
@@ -178,6 +187,14 @@ namespace backendgen {
       SubClasses.push_back(Reg);
     }
 
+    std::list<Register*>::const_iterator Register::getSubsBegin() const {
+      return SubClasses.begin();
+    }
+    
+    std::list<Register*>::const_iterator Register::getSubsEnd() const {
+      return SubClasses.end();
+    }
+
     const std::string &Register::getName() {
       return Name;
     }
@@ -205,6 +222,15 @@ namespace backendgen {
     OperandType RegisterClass::getOperandType() const {
       return Type;
     }
+    
+    std::set<Register*>::const_iterator RegisterClass::getBegin() const {
+      return Registers.begin();
+    }
+    
+    std::set<Register*>::const_iterator RegisterClass::getEnd() const {
+      return Registers.end();
+    }
+
 
     // RegClassManager member functions
 
@@ -253,6 +279,24 @@ namespace backendgen {
 	    return pointer;
 	}
       return NULL;    
+    }
+
+    std::set<RegisterClass*>::const_iterator RegClassManager::getBegin() const
+    {
+      return RegClasses.begin();
+    }
+
+    std::set<RegisterClass*>::const_iterator RegClassManager::getEnd() const 
+    {
+      return RegClasses.end();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getRegsBegin() const {
+      return Registers.begin();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getRegsEnd() const {
+      return Registers.end();
     }
 
     // RegisterOperand member functions
