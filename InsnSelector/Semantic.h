@@ -126,6 +126,7 @@ namespace backendgen {
       RegisterClass(const std::string &ClassName);
       RegisterClass(const std::string &ClassName, const OperandType &OpType);
       bool addRegister(Register *Reg);
+      bool hasRegister(Register *Reg);
       const std::string &getName() const;
       OperandType getOperandType() const;
       std::set<Register*>::const_iterator getBegin() const;
@@ -142,15 +143,24 @@ namespace backendgen {
       ~RegClassManager();
       bool addRegClass(RegisterClass *RegClass);
       bool addRegister(Register *Reg);
+      bool addCalleeSaveRegister(Register *Reg);
+      bool addReservedRegister(Register *Reg);
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
+      RegisterClass *getRegRegClass(Register* Reg);
       std::set<RegisterClass*>::const_iterator getBegin() const;
       std::set<RegisterClass*>::const_iterator getEnd() const;
       std::set<Register*>::const_iterator getRegsBegin() const;
       std::set<Register*>::const_iterator getRegsEnd() const;
+      std::set<Register*>::const_iterator getReservedBegin() const;
+      std::set<Register*>::const_iterator getReservedEnd() const;
+      std::set<Register*>::const_iterator getCalleeSBegin() const;
+      std::set<Register*>::const_iterator getCalleeSEnd() const;
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;
+      std::set<Register *> CalleeSaveRegisters;
+      std::set<Register *> ReservedRegisters;
     };
 
     // Special class of operand:  a register class

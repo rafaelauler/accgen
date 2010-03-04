@@ -36,6 +36,12 @@ void TemplateManager::CreateM4File()
   O << generateRegistersDefinitions() << "')m4_dnl\n";
   O << "m4_define(`__register_classes__',`";
   O << generateRegisterClassesDefinitions() << "')m4_dnl\n";
+  O << "m4_define(`__callee_saved_reg_list__',`";
+  O << generateCalleeSaveList() << "')m4_dnl\n";
+  O << "m4_define(`__callee_saved_reg_classes_list__',`";
+  O << generateCalleeSaveRegClasses() << "')m4_dnl\n";
+  O << "m4_define(`__reserved_list__',`";
+  O << generateReservedRegsList() << "')m4_dnl\n";
 }
 
 // Inline helper procedure to write a register definition into tablegen
@@ -96,6 +102,55 @@ inline std::string InferValueType(RegisterClass *RC) {
   return std::string("**UNKNOWN**");
 }
 
+// Generates the list used in XXXRegisterInfo.cpp
+std::string TemplateManager::generateCalleeSaveList() {
+  std::stringstream SS;
+
+  SS << "static const unsigned CalleeSavedRegs[] = {";
+
+  for (std::set<Register*>::const_iterator 
+	 I = RegisterClassManager.getCalleeSBegin(),
+	 E = RegisterClassManager.getCalleeSEnd(); I != E; ++I) {
+    SS << ArchName << "::" << (*I)->getName() << ", ";
+  }
+  SS << "0};";
+  return SS.str();
+}
+
+// Helper function for generateCalleeSaveRegClasses()
+inline std::string TemplateManager::getRegisterClass(Register* Reg) {
+  RegisterClass* RC = RegisterClassManager.getRegRegClass(Reg);
+  assert (RC != NULL && "Register has no associated Register Class");
+  return RC->getName();
+}
+
+// Generates list used in XXXRegisterInfo.cpp
+std::string TemplateManager::generateCalleeSaveRegClasses() {
+  std::stringstream SS;
+
+  SS << "static const TargetRegisterClass * const CalleeSavedRC[] = {";
+
+  for (std::set<Register*>::const_iterator 
+	 I = RegisterClassManager.getCalleeSBegin(),
+	 E = RegisterClassManager.getCalleeSEnd(); I != E; ++I) {
+    SS << "&" << ArchName << "::" << getRegisterClass(*I) << ",";
+  }
+  SS << "0};";
+  return SS.str();
+}
+
+// Generates a reserved regs list code used in XXXRegisterInfo.cpp
+std::string TemplateManager::generateReservedRegsList() {
+  std::stringstream SS;
+
+  for (std::set<Register*>::const_iterator
+	 I = RegisterClassManager.getReservedBegin(),
+	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {
+    SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");\n";
+  }
+  return SS.str();
+}
+
 // Generates the XXXRegisterInfo.td register classes
 std::string TemplateManager::generateRegisterClassesDefinitions() {
   std::stringstream SS;
@@ -131,6 +186,10 @@ void TemplateManager::CreateBackendFiles()
   std::string MacroFileName = WorkingDir;
   std::string RegisterInfoIn = "./template/XXXRegisterInfo.td";
   std::string RegisterInfoOut = WorkingDir;
+  std::string RegisterInfo2In = "./template/XXXRegisterInfo.cpp";
+  std::string RegisterInfo2Out = WorkingDir;
+  std::string RegisterInfo3In = "./template/XXXRegisterInfo.h";
+  std::string RegisterInfo3Out = WorkingDir;
   std::string CMakeListsIn = "./template/CMakeLists.txt";
   std::string CMakeListsOut = WorkingDir;
   std::string MakefileIn = "./template/Makefile";
@@ -140,6 +199,12 @@ void TemplateManager::CreateBackendFiles()
   RegisterInfoOut += "/";
   RegisterInfoOut += ArchName;
   RegisterInfoOut += "RegisterInfo.td";
+  RegisterInfo2Out += "/";
+  RegisterInfo2Out += ArchName;
+  RegisterInfo2Out += "RegisterInfo.cpp";
+  RegisterInfo3Out += "/";
+  RegisterInfo3Out += ArchName;
+  RegisterInfo3Out += "RegisterInfo.h";
   CMakeListsOut += "/CMakeLists.txt";
   MakefileOut += "/Makefile";
 
@@ -147,11 +212,23 @@ void TemplateManager::CreateBackendFiles()
   // into templates
   CreateM4File();
 
-  // Creates XXXRegisterInfo.td file
+  // Creates XXXRegisterInfo.td, h, cpp files
   ret = system(("m4 -P " + MacroFileName + " " + RegisterInfoIn +
 		" > " + RegisterInfoOut).c_str());
   if (WEXITSTATUS(ret) != 0) {
     std::cout << "Erro ao criar arquivo XXXRegisterInfo.td\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + RegisterInfo2In +
+		" > " + RegisterInfo2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXRegisterInfo.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + RegisterInfo3In +
+		" > " + RegisterInfo3Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXRegisterInfo.h\n";
     exit(1);
   }
 

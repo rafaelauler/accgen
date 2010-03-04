@@ -214,6 +214,10 @@ namespace backendgen {
     bool RegisterClass::addRegister(Register *Reg) {
       return Registers.insert(Reg).second;
     }
+
+    bool RegisterClass::hasRegister(Register *Reg) {
+      return (Registers.find(Reg) != Registers.end());
+    }
     
     const std::string &RegisterClass::getName() const {
       return Name;
@@ -259,6 +263,19 @@ namespace backendgen {
       return Registers.insert(Reg).second;
     }
 
+    // Adds one register to the list of callee saved registers.
+    // This register must also exist in the normal register list, 
+    // as this is the list used for registers definitions in the LLVM backend.
+    bool RegClassManager::addCalleeSaveRegister(Register *Reg) {
+      return CalleeSaveRegisters.insert(Reg).second;
+    }
+
+    // Adds one register to the list of reserved registers. Same restrictions
+    // above apply.
+    bool RegClassManager::addReservedRegister(Register *Reg) {
+      return ReservedRegisters.insert(Reg).second;
+    }
+
     RegisterClass *RegClassManager::getRegClass(const std::string &ClassName) {
       for (std::set<RegisterClass*>::iterator I = RegClasses.begin(),
 	     E = RegClasses.end(); I != E; ++I)
@@ -281,6 +298,17 @@ namespace backendgen {
       return NULL;    
     }
 
+    RegisterClass *RegClassManager::getRegRegClass(Register* Reg) {
+      for (std::set<RegisterClass*>::iterator I = RegClasses.begin(),
+	     E = RegClasses.end(); I != E; ++I)
+	{
+	  RegisterClass *pointer = *I;
+	  if (pointer->hasRegister(Reg))
+	    return pointer;
+	}
+      return NULL;
+    }     
+
     std::set<RegisterClass*>::const_iterator RegClassManager::getBegin() const
     {
       return RegClasses.begin();
@@ -298,6 +326,27 @@ namespace backendgen {
     std::set<Register*>::const_iterator RegClassManager::getRegsEnd() const {
       return Registers.end();
     }
+
+    std::set<Register*>::const_iterator RegClassManager::getReservedBegin()
+      const {
+      return ReservedRegisters.begin();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getReservedEnd() 
+      const {
+      return ReservedRegisters.end();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getCalleeSBegin()
+      const {
+      return CalleeSaveRegisters.begin();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getCalleeSEnd() 
+      const {
+      return CalleeSaveRegisters.end();
+    }
+
 
     // RegisterOperand member functions
 

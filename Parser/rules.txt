@@ -52,6 +52,13 @@ define registers CPSRbitV:bit as ( V );  // bit Overflow
 define registers CPSRbitZ:bit as ( Z );  // bit Zero
 define registers CPSRbitC:bit as ( C );  // bit Carry
 
+//===-- ABI stuff --===//
+
+define abi as (
+  define callee save registers as (r5   r6   r7);
+  define reserved registers as    (r29  r30  r31);
+);
+
 // Add instruction with two registers operands
 define instruction add1 semantic as (
   (transfer Op3:GPR (+ Op4:GPR Op5:GPR));

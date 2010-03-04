@@ -53,6 +53,26 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return SEMANTIC;
 }
 
+<INITIAL>"abi" {
+  yylval->num = 0;
+  return ABI;
+}
+
+<INITIAL>"callee" {
+  yylval->num = 0;
+  return CALLEE;
+}
+
+<INITIAL>"save" {
+  yylval->num = 0;
+  return SAVE;
+}
+
+<INITIAL>"reserved" {
+  yylval->num = 0;
+  return RESERVED;
+}
+
 <INITIAL>"instruction" {
   yylval->num = 0;
   return INSTRUCTION;

@@ -55,8 +55,9 @@ void yyerror(char *error);
 
 %token<str> ID OPERATOR
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
-%token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY
+%token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
+%token<num> CALLEE SAVE RESERVED
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -76,6 +77,7 @@ statement:         ruledef       {}
                    | operanddef  {}
                    | regclassdef {}
                    | semanticdef {}
+                   | abidef      {}
                    | translate   {}
                    | error       {} 
                    ;
@@ -204,6 +206,37 @@ operanddef: DEFINE OPERAND ID AS SIZE NUM SEMICOLON
 	       free($8);
              }
           ;
+
+/* ABI Stuff definition - CalleeSave and Reserved Registers lists */
+
+abidef:      DEFINE ABI AS LPAREN abistufflist RPAREN SEMICOLON
+             ;
+
+abistufflist: /* empty */
+              | abistufflist abistuff
+              ;
+
+abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
+             {
+               int I = RegStack.size() - 1;
+               while (I >= 0) {
+                 Register *Reg = RegStack.top();
+                 RegStack.pop();
+                 RegisterManager.addCalleeSaveRegister(Reg);
+                 --I;
+               }
+             }
+             | DEFINE RESERVED REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
+             {
+               int I = RegStack.size() - 1;
+               while (I >= 0) {
+                 Register *Reg = RegStack.top();
+                 RegStack.pop();
+                 RegisterManager.addReservedRegister(Reg);
+                 --I;
+               }
+             }
+             ;
 
 /* Register class definition. */
 
