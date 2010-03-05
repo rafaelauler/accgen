@@ -80,6 +80,67 @@ namespace backendgen {
     return atoi(OpName.substr(idx).c_str());
   }
 
+  // Extract all defined operands in this instructions (outs)
+  std::list<const Tree*>* Instruction::getOuts() {
+    std::list<const Tree*>* Result = new std::list<const Tree*>();
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = Semantic.begin(), E = Semantic.end();
+	 I != E; ++I) {
+      const Operator OP = dynamic_cast<const Operator*>(*I);
+      assert (OP != NULL && "Semantics top level node must be an operator");
+      assert (OP->getType() == AssignOp && 
+	      "Semantics top level operator must be transfer");
+      // First operand of a transfer operator will give us the destination.
+      // This destination is a instruction definition, thus must be
+      // member of outs
+      Result->push_back((*OP)[0]);
+    }
+    return Result;
+  }
+
+  class OperandsComparator {
+    bool operator() (const Operand* A, const Operand* B) const {
+      const unsigned Anum = ExtractOperandNumber(A->getOperandName());
+      const unsigned Bnum = ExtractOperandNumber(B->getOperandName());
+      return Anum < Bnum;
+    }
+  }
+
+  // Extract all used operands in this instruction (ins)
+  std::list<const Operand*>* Instruction::getIns() {
+    std::list<const Operand*> Result;
+    // For each operand, tries to discover its type (find the corresponding
+    // node in all semantic trees). If not found, it is never used and
+    // not considered a valid operand. Thus, the generated assembly format
+    // must already provide some value for this never used operand.
+    for (SemanticIterator I = Semantic.begin(), E = Semantic.end();
+	 I != E; ++I) {
+      std::list<const Tree*> Queue;
+      Queue.push_back(*I);
+      while (Queue.size() > 0) {
+	const Tree* Element = Queue.front();
+	Queue.pop_front();
+	const Operand* Op = dynamic_cast<const Operand*>(Element);
+	// If operand
+	if (Op != NULL) {
+	  Result.push_back(Op);
+	  continue;
+	}
+	// Otherwise we have an operator
+	const Operator* O = dynamic_cast<const Operator*>(Element);
+	assert (O != NULL && "Unexpected tree node type");
+	for (int I = 0, E = O->getArity(); I != E; ++I) {
+	  Queue.push_back((*O)[I]);
+	}
+      }
+    }
+    // Now, we should have all kinds of operands in the list, some of which,
+    // are duplicated. We sort them according to their order in the assembly
+    // syntax and eliminate duplicates.
+    sort(Result.begin(), Result.end(), OperandsComparator());
+    //unique
+  }
+
   void Instruction::emitAssembly(std::list<std::string>* Operands,
 				 SemanticIterator SI, std::ostream& S) 
     const {

@@ -60,7 +60,8 @@ void ArchEmitter::EmitFormatClass(InsnFormat &IF, std::ofstream &O, unsigned Grp
   O << std::endl << "class " << IF.getName(GrpNumber) << "<";
 
   // Emit the parameters
-  EmitDeclareClassArgs(IF, O, GrpNumber);
+  // XXX: Temporarily disabled!
+  //EmitDeclareClassArgs(IF, O, GrpNumber);
 
   // Emit the inheritance from the base format classes
   O << "dag outs, dag ins, string asmstr, list<dag> pattern>" << std::endl 
@@ -84,7 +85,8 @@ void ArchEmitter::EmitFormatClass(InsnFormat &IF, std::ofstream &O, unsigned Grp
 
   // Emit the match between the values passed as params and
   // the bit position where they belong
-  EmitDeclareMatchAttr(IF, O, GrpNumber);
+  //XXX:Temporarily disabled!
+  //EmitDeclareMatchAttr(IF, O, GrpNumber);
 
   O << "}" << std::endl;
 }

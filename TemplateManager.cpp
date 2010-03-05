@@ -178,6 +178,16 @@ std::string TemplateManager::generateRegisterClassesDefinitions() {
   return SS.str();
 }
 
+// Generate tablegen instructions definitions for XXXInstrInfo.td
+std::string TemplateManager::GenerateInstructionsDefs() {
+  std::stringstream SS;
+
+  for (InstrIterator I = InstructionManager.getBegin(), 
+	 E = InstructionManager.getEnd(); I != E; ++I) {
+    
+  }
+}
+
 // Creates LLVM backend files based on template files feeded with
 // target specific data.
 void TemplateManager::CreateBackendFiles()

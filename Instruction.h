@@ -69,6 +69,8 @@ class Instruction {
   SemanticIterator getBegin() const;
   SemanticIterator getEnd() const;
   CostType getCost() const {return Cost;}
+  const Tree* getOuts();
+  const Tree* getIns();
 
   void addOperand(InsnOperand *IO) {
     Operands.push_back(IO);
