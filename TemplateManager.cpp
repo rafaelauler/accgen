@@ -184,7 +184,8 @@ std::string TemplateManager::GenerateInstructionsDefs() {
 
   for (InstrIterator I = InstructionManager.getBegin(), 
 	 E = InstructionManager.getEnd(); I != E; ++I) {
-    
+    SS << "def " << (*I)->getName() << "\t: " << (*I)->getFormat()->getName();
+    SS << "<"
   }
 }
 
