@@ -356,6 +356,10 @@ namespace backendgen {
       MyRegClass = RegClass;      
     }
 
+    const RegisterClass* RegisterOperand::getRegisterClass() const {
+      return MyRegClass;
+    }
+
     // ImmediateOperand member functions
     ImmediateOperand::ImmediateOperand(const OperandType &Type, 
 				       const std::string &OpName):

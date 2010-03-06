@@ -61,7 +61,7 @@ class Instruction {
   void addSemantic(const Tree * Expression);
   Instruction(const std::string name, const std::string operandFmts,
 	      InsnFormat *insnFormat, const std::string Mnemonic) : 
-    Name(name), OperandFmts(operandFmts), IF(insnFormat), Mnemonic(Mnemonic) {}
+    Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {}
   void setCost(const CostType Cost) {this->Cost = Cost;}
   ~Instruction();
   std::string getName() const;
@@ -69,8 +69,9 @@ class Instruction {
   SemanticIterator getBegin() const;
   SemanticIterator getEnd() const;
   CostType getCost() const {return Cost;}
-  const Tree* getOuts();
-  const Tree* getIns();
+  std::list<const Operand*>* getOuts();
+  std::list<const Operand*>* getIns();
+  std::list<const Operand*>* getOperandsBySemantic();
 
   void addOperand(InsnOperand *IO) {
     Operands.push_back(IO);
@@ -81,10 +82,9 @@ class Instruction {
   InsnOperand *getOperand(unsigned Num) { return Operands[Num]; }
   unsigned getNumOperands() const { return Operands.size(); }
   std::string &getOperandsFmts() { return OperandFmts; }
-  //  std::string &getFmtStr() { return FmtStr; }
   void replaceStr(std::string &s, std::string Src, std::string New,
 		  size_t initPos = 0) const;  
-  void parseOperandsFmts();
+  std::string parseOperandsFmts();
   void emitAssembly(std::list<std::string>* Operands, SemanticIterator SI,
 		    std::ostream& S) const;
 

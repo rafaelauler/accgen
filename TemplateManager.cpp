@@ -1,10 +1,11 @@
 //==-- TemplateManager.cpp
-// Uses template files (living in ../template) to produce code to the
+// Uses template files (living in ./template) to produce code to the
 // LLVM backend. Manages data necessary to transform template into 
 // specific code to the target architecture.
 
 
 #include "TemplateManager.h"
+#include "InsnFormat.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -42,6 +43,8 @@ void TemplateManager::CreateM4File()
   O << generateCalleeSaveRegClasses() << "')m4_dnl\n";
   O << "m4_define(`__reserved_list__',`";
   O << generateReservedRegsList() << "')m4_dnl\n";
+  O << "m4_define(`__instructions_definitions__',`";
+  O << generateInstructionsDefs() << "')m4_dnl\n";
 }
 
 // Inline helper procedure to write a register definition into tablegen
@@ -89,10 +92,23 @@ std::string TemplateManager::generateRegistersDefinitions() {
   return SS.str();
 }
 
-inline std::string InferValueType(RegisterClass *RC) {
+inline std::string InferValueType(const RegisterClass *RC) {
   if (RC->getOperandType().DataType == IntType) {
     std::stringstream SS;
     SS << "i" << RC->getOperandType().Size;
+    return SS.str();
+  }
+
+  // Should not reach here!
+  assert(0 && "Unknown data type!");
+
+  return std::string("**UNKNOWN**");
+}
+
+inline std::string InferValueType(const Operand *O) {
+  if (O->getDataType() == IntType) {
+    std::stringstream SS;
+    SS << "i" << O->getSize();
     return SS.str();
   }
 
@@ -179,14 +195,55 @@ std::string TemplateManager::generateRegisterClassesDefinitions() {
 }
 
 // Generate tablegen instructions definitions for XXXInstrInfo.td
-std::string TemplateManager::GenerateInstructionsDefs() {
+std::string TemplateManager::generateInstructionsDefs() {
   std::stringstream SS;
 
   for (InstrIterator I = InstructionManager.getBegin(), 
 	 E = InstructionManager.getEnd(); I != E; ++I) {
     SS << "def " << (*I)->getName() << "\t: " << (*I)->getFormat()->getName();
-    SS << "<"
+    SS << "<(outs ";
+    std::list<const Operand*> *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
+    // Prints all defined operands (outs)
+    for (std::list<const Operand*>::const_iterator I2 = Outs->begin(),
+	   E2 = Outs->end(); I2 != E2; ++I2) {
+   
+      if (I2 != Outs->begin())
+	SS << ",";
+      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(*I2);
+      assert (RO != NULL && "Defined operand must be a register");
+      SS << RO->getRegisterClass()->getName();
+      SS << ":$" << RO->getOperandName();
+    }
+    delete Outs;
+    SS << "), (ins ";
+    // Prints all used operands (ins)
+    int DummyIndex = 1;
+    for (std::list<const Operand*>::const_iterator I2 = Ins->begin(),
+	   E2 = Ins->end(); I2 != E2; ++I2) {
+      if (I2 != Ins->begin())
+	SS << ",";
+      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(*I2);
+      // If not a register, treat it as immediate
+      if (RO == NULL) {
+	// Type 0 is a reserved value for "dummy operand", meaning we don't
+	// know what kind this operand is (it is never mentioned in the 
+	// semantic tree).
+	if ((*I2)->getType() == 0) {
+	  SS << "i32imm:$dummy" << DummyIndex++;
+	} else {
+	  SS << InferValueType(*I2) << "imm";
+	  SS << ":$" << (*I2)->getOperandName();
+	}
+	continue;
+      } 
+      SS << RO->getRegisterClass()->getName();
+      SS << ":$" << RO->getOperandName();
+    }
+    delete Ins;
+    SS << "), \"" << (*I)->parseOperandsFmts() << "\", []>;\n";
   }
+
+  return SS.str();
 }
 
 // Creates LLVM backend files based on template files feeded with
@@ -201,6 +258,8 @@ void TemplateManager::CreateBackendFiles()
   std::string RegisterInfo2Out = WorkingDir;
   std::string RegisterInfo3In = "./template/XXXRegisterInfo.h";
   std::string RegisterInfo3Out = WorkingDir;
+  std::string InstrInfoIn = "./template/XXXInstrInfo.td";
+  std::string InstrInfoOut = WorkingDir;
   std::string CMakeListsIn = "./template/CMakeLists.txt";
   std::string CMakeListsOut = WorkingDir;
   std::string MakefileIn = "./template/Makefile";
@@ -216,6 +275,9 @@ void TemplateManager::CreateBackendFiles()
   RegisterInfo3Out += "/";
   RegisterInfo3Out += ArchName;
   RegisterInfo3Out += "RegisterInfo.h";
+  InstrInfoOut += "/";
+  InstrInfoOut += ArchName;
+  InstrInfoOut += "InstrInfo.td";
   CMakeListsOut += "/CMakeLists.txt";
   MakefileOut += "/Makefile";
 
@@ -240,6 +302,14 @@ void TemplateManager::CreateBackendFiles()
 		" > " + RegisterInfo3Out).c_str());
   if (WEXITSTATUS(ret) != 0) {
     std::cout << "Erro ao criar arquivo XXXRegisterInfo.h\n";
+    exit(1);
+  }
+
+  // Creates XXXInstrInfo.td, h, cpp files
+  ret = system(("m4 -P " + MacroFileName + " " + InstrInfoIn +
+		" > " + InstrInfoOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXInstrInfo.td\n";
     exit(1);
   }
 

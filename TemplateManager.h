@@ -37,6 +37,7 @@ class TemplateManager {
   std::string generateCalleeSaveList();
   std::string generateCalleeSaveRegClasses();
   std::string generateReservedRegsList();
+  std::string generateInstructionsDefs();
 
   // Private helper functions
   std::string getRegisterClass(Register* Reg);
@@ -44,8 +45,8 @@ class TemplateManager {
  public:
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
 			   RegClassManager& RM, OperandTableManager &OM):
-    NumRegs(0), WorkingDir(NULL), RuleManager(TR), InstructionManager(IM),
-    RegisterClassManager(RM), OperandTable(OM) {}
+    NumRegs(0), RuleManager(TR), InstructionManager(IM),
+      RegisterClassManager(RM), OperandTable(OM), WorkingDir(NULL) {}
   ~TemplateManager() {}
 
   void SetArchName (const char * name) { 

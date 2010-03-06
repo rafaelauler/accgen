@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 #include "Instruction.h"
 #include "InsnFormat.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cassert>
 
@@ -54,18 +55,28 @@ namespace backendgen {
     s.insert(pos, New);
   }
 
-  void Instruction::parseOperandsFmts() {
-    replaceStr(OperandFmts, "\\\\%lo(%)", "%");
-    replaceStr(OperandFmts, "\\\\%hi(%)", "%");
-    
-    unsigned OpNum = 0;
-    while (OpNum != getNumOperands()) {
-      std::string New = std::string("$");
-      New.append(getOperand(OpNum)->getName());
-      replaceStr(OperandFmts, "%", New);
-      //std::cout << OperandFmts << std::endl;
-      OpNum++;
+  typedef std::list<const Operand*>::iterator ConstOpIt;
+
+  static const Operand DummyOperand(OperandType(0,0,0), "dummy");
+
+  std::string Instruction::parseOperandsFmts() {
+    std::string Result(OperandFmts);
+    replaceStr(Result, "\\\\%lo(%)", "%");
+    replaceStr(Result, "\\\\%hi(%)", "%");
+
+    int DummyIndex = 1;
+    std::list<const Operand*>* ListOps = getOperandsBySemantic();  
+    Result.insert(0, Mnemonic);
+    for (ConstOpIt I = ListOps->begin(), E = ListOps->end(); I != E; ++I) {
+      std::string New = std::string("${");
+      New.append((*I)->getOperandName());
+      if (*I == &DummyOperand)
+	New.append(getStrForInteger(DummyIndex++));
+      New.append("}");
+      replaceStr(Result, "%", New);
     }
+    delete ListOps;
+    return Result;
   }
   
   std::string Instruction::getName() const {
@@ -81,34 +92,77 @@ namespace backendgen {
   }
 
   // Extract all defined operands in this instructions (outs)
-  std::list<const Tree*>* Instruction::getOuts() {
-    std::list<const Tree*>* Result = new std::list<const Tree*>();
+  std::list<const Operand*>* Instruction::getOuts() {
+    std::list<const Operand*>* Result = new std::list<const Operand*>();
     // We extract this information from our semantics forest.
     for (SemanticIterator I = Semantic.begin(), E = Semantic.end();
 	 I != E; ++I) {
-      const Operator OP = dynamic_cast<const Operator*>(*I);
+      const Operator *OP = dynamic_cast<const Operator*>(*I);
       assert (OP != NULL && "Semantics top level node must be an operator");
       assert (OP->getType() == AssignOp && 
 	      "Semantics top level operator must be transfer");
       // First operand of a transfer operator will give us the destination.
       // This destination is a instruction definition, thus must be
       // member of outs
-      Result->push_back((*OP)[0]);
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);
+      assert (Oper != NULL && "Transfer first child is not an operand");
+      Result->push_back(Oper);
     }
     return Result;
   }
 
+  // Our binary predicate to compare two operands
   class OperandsComparator {
+  public:
+    
     bool operator() (const Operand* A, const Operand* B) const {
       const unsigned Anum = ExtractOperandNumber(A->getOperandName());
       const unsigned Bnum = ExtractOperandNumber(B->getOperandName());
       return Anum < Bnum;
     }
-  }
+  };
+
+  // Our binary predicate to decide if two operands are equal
+  class OperandsEqual {
+  public:
+    bool operator() (const Operand* A, const Operand* B) const {
+      const unsigned Anum = ExtractOperandNumber(A->getOperandName());
+      const unsigned Bnum = ExtractOperandNumber(B->getOperandName());
+      return Anum == Bnum;
+    }
+  };
+
+  // Our functor (unary predicate) to decide if an element is member
+  // of a predefined container
+  template <template <class Element, class Alloc> class Container,
+	    class Element>
+  class IsMemberOf {
+    Container<Element, std::allocator<Element> >* list;
+  public:
+    IsMemberOf(Container<Element, std::allocator<Element> >* list):
+	       list(list) {}
+    bool operator() (Element& A) {
+      return (std::find(list->begin(), list->end(), A) != list->end());
+    } 
+  };
 
   // Extract all used operands in this instruction (ins)
   std::list<const Operand*>* Instruction::getIns() {
-    std::list<const Operand*> Result;
+    std::list<const Operand*>* Result = getOperandsBySemantic();
+    // Now we remove the defined nodes from this list, leaving the
+    // used (ins) operands
+    std::list<const Operand*>* Outs = getOuts();
+    ConstOpIt pos;
+    pos = std::remove_if(Result->begin(), Result->end(),
+			 IsMemberOf<std::list, const Operand*>(Outs));
+    Result->erase(pos, Result->end());
+    delete Outs;
+    return Result;
+  }
+
+  // Extract all operands (leaf nodes) from this instruction semantic forest
+  std::list<const Operand*>* Instruction::getOperandsBySemantic() {
+    std::list<const Operand*>* Result = new std::list<const Operand*>();
     // For each operand, tries to discover its type (find the corresponding
     // node in all semantic trees). If not found, it is never used and
     // not considered a valid operand. Thus, the generated assembly format
@@ -123,7 +177,7 @@ namespace backendgen {
 	const Operand* Op = dynamic_cast<const Operand*>(Element);
 	// If operand
 	if (Op != NULL) {
-	  Result.push_back(Op);
+	  Result->push_back(Op);	  
 	  continue;
 	}
 	// Otherwise we have an operator
@@ -137,8 +191,39 @@ namespace backendgen {
     // Now, we should have all kinds of operands in the list, some of which,
     // are duplicated. We sort them according to their order in the assembly
     // syntax and eliminate duplicates.
-    sort(Result.begin(), Result.end(), OperandsComparator());
-    //unique
+    {
+      // FIXME: If we need a vector to sort, always use a vector!
+      std::vector<const Operand*> Temp;
+      Temp.reserve(Result->size());
+      std::copy(Result->begin(), Result->end(), back_inserter(Temp));
+      Result->clear();
+      std::sort(Temp.begin(), Temp.end(), OperandsComparator());
+      std::unique(Temp.begin(), Temp.end(), OperandsEqual());
+      std::copy(Temp.begin(), Temp.end(), back_inserter(*Result));
+     
+    }
+
+    // For each missing operand, we insert a dummy operand just to fill
+    // the position and correctly order remaining defined operands
+    for (std::list<const Operand*>::iterator I = Result->begin(),
+	   E = Result->end(), C = Result->end(); I !=  E; C = I++) {
+      if (C == Result->end())
+	continue;
+      const int Diff = ExtractOperandNumber((*I)->getOperandName()) -
+	ExtractOperandNumber((*C)->getOperandName()) - 1;
+      if (Diff > 0) 
+	Result->insert(I, Diff, &DummyOperand);
+    }
+    if (Result->begin() != Result->end()) {
+      const int Diff = ExtractOperandNumber((*(Result->begin()))
+					    ->getOperandName()) - 1;
+      Result->insert(Result->begin(), Diff, &DummyOperand);
+    }
+    const int Diff = getNumOperands() - Result->size();
+    if (Diff > 0)
+      Result->insert(Result->end(), Diff, &DummyOperand);
+
+    return Result;
   }
 
   void Instruction::emitAssembly(std::list<std::string>* Operands,

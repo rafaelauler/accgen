@@ -50,6 +50,9 @@ namespace backendgen {
       unsigned int Type;
       unsigned int Size;
       unsigned int DataType;
+      OperandType(unsigned Type, unsigned Size, unsigned DataType) :
+	Type(Type), Size(Size), DataType(DataType) {}
+      OperandType() {}
       bool operator< (const OperandType &a) const {
 	return (Type < a.Type);
       }
@@ -85,6 +88,7 @@ namespace backendgen {
       virtual unsigned getSize() const { return Type.Size; }
       virtual Node* clone() const { return new Operand(*this); }
       const std::string& getOperandName() const {return OperandName;}
+      unsigned getDataType() const { return Type.DataType; }
       void changeOperandName(const std::string &NewName) {
 	OperandName = NewName;
       }
@@ -173,6 +177,7 @@ namespace backendgen {
 	S << MyRegClass->getName() << ":" << Type.Type;
       };
       virtual Node* clone() const { return new RegisterOperand(*this); }
+      const RegisterClass *getRegisterClass() const;
     };
 
 
@@ -227,8 +232,8 @@ namespace backendgen {
     class Operator : public Node {
     public:
       // Constructor
-      Operator(OperatorType OpType): Type(OpType), Children(OpType.Arity),
-				     Node()
+      Operator(OperatorType OpType): Node(), Children(OpType.Arity),
+				     Type(OpType)
       {
 	ReturnType.Type = 0;
 	ReturnType.Size = 0;

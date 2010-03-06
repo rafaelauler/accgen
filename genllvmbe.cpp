@@ -219,7 +219,6 @@ void BuildInsn() {
   ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
   ac_operand_list *operand;
   ac_asm_insn_field *field;
-  ac_dec_instr *insn;
 
   for (; pinsn != NULL; pinsn = pinsn->next) {
 
@@ -256,7 +255,7 @@ void print_insns() {
   ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
   ac_operand_list *operand;
   ac_asm_insn_field *field;
-  ac_dec_instr *insn;
+
   for (; pinsn != NULL; pinsn = pinsn->next) {
     if (pinsn->insn == NULL) {
       std::cout << pinsn->mnemonic
@@ -331,7 +330,7 @@ void DeallocateACParser() {
     //free(pinstr->mnemonic);
     //free(pinstr->asm_str);
     free(pinstr->format);
-    ac_dec_list *plist, *pplist;
+    //ac_dec_list *plist, *pplist;
     //for (plist = pinstr->dec_list; plist != NULL && plist != (ac_dec_list*)1;
     //	 plist = pplist) {
     //  free(plist->name);

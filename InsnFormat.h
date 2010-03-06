@@ -26,7 +26,7 @@ public:
   unsigned getSizeInBits() const { return SizeInBits; }
   unsigned getStartBitPos() const { return StartBitPos; }
   unsigned getEndBitPos() const { return EndBitPos; }
-  unsigned setGroupId(unsigned Num) { GroupId = Num; }
+  void setGroupId(unsigned Num) { GroupId = Num; }
   unsigned getGroupId() { return GroupId; }
 
 private:
@@ -57,7 +57,7 @@ public:
 class InsnFormat {
 public:
   InsnFormat(const char *name, int sizeInBits) : 
-    Name(name), SizeInBits(sizeInBits), BaseLLVMFormatClassName("InstSP16") {}
+    BaseLLVMFormatClassName("InstSP16"), Name(name), SizeInBits(sizeInBits) {}
 
   // Deallocate lists
   ~InsnFormat() {
@@ -99,7 +99,7 @@ public:
     int LastFFIdx = -1, FFIdxWithMinBitPos = -1;
     bool IsInGroupCtx = false;
 
-    for (unsigned i = 0, e = Fields.size(); i != e; ++i) {
+    for (int i = 0, e = Fields.size(); i != e; ++i) {
 
       if (LastFFIdx < 0 && FFIdxWithMinBitPos < 0)
         LastFFIdx = FFIdxWithMinBitPos = i; 

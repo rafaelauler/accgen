@@ -71,9 +71,9 @@ static void my_free_hook (void *ptr, const void *caller) {
   old_free_hook = __free_hook;
   old_malloc_hook = __malloc_hook;
   // Removes this pointer from our tracking
-  for (int i = 0; i < CurPointer; ++i) {
+  for (unsigned i = 0; i < CurPointer; ++i) {
     if (AllPointers[i] == ptr) {
-      for (int i2 = i; i2 < CurPointer-1; ++i2) {
+      for (unsigned i2 = i; i2 < CurPointer-1; ++i2) {
 	AllPointers[i2] = AllPointers[i2+1];
       }
       --CurPointer;
@@ -111,7 +111,7 @@ void CMemWatcher::UninstallHooks() {
 
 void CMemWatcher::FreeAll() {
   // Deallocates everything
-  for (int i = 0; i < CurPointer; ++i) {
+  for (unsigned i = 0; i < CurPointer; ++i) {
     free(AllPointers[i]);
   }
   // Deallocated our data structures
