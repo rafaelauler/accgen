@@ -23,7 +23,7 @@ namespace llvm {
   class raw_ostream;
 
   FunctionPass *create`'__arch__`'ISelDag(`'__arch__`'TargetMachine &TM);
-  FunctionPass *create`'__arch__`'CodePrinterPass(raw_ostream &OS, TargetMachine &TM);
+  FunctionPass *create`'__arch__`'CodePrinterPass(raw_ostream &OS, __arch__`'TargetMachine &TM);
 } // end namespace llvm;
 
 // Defines symbolic names for __arch__ registers.  This defines a mapping from

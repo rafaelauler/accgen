@@ -137,8 +137,6 @@ emitFunctionStart(MachineFunction &MF)
 
   O << CurrentFnName << ":\n";
 
-  emitFrameDirective(MF);
-
   O << '\n';
 }
 
