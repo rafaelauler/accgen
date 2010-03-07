@@ -38,6 +38,7 @@ class TemplateManager {
   std::string generateCalleeSaveRegClasses();
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
+  std::string generateCallingConventions();
 
   // Private helper functions
   std::string getRegisterClass(Register* Reg);

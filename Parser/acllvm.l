@@ -63,6 +63,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return CALLEE;
 }
 
+<INITIAL>"calling" {
+  yylval->num = 0;
+  return CALLING;
+}
+
 <INITIAL>"save" {
   yylval->num = 0;
   return SAVE;
@@ -76,6 +81,21 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
 <INITIAL>"instruction" {
   yylval->num = 0;
   return INSTRUCTION;
+}
+
+<INITIAL>"return" {
+  yylval->num = 0;
+  return RETURN;
+}
+
+<INITIAL>"convention" {
+  yylval->num = 0;
+  return CONVENTION;
+}
+
+<INITIAL>"for" {
+  yylval->num = 0;
+  return FOR;
 }
 
 <INITIAL>"translate" {
@@ -126,6 +146,16 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
 <INITIAL>"size" {
   yylval->num = 0;
   return SIZE;
+}
+
+<INITIAL>"stack" {
+  yylval->num = 0;
+  return STACK;
+}
+
+<INITIAL>"alignment" {
+  yylval->num = 0;
+  return ALIGNMENT;
 }
 
 <INITIAL>"const" {

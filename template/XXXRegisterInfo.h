@@ -1,43 +1,32 @@
-//===- MipsRegisterInfo.h - Mips Register Information Impl ------*- C++ -*-===//
+//===- __arch__`'RegisterInfo.h - __arch__ Register Information Impl ------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//                     The ArchC LLVM Backend Generator
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   This file was automatically generated from an ArchC description.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the Mips implementation of the TargetRegisterInfo class.
+// This file contains the __arch__ implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MIPSREGISTERINFO_H
-#define MIPSREGISTERINFO_H
+`#ifndef '__arch_in_caps__`REGISTERINFO_H'
+`#define '__arch_in_caps__`REGISTERINFO_H'
 
-#include "Mips.h"
+`#include "'__arch__`.h"'
 #include "llvm/Target/TargetRegisterInfo.h"
-#include "MipsGenRegisterInfo.h.inc"
+`#include "'__arch__`GenRegisterInfo.h.inc"'
 
 namespace llvm {
-class MipsSubtarget;
+class __arch__`'Subtarget;
 class TargetInstrInfo;
 class Type;
 
-struct MipsRegisterInfo : public MipsGenRegisterInfo {
-  const MipsSubtarget &Subtarget;
+struct __arch__`'RegisterInfo : public __arch__`'GenRegisterInfo {
+  const __arch__`'Subtarget &Subtarget;
   const TargetInstrInfo &TII;
   
-  MipsRegisterInfo(const MipsSubtarget &Subtarget, const TargetInstrInfo &tii);
-
-  /// getRegisterNumbering - Given the enum value for some register, e.g.
-  /// Mips::RA, return the number that it corresponds to (e.g. 31).
-  static unsigned getRegisterNumbering(unsigned RegEnum);
-
-  /// Get PIC indirect call register
-  static unsigned getPICCallReg(void); 
-
-  /// Adjust the Mips stack frame.
-  void adjustMipsStackFrame(MachineFunction &MF) const;
+  __arch__`'RegisterInfo(const __arch__`'Subtarget &Subtarget, const TargetInstrInfo &tii);
 
   /// Code Generation virtual methods...
   const unsigned *getCalleeSavedRegs(const MachineFunction* MF = 0) const;

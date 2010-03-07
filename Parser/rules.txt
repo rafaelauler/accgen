@@ -57,6 +57,8 @@ define registers CPSRbitC:bit as ( C );  // bit Carry
 define abi as (
   define callee save registers as (r5   r6   r7);
   define reserved registers as    (r29  r30  r31);
+  define calling convention for int as stack size 4 alignment 4;
+  define return convention for int as (r8 r9 r10);
 );
 
 // Add instruction with two registers operands

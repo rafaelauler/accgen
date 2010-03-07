@@ -357,4 +357,17 @@ namespace backendgen {
     return Instructions.end();
   }
 
+    // Our binary predicate to compare two instructions
+  class InstructionsComparator {
+  public:
+    bool operator() (const Instruction* A, const Instruction* B) const {
+      return A->getName() < B->getName();
+    }
+  };
+
+  void InstrManager::SortInstructions() {
+    std::sort(Instructions.begin(), Instructions.end(), 
+	      InstructionsComparator());
+  }
+
 }

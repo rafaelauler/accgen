@@ -11,7 +11,7 @@
 // this code is automatically generated, there is little worry with factoring
 // out registers characteristics.
 class AReg<bits<`'m4log(__nregs__)`'> num, string n, list<Register> Alias,
-list<Register> SRegs : Register<n> {
+list<Register> SRegs> : Register<n> {
   field bits<`'m4log(__nregs__)`'> Num = num;
   let Namespace = "`'__arch__`'";
   let Aliases = Alias;

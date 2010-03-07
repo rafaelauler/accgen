@@ -248,6 +248,7 @@ void BuildInsn() {
     InstructionManager.addInstruction(I);
   }
 
+  InstructionManager.SortInstructions();
   //DebugInsn();
 }
 
@@ -381,14 +382,15 @@ int main(int argc, char **argv) {
   std::ofstream O;
   ArchEmitter AEmitter = ArchEmitter();
   O.open(FormatsFile, std::ios::out | std::ios::trunc); 
-  AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O);
+  AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O, 
+				       "Sparc16");
   O.close();
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
 		     OperandTable);
   TM.SetArchName("sparc16");
-  TM.SetNumRegs(32);
+  TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);
   TM.CreateBackendFiles();
 

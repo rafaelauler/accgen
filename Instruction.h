@@ -111,6 +111,7 @@ class InstrManager {
   void printAll(std::ostream &S);
   InstrIterator getBegin() const;
   InstrIterator getEnd() const;
+  void SortInstructions();
  private:
   std::vector<Instruction*> Instructions;
 };

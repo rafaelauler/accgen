@@ -93,7 +93,8 @@ void ArchEmitter::EmitFormatClass(InsnFormat &IF, std::ofstream &O, unsigned Grp
 
 void ArchEmitter::EmitInstrutionFormatClasses(FormatMapTy FormatMap, 
                                               std::vector<InsnFormat*> BaseFormatName,
-                                              std::ofstream &O) {
+                                              std::ofstream &O, 
+					      std::string Namespace) {
 
   // Emit declarations for all base classes!
   for (std::vector<InsnFormat*>::iterator I = BaseFormatName.begin(), 
@@ -107,7 +108,7 @@ void ArchEmitter::EmitInstrutionFormatClasses(FormatMapTy FormatMap,
 
       // The instruction format size declaration
       << "  field bits<" << IF.getSizeInBits() << "> Inst;" << std::endl
-      << "  let Namespace = \"SP16\";" << std::endl << std::endl;
+      << "  let Namespace = \"" << Namespace <<"\";" << std::endl << std::endl;
       
     // Declare the common first field
     EmitDeclareBitField(*IF.getField(0), O);

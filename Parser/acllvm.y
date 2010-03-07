@@ -57,11 +57,12 @@ void yyerror(char *error);
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
-%token<num> CALLEE SAVE RESERVED
+%token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
+%token<num> CALLING
 
 %type<treenode> exp operator;
 %type<str> oper;
-%type<num> explist;
+%type<num> explist convtype;
 
 %%
 
@@ -236,6 +237,37 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
                  --I;
                }
              }
+             | DEFINE convtype CONVENTION FOR ID AS LPAREN regdefs RPAREN 
+	       SEMICOLON
+             {
+	       CallingConvention* CC = new CallingConvention(($2 == 1)? 
+                                                             true:false, false);
+	       CC->Type = OperandTable.getType($5);
+	       free($5);
+	       int I = RegStack.size() - 1;
+	       while (I >= 0) {
+		 Register *Reg = RegStack.top();
+		 RegStack.pop();
+		 CC->addRegister(Reg);
+		 --I;
+	       }
+	       RegisterManager.addCallingConvention(CC);
+             }
+             | DEFINE convtype CONVENTION FOR ID AS STACK SIZE NUM ALIGNMENT
+               NUM SEMICOLON
+             {
+               CallingConvention* CC = new CallingConvention(($2 == 1)? 
+                                                             true:false, true);
+	       CC->Type = OperandTable.getType($5);
+	       free($5);
+	       CC->StackSize = $9;
+               CC->StackAlign = $11;
+	       RegisterManager.addCallingConvention(CC);
+             }
+             ;
+
+convtype:    RETURN { $$ = 1; }
+             | CALLING { $$ = 0; }
              ;
 
 /* Register class definition. */

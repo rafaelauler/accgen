@@ -116,7 +116,7 @@ namespace backendgen {
     public:
       Register(const std::string &RegName);
       void addSubClass(Register *Reg);
-      const std::string &getName();
+      const std::string &getName() const;
       std::list<Register*>::const_iterator getSubsBegin() const;
       std::list<Register*>::const_iterator getSubsEnd() const;
     private:
@@ -141,6 +141,29 @@ namespace backendgen {
       OperandType Type;
     };
 
+    // Defines a calling convention for a specific operand type.
+    // It has a list of what registers (or stack) can be used to
+    // send or return the parameter of this type to a function.
+    class CallingConvention {
+      std::list<const Register*> Regs;
+    public:
+      // If not return convention, calling convention is assumed.
+      bool IsReturnConvention;
+      bool UseStack;
+      unsigned StackSize;
+      unsigned StackAlign;
+      OperandType Type;
+      CallingConvention(bool IsReturnConvention, bool UseStack) : 
+	IsReturnConvention(IsReturnConvention), UseStack(UseStack) {}
+      void addRegister(const Register* Elem) {Regs.push_front(Elem);}
+      std::list<const Register*>::const_iterator getBegin() const {
+	return Regs.begin();
+      }
+      std::list<const Register*>::const_iterator getEnd() const {
+	return Regs.end();
+      }
+    };
+
     // Defines a register class manager
     class RegClassManager {
     public:
@@ -149,6 +172,7 @@ namespace backendgen {
       bool addRegister(Register *Reg);
       bool addCalleeSaveRegister(Register *Reg);
       bool addReservedRegister(Register *Reg);
+      void addCallingConvention(CallingConvention* Elem);
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
       RegisterClass *getRegRegClass(Register* Reg);
@@ -160,11 +184,14 @@ namespace backendgen {
       std::set<Register*>::const_iterator getReservedEnd() const;
       std::set<Register*>::const_iterator getCalleeSBegin() const;
       std::set<Register*>::const_iterator getCalleeSEnd() const;
+      std::list<CallingConvention*>::const_iterator getCCBegin() const;
+      std::list<CallingConvention*>::const_iterator getCCEnd() const;
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;
       std::set<Register *> CalleeSaveRegisters;
       std::set<Register *> ReservedRegisters;
+      std::list<CallingConvention*> CallConvs;
     };
 
     // Special class of operand:  a register class

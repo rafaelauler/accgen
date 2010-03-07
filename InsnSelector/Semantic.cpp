@@ -195,7 +195,7 @@ namespace backendgen {
       return SubClasses.end();
     }
 
-    const std::string &Register::getName() {
+    const std::string &Register::getName() const {
       return Name;
     }
 
@@ -253,6 +253,13 @@ namespace backendgen {
 	  RegisterClass *pointer = *I;
 	  delete pointer;
 	}
+      // Deleting all calling conventions
+      for (std::list<CallingConvention*>::iterator I = CallConvs.begin(),
+	     E = CallConvs.end(); I != E; ++I) 
+	{
+	  CallingConvention *pointer = *I;
+	  delete pointer;
+	}
     }
 
     bool RegClassManager::addRegClass(RegisterClass *RegClass) {
@@ -268,6 +275,10 @@ namespace backendgen {
     // as this is the list used for registers definitions in the LLVM backend.
     bool RegClassManager::addCalleeSaveRegister(Register *Reg) {
       return CalleeSaveRegisters.insert(Reg).second;
+    }
+
+    void RegClassManager::addCallingConvention(CallingConvention* Elem) {
+      CallConvs.push_back(Elem);
     }
 
     // Adds one register to the list of reserved registers. Same restrictions
@@ -345,6 +356,18 @@ namespace backendgen {
     std::set<Register*>::const_iterator RegClassManager::getCalleeSEnd() 
       const {
       return CalleeSaveRegisters.end();
+    }
+
+    std::list<CallingConvention*>::const_iterator
+    RegClassManager::getCCBegin()
+      const {
+      return CallConvs.begin();
+    }
+
+    std::list<CallingConvention*>::const_iterator
+    RegClassManager::getCCEnd() 
+      const {
+      return CallConvs.end();
     }
 
 

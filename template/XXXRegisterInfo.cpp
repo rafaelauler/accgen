@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "mips-reg-info"
+`#define DEBUG_TYPE "'__arch__`-reg-info"'
 
 `#include "'__arch__`.h"'
 `#include "'__arch__`'Subtarget.h"
@@ -135,139 +135,47 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);
 }
 
-void MipsRegisterInfo::
+void __arch__`'RegisterInfo::
 emitPrologue(MachineFunction &MF) const 
 {
-  MachineBasicBlock &MBB   = MF.front();
-  MachineFrameInfo *MFI    = MF.getFrameInfo();
-  MipsFunctionInfo *MipsFI = MF.getInfo<MipsFunctionInfo>();
-  MachineBasicBlock::iterator MBBI = MBB.begin();
-  bool isPIC = (MF.getTarget().getRelocationModel() == Reloc::PIC_);
-
-  // Get the right frame order for Mips.
-  adjustMipsStackFrame(MF);
-
-  // Get the number of bytes to allocate from the FrameInfo.
-  unsigned StackSize = MFI->getStackSize();
-
-  // No need to allocate space on the stack.
-  if (StackSize == 0 && !MFI->hasCalls()) return;
-
-  int FPOffset = MipsFI->getFPStackOffset();
-  int RAOffset = MipsFI->getRAStackOffset();
-
-  BuildMI(MBB, MBBI, TII.get(Mips::NOREORDER));
-  
-  // TODO: check need from GP here.
-  if (isPIC && Subtarget.isABI_O32()) 
-    BuildMI(MBB, MBBI, TII.get(Mips::CPLOAD)).addReg(getPICCallReg());
-  BuildMI(MBB, MBBI, TII.get(Mips::NOMACRO));
-
-  // Adjust stack : addi sp, sp, (-imm)
-  BuildMI(MBB, MBBI, TII.get(Mips::ADDiu), Mips::SP)
-      .addReg(Mips::SP).addImm(-StackSize);
-
-  // Save the return address only if the function isnt a leaf one.
-  // sw  $ra, stack_loc($sp)
-  if (MFI->hasCalls()) { 
-    BuildMI(MBB, MBBI, TII.get(Mips::SW))
-        .addReg(Mips::RA).addImm(RAOffset).addReg(Mips::SP);
-  }
-
-  // if framepointer enabled, save it and set it
-  // to point to the stack pointer
-  if (hasFP(MF)) {
-    // sw  $fp,stack_loc($sp)
-    BuildMI(MBB, MBBI, TII.get(Mips::SW))
-      .addReg(Mips::FP).addImm(FPOffset).addReg(Mips::SP);
-
-    // move $fp, $sp
-    BuildMI(MBB, MBBI, TII.get(Mips::ADDu), Mips::FP)
-      .addReg(Mips::SP).addReg(Mips::ZERO);
-  }
-
-  // PIC speficic function prologue
-  if ((isPIC) && (MFI->hasCalls())) {
-    BuildMI(MBB, MBBI, TII.get(Mips::CPRESTORE))
-      .addImm(MipsFI->getGPStackOffset());
-  }
+ 
 }
 
-void MipsRegisterInfo::
+void __arch__`'RegisterInfo::
 emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const 
 {
-  MachineBasicBlock::iterator MBBI = prior(MBB.end());
-  MachineFrameInfo *MFI            = MF.getFrameInfo();
-  MipsFunctionInfo *MipsFI         = MF.getInfo<MipsFunctionInfo>();
-
-  // Get the number of bytes from FrameInfo
-  int NumBytes = (int) MFI->getStackSize();
-
-  // Get the FI's where RA and FP are saved.
-  int FPOffset = MipsFI->getFPStackOffset();
-  int RAOffset = MipsFI->getRAStackOffset();
-
-  // if framepointer enabled, restore it and restore the
-  // stack pointer
-  if (hasFP(MF)) {
-    // move $sp, $fp
-    BuildMI(MBB, MBBI, TII.get(Mips::ADDu), Mips::SP)
-      .addReg(Mips::FP).addReg(Mips::ZERO);
-
-    // lw  $fp,stack_loc($sp)
-    BuildMI(MBB, MBBI, TII.get(Mips::LW))
-      .addReg(Mips::FP).addImm(FPOffset).addReg(Mips::SP);
-  }
-
-  // Restore the return address only if the function isnt a leaf one.
-  // lw  $ra, stack_loc($sp)
-  if (MFI->hasCalls()) { 
-    BuildMI(MBB, MBBI, TII.get(Mips::LW))
-      .addReg(Mips::RA).addImm(RAOffset).addReg(Mips::SP);
-  }
-
-  // adjust stack  : insert addi sp, sp, (imm)
-  if (NumBytes) {
-    BuildMI(MBB, MBBI, TII.get(Mips::ADDiu), Mips::SP)
-      .addReg(Mips::SP).addImm(NumBytes);
-  }
+ 
 }
 
 
-void MipsRegisterInfo::
+void __arch__`'RegisterInfo::
 processFunctionBeforeFrameFinalized(MachineFunction &MF) const {
-  // Set the SPOffset on the FI where GP must be saved/loaded.
-  MachineFrameInfo *MFI = MF.getFrameInfo();
-  bool isPIC = (MF.getTarget().getRelocationModel() == Reloc::PIC_);
-  if (MFI->hasCalls() && isPIC) { 
-    MipsFunctionInfo *MipsFI = MF.getInfo<MipsFunctionInfo>();
-    MFI->setObjectOffset(MipsFI->getGPFI(), MipsFI->getGPStackOffset());
-  }    
+
 }
 
-unsigned MipsRegisterInfo::
+unsigned __arch__`'RegisterInfo::
 getRARegister() const {
-  return Mips::RA;
+  return 0;
 }
 
-unsigned MipsRegisterInfo::
+unsigned __arch__`'RegisterInfo::
 getFrameRegister(MachineFunction &MF) const {
-  return hasFP(MF) ? Mips::FP : Mips::SP;
+  return 0;
 }
 
-unsigned MipsRegisterInfo::
+unsigned __arch__`'RegisterInfo::
 getEHExceptionRegister() const {
   assert(0 && "What is the exception register");
   return 0;
 }
 
-unsigned MipsRegisterInfo::
+unsigned __arch__`'RegisterInfo::
 getEHHandlerRegister() const {
   assert(0 && "What is the exception handler register");
   return 0;
 }
 
-int MipsRegisterInfo::
+int __arch__`'RegisterInfo::
 getDwarfRegNum(unsigned RegNum, bool isEH) const {
   assert(0 && "What is the dwarf register number");
   return -1;

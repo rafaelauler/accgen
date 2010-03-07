@@ -7,6 +7,7 @@
 #include "TemplateManager.h"
 #include "InsnFormat.h"
 #include <iostream>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
@@ -21,7 +22,12 @@ using namespace backendgen::expression;
 // if all the data needed is not available yet.
 void TemplateManager::CreateM4File()
 {
+  //  std::locale loc;
   std::string FileName = WorkingDir;
+  std::string ArchNameCaps;
+  std::transform(ArchName.begin(), ArchName.end(), 
+		 back_inserter(ArchNameCaps), 
+		 std::ptr_fun(toupper));
   FileName += "/macro.m4";
   std::ofstream O(FileName.c_str(), std::ios::out);
 
@@ -32,6 +38,7 @@ void TemplateManager::CreateM4File()
 
   // Defines an expansion for each target specific data
   O << "m4_define(`__arch__',`" << ArchName << "')m4_dnl\n"; 
+  O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
   O << "m4_define(`__registers_definitions__',`";
   O << generateRegistersDefinitions() << "')m4_dnl\n";
@@ -45,6 +52,8 @@ void TemplateManager::CreateM4File()
   O << generateReservedRegsList() << "')m4_dnl\n";
   O << "m4_define(`__instructions_definitions__',`";
   O << generateInstructionsDefs() << "')m4_dnl\n";
+  O << "m4_define(`__calling_conventions__',`";
+  O << generateCallingConventions() << "')m4_dnl\n";
 }
 
 // Inline helper procedure to write a register definition into tablegen
@@ -118,6 +127,19 @@ inline std::string InferValueType(const Operand *O) {
   return std::string("**UNKNOWN**");
 }
 
+inline std::string InferValueType(const OperandType *O) {
+  if (O->DataType == IntType) {
+    std::stringstream SS;
+    SS << "i" << O->Size;
+    return SS.str();
+  }
+
+  // Should not reach here!
+  assert(0 && "Unknown data type!");
+
+  return std::string("**UNKNOWN**");
+}
+
 // Generates the list used in XXXRegisterInfo.cpp
 std::string TemplateManager::generateCalleeSaveList() {
   std::stringstream SS;
@@ -149,7 +171,7 @@ std::string TemplateManager::generateCalleeSaveRegClasses() {
   for (std::set<Register*>::const_iterator 
 	 I = RegisterClassManager.getCalleeSBegin(),
 	 E = RegisterClassManager.getCalleeSEnd(); I != E; ++I) {
-    SS << "&" << ArchName << "::" << getRegisterClass(*I) << ",";
+    SS << "&" << ArchName << "::" << getRegisterClass(*I) << "RegClass" << ",";
   }
   SS << "0};";
   return SS.str();
@@ -198,9 +220,14 @@ std::string TemplateManager::generateRegisterClassesDefinitions() {
 std::string TemplateManager::generateInstructionsDefs() {
   std::stringstream SS;
 
+  unsigned CurInsVersion = 0;
   for (InstrIterator I = InstructionManager.getBegin(), 
-	 E = InstructionManager.getEnd(); I != E; ++I) {
-    SS << "def " << (*I)->getName() << "\t: " << (*I)->getFormat()->getName();
+	 E = InstructionManager.getEnd(), Prev = InstructionManager.getEnd();
+       I != E; Prev = I++) {
+    if (Prev != E && (*Prev)->getName() != (*I)->getName())
+      CurInsVersion = 0;
+    SS << "def " << (*I)->getName() << "_" << ++CurInsVersion << "\t: " 
+       << (*I)->getFormat()->getName();
     SS << "<(outs ";
     std::list<const Operand*> *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
     // Prints all defined operands (outs)
@@ -246,6 +273,77 @@ std::string TemplateManager::generateInstructionsDefs() {
   return SS.str();
 }
 
+std::string TemplateManager::generateCallingConventions() {
+  std::stringstream SS;
+  
+  // First generate all return conventions
+  SS << "def RetCC_" << ArchName << ": CallingConv <[\n";
+  bool First = true;
+  for (std::list<CallingConvention*>::const_iterator 
+	 I = RegisterClassManager.getCCBegin(), 
+	 E = RegisterClassManager.getCCEnd(); I != E; ++I) {
+    CallingConvention* CC = *I;
+    if (!(CC->IsReturnConvention))
+      continue; // Not return convention
+    if (First) 
+      First = false;
+    else
+      SS << ",";
+    if (CC->Type.Type != 0)
+      SS << "  CCIfType<[" << InferValueType(&(CC->Type)) << "], ";
+    if (CC->UseStack)
+      SS << "CCAssignToStack<" << CC->StackSize << "," << CC->StackAlign << ">";
+    else {
+      SS << "CCAssignToReg<[";
+      for (std::list<const Register*>::const_iterator I2 = CC->getBegin(),
+	     E2 = CC->getEnd(); I2 != E2; ++I2) {
+	if (I2 != CC->getBegin())
+	  SS << ",";
+	SS << (*I2)->getName();
+      }
+      SS << "]>";      
+    }
+    if (CC->Type.Type != 0)
+      SS << ">";
+    SS << "\n";
+  }
+  SS << "]>;\n\n";
+  
+  // Now generate all calling conventions
+  First = true;
+  SS << "def CC_" << ArchName << ": CallingConv <[\n";
+  for (std::list<CallingConvention*>::const_iterator 
+	 I = RegisterClassManager.getCCBegin(), 
+	 E = RegisterClassManager.getCCEnd(); I != E; ++I) {
+    CallingConvention* CC = *I;
+    if (CC->IsReturnConvention)
+      continue; // Not calling convention
+    if (First) 
+      First = false;
+    else
+      SS << ",";
+    if (CC->Type.Type != 0)
+      SS << "  CCIfType<[" << InferValueType(&(CC->Type)) << "], ";
+    if (CC->UseStack)
+      SS << "CCAssignToStack<" << CC->StackSize << "," << CC->StackAlign << ">";
+    else {
+      SS << "CCAssignToReg<[";
+      for (std::list<const Register*>::const_iterator I2 = CC->getBegin(),
+	     E2 = CC->getEnd(); I2 != E2; ++I2) {
+	if (I2 != CC->getBegin())
+	  SS << ",";
+	SS << (*I2)->getName();
+      }
+      SS << "]>";      
+    }
+    if (CC->Type.Type != 0)
+      SS << ">";
+    SS << "\n";
+  }
+  SS << "]>;\n\n";
+  return SS.str();
+}
+
 // Creates LLVM backend files based on template files feeded with
 // target specific data.
 void TemplateManager::CreateBackendFiles()
@@ -260,6 +358,38 @@ void TemplateManager::CreateBackendFiles()
   std::string RegisterInfo3Out = WorkingDir;
   std::string InstrInfoIn = "./template/XXXInstrInfo.td";
   std::string InstrInfoOut = WorkingDir;
+  std::string InstrInfo2In = "./template/XXXInstrInfo.cpp";
+  std::string InstrInfo2Out = WorkingDir;
+  std::string InstrInfo3In = "./template/XXXInstrInfo.h";
+  std::string InstrInfo3Out = WorkingDir;
+  std::string ISelDAGToDAGIn = "./template/XXXISelDAGToDAG.cpp";
+  std::string ISelDAGToDAGOut = WorkingDir;
+  std::string ISelLoweringIn = "./template/XXXISelLowering.cpp";
+  std::string ISelLoweringOut = WorkingDir;
+  std::string ISelLowering2In = "./template/XXXISelLowering.h";
+  std::string ISelLowering2Out = WorkingDir;
+  std::string TargetIn = "./template/XXX.td";
+  std::string TargetOut = WorkingDir;
+  std::string Target2In = "./template/XXX.h";
+  std::string Target2Out = WorkingDir;
+  std::string SubtargetIn = "./template/XXXSubtarget.cpp";
+  std::string SubtargetOut = WorkingDir;
+  std::string Subtarget2In = "./template/XXXSubtarget.h";
+  std::string Subtarget2Out = WorkingDir;
+  std::string TargetMachineIn = "./template/XXXTargetMachine.cpp";
+  std::string TargetMachineOut = WorkingDir;
+  std::string TargetMachine2In = "./template/XXXTargetMachine.h";
+  std::string TargetMachine2Out = WorkingDir;
+  std::string TargetAsmInfoIn = "./template/XXXTargetAsmInfo.cpp";
+  std::string TargetAsmInfoOut = WorkingDir;
+  std::string TargetAsmInfo2In = "./template/XXXTargetAsmInfo.h";
+  std::string TargetAsmInfo2Out = WorkingDir;
+  std::string AsmPrinterIn = "./template/XXXAsmPrinter.cpp";
+  std::string AsmPrinterOut = WorkingDir;
+  std::string CallingConvIn = "./template/XXXCallingConv.td";
+  std::string CallingConvOut = WorkingDir;
+  std::string MachineFunctionIn = "./template/XXXMachineFunction.h";
+  std::string MachineFunctionOut = WorkingDir;
   std::string CMakeListsIn = "./template/CMakeLists.txt";
   std::string CMakeListsOut = WorkingDir;
   std::string MakefileIn = "./template/Makefile";
@@ -278,6 +408,55 @@ void TemplateManager::CreateBackendFiles()
   InstrInfoOut += "/";
   InstrInfoOut += ArchName;
   InstrInfoOut += "InstrInfo.td";
+  InstrInfo2Out += "/";
+  InstrInfo2Out += ArchName;
+  InstrInfo2Out += "InstrInfo.cpp";
+  InstrInfo3Out += "/";
+  InstrInfo3Out += ArchName;
+  InstrInfo3Out += "InstrInfo.h";
+  ISelDAGToDAGOut += "/";
+  ISelDAGToDAGOut += ArchName;
+  ISelDAGToDAGOut += "ISelDAGToDAG.cpp";
+  ISelLoweringOut += "/";
+  ISelLoweringOut += ArchName;
+  ISelLoweringOut += "ISelLowering.cpp";
+  ISelLowering2Out += "/";
+  ISelLowering2Out += ArchName;
+  ISelLowering2Out += "ISelLowering.h";
+  CallingConvOut += "/";
+  CallingConvOut += ArchName;
+  CallingConvOut += "CallingConv.td";
+  TargetOut += "/";
+  TargetOut += ArchName;
+  TargetOut += ".td";
+  Target2Out += "/";
+  Target2Out += ArchName;
+  Target2Out += ".h";
+  SubtargetOut += "/";
+  SubtargetOut += ArchName;
+  SubtargetOut += "Subtarget.cpp";
+  Subtarget2Out += "/";
+  Subtarget2Out += ArchName;
+  Subtarget2Out += "Subtarget.h";
+  TargetMachineOut += "/";
+  TargetMachineOut += ArchName;
+  TargetMachineOut += "TargetMachine.cpp";
+  TargetMachine2Out += "/";
+  TargetMachine2Out += ArchName;
+  TargetMachine2Out += "TargetMachine.h";
+  TargetAsmInfoOut += "/";
+  TargetAsmInfoOut += ArchName;
+  TargetAsmInfoOut += "TargetAsmInfo.cpp";
+  TargetAsmInfo2Out += "/";
+  TargetAsmInfo2Out += ArchName;
+  TargetAsmInfo2Out += "TargetAsmInfo.h";
+  AsmPrinterOut += "/";
+  AsmPrinterOut += ArchName;
+  AsmPrinterOut += "AsmPrinter.cpp";
+  MachineFunctionOut += "/";
+  MachineFunctionOut += ArchName;
+  MachineFunctionOut += "MachineFunction.h";
+
   CMakeListsOut += "/CMakeLists.txt";
   MakefileOut += "/Makefile";
 
@@ -310,6 +489,119 @@ void TemplateManager::CreateBackendFiles()
 		" > " + InstrInfoOut).c_str());
   if (WEXITSTATUS(ret) != 0) {
     std::cout << "Erro ao criar arquivo XXXInstrInfo.td\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + InstrInfo2In +
+		" > " + InstrInfo2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXInstrInfo.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + InstrInfo3In +
+		" > " + InstrInfo3Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXInstrInfo.h\n";
+    exit(1);
+  }
+  // Creates XXXISelDAGToDAG.cpp file
+  ret = system(("m4 -P " + MacroFileName + " " + ISelDAGToDAGIn +
+		" > " + ISelDAGToDAGOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXISelDAGToDAG.cpp\n";
+    exit(1);
+  }
+
+  // Creates XXXISelLowering.cpp and h files
+  ret = system(("m4 -P " + MacroFileName + " " + ISelLoweringIn +
+		" > " + ISelLoweringOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXISelLowering.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + ISelLowering2In +
+		" > " + ISelLowering2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXISelLowering.h\n";
+    exit(1);
+  }
+
+  // Creates XXXCallingConv.td file
+  ret = system(("m4 -P " + MacroFileName + " " + CallingConvIn +
+		" > " + CallingConvOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXCallingConv.td\n";
+    exit(1);
+  }
+
+  // Creates XXX.td and files
+  ret = system(("m4 -P " + MacroFileName + " " + TargetIn +
+		" > " + TargetOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXX.td\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + Target2In +
+		" > " + Target2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXX.h\n";
+    exit(1);
+  }
+
+  // Creates XXXSubtarget.cpp and h files
+  ret = system(("m4 -P " + MacroFileName + " " + SubtargetIn +
+		" > " + SubtargetOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXSubtarget.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + Subtarget2In +
+		" > " + Subtarget2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXSubtarget.h\n";
+    exit(1);
+  }
+
+  // Creates XXXTargetMachine.cpp and h files
+  ret = system(("m4 -P " + MacroFileName + " " + TargetMachineIn +
+		" > " + TargetMachineOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXTargetMachine.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + TargetMachine2In +
+		" > " + TargetMachine2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXTargetMachine.h\n";
+    exit(1);
+  }
+
+  // Creates XXXTargetAsmInfo.cpp and h files
+  ret = system(("m4 -P " + MacroFileName + " " + TargetAsmInfoIn +
+		" > " + TargetAsmInfoOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXTargetAsmInfo.cpp\n";
+    exit(1);
+  }
+  ret = system(("m4 -P " + MacroFileName + " " + TargetAsmInfo2In +
+		" > " + TargetAsmInfo2Out).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXTargetAsmInfo.h\n";
+    exit(1);
+  }
+
+  // Creates XXXAsmPrinter.cpp file
+  ret = system(("m4 -P " + MacroFileName + " " + AsmPrinterIn +
+		" > " + AsmPrinterOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXAsmPrinter.cpp\n";
+    exit(1);
+  }
+
+  // Creates XXXMachineFunction.h file
+  ret = system(("m4 -P " + MacroFileName + " " + MachineFunctionIn +
+		" > " + MachineFunctionOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXMachineFunction.h\n";
     exit(1);
   }
 
