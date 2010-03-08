@@ -82,7 +82,6 @@ namespace backendgen {
 	  return Result;
 	}
 	
-	bool match = true;
 	// Now we know we are handling with operators and may safely cast
 	// and analyze its children
 	const Operator *RO = dynamic_cast<const Operator*>(R),
@@ -193,13 +192,13 @@ namespace backendgen {
   }
 
   bool Rule::ForwardMatch(const expression::Tree* Expression) const {
-    if (reinterpret_cast<int>(MatchExpByRule<true>(LHS, Expression)) == 1)
+    if (reinterpret_cast<long>(MatchExpByRule<true>(LHS, Expression)) == 1L)
       return true;
     return false;
   }
 
   bool Rule::BackwardMatch(const expression::Tree* Expression) const {
-    if (reinterpret_cast<int>(MatchExpByRule<true>(RHS, Expression)) == 1)
+    if (reinterpret_cast<long>(MatchExpByRule<true>(RHS, Expression)) == 1L)
       return true;
     return false;
   }
@@ -281,6 +280,8 @@ namespace backendgen {
     Rule newRule(LHS, RHS, Equivalence);
 
     Rules.push_back(newRule);
+
+    return true;
   }
 
   void TransformationRules::print(std::ostream &S) {
