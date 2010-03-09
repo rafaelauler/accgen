@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 #include "Semantic.h"
+#include "../Support.h"
+#include <functional>
 
 namespace backendgen {
 
@@ -370,6 +372,81 @@ namespace backendgen {
       return CallConvs.end();
     }
 
+    // FragmentManager member functions
+
+    bool deleteFragNode(Tree** Element) {
+      delete *Element;
+      return true;
+    }
+
+    FragmentManager::~FragmentManager() {
+      for (FragmentManager::Iterator I = FragMap.begin(), E = FragMap.end();
+	   I != E; ++I) {
+	for (FragmentManager::VecIterator I2 = I->second->begin(), 
+	       E2 = I->second->end(); I2 != E2; ++I2) {
+	  ApplyToAllNodes
+	    <Tree*, Operator*, std::pointer_to_unary_function<Tree**, bool> >
+	    (&(*I2), std::ptr_fun(deleteFragNode));	
+        }
+        delete I->second;
+      }
+    }
+
+    bool FragmentManager::addFragment(const std::string &Name, Tree* Frag) {
+      // This key is already occupied
+      if (FragMap.find(Name) == FragMap.end())
+	FragMap[Name] = new std::vector<Tree*>();
+
+      FragMap[Name]->push_back(Frag);
+      return true;
+    }
+
+    // Helper class used to analyze a leaf node and check if it needs
+    // to be expanded by fragments.
+    class ExpandTreeFunctor {
+      FragmentManager& Man;
+      unsigned FragNdx;
+    public:
+      ExpandTreeFunctor(FragmentManager& Manager, unsigned FragNdx) :
+	Man(Manager), FragNdx(FragNdx) {}
+      // Return false on error
+      bool operator() (Tree** Opr) {
+	FragOperand* Op =  dynamic_cast<FragOperand*>(*Opr);
+
+	// Not interested in non-frag operands
+	if (Op == NULL)
+	  return true;			
+
+	FragmentManager::Iterator Pos = Man.findFrag(Op->getOperandName());
+	if (Pos == Man.getEnd()) 
+	  return false;	
+	if (Pos->second->size() <= FragNdx)
+	  return false;
+
+	delete *Opr;
+	*Opr = (*(Pos->second))[FragNdx]->clone();
+
+	return true;
+      }
+    };
+    
+    FragmentManager::Iterator FragmentManager::getBegin() {
+      return FragMap.begin();
+    }
+    
+    FragmentManager::Iterator FragmentManager::getEnd() {
+      return FragMap.end();
+    }
+    
+    FragmentManager::Iterator FragmentManager::findFrag(const std::string &Name)
+    {
+      return FragMap.find(Name);
+    }
+    
+    bool FragmentManager::expandTree(Tree** Semantic, unsigned FragNdx) {      
+      return ApplyToLeafs<Tree*, Operator*, ExpandTreeFunctor>
+	(Semantic, ExpandTreeFunctor(*this, FragNdx));
+    }
 
     // RegisterOperand member functions
 

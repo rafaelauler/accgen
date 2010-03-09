@@ -22,6 +22,8 @@ class TemplateManager {
   // given architecture
   std::string ArchName;
   int NumRegs;
+  bool IsBigEndian;
+  unsigned WordSize;
   TransformationRules& RuleManager;
   InstrManager& InstructionManager;
   RegClassManager& RegisterClassManager;
@@ -33,12 +35,14 @@ class TemplateManager {
   // Private members
   void CreateM4File();
   std::string generateRegistersDefinitions();
+  std::string generateRegisterClassesSetup();
   std::string generateRegisterClassesDefinitions();
   std::string generateCalleeSaveList();
   std::string generateCalleeSaveRegClasses();
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
   std::string generateCallingConventions();
+  std::string buildDataLayoutString();
 
   // Private helper functions
   std::string getRegisterClass(Register* Reg);
@@ -46,8 +50,10 @@ class TemplateManager {
  public:
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
 			   RegClassManager& RM, OperandTableManager &OM):
-    NumRegs(0), RuleManager(TR), InstructionManager(IM),
-      RegisterClassManager(RM), OperandTable(OM), WorkingDir(NULL) {}
+  NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
+    InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
+    WorkingDir(NULL) {}
+
   ~TemplateManager() {}
 
   void SetArchName (const char * name) { 
@@ -58,6 +64,8 @@ class TemplateManager {
 
   void SetNumRegs (int nregs) { NumRegs = nregs; }
   void SetWorkingDir (const char * wdir) { WorkingDir = wdir; }
+  void SetIsBigEndian (bool val) { IsBigEndian = val; }
+  void SetWordSize(unsigned val) { WordSize = val; }
 
   void CreateBackendFiles();
 

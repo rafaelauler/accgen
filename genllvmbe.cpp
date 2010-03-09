@@ -190,9 +190,11 @@ void DeallocateFormats() {
 InsnIdMapTy InsnIdMap;
 
 void DebugInsn() {
-  for (InsnIdMapIter IM = InsnIdMap.begin(), EM = InsnIdMap.end(); IM != EM; ++IM) {
+  for (InsnIdMapIter IM = InsnIdMap.begin(), EM = InsnIdMap.end(); IM != EM; 
+       ++IM) {
     std::vector<Instruction *> VI = IM->second;
-    for (std::vector<Instruction *>::iterator II = VI.begin(), IE = VI.end(); II != IE; ++II) {
+    for (std::vector<Instruction *>::iterator II = VI.begin(), IE = VI.end(); 
+	 II != IE; ++II) {
       Instruction *I = *II;
       std::cout << I->getName()
                 << ", " << IM->first
@@ -203,12 +205,13 @@ void DebugInsn() {
       std::cout << std::endl;
       for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
         std::cout << "  " << I->getOperand(i)->getName() << "(";
-        for (int fi = 0, fe = I->getOperand(i)->getNumFields(); fi != fe; ++fi) { 
-          FormatField *FF = I->getOperand(i)->getField(fi);
-          std::cout << FF->getName()
-                    << ":" << FF->getSizeInBits()
-                    << ",";
-        }
+        for (int fi = 0, fe = I->getOperand(i)->getNumFields(); fi != fe; ++fi)
+	  { 
+	    FormatField *FF = I->getOperand(i)->getField(fi);
+	    std::cout << FF->getName()
+		      << ":" << FF->getSizeInBits()
+		      << ",";
+	  }
         std::cout << ")" << std::endl;
       }
     }
@@ -393,6 +396,8 @@ int main(int argc, char **argv) {
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);
   TM.CreateBackendFiles();
+  TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);
+  TM.SetWordSize(wordsize);
 
   DeallocateFormats();
   MemWatcher->ReportStatistics(std::cout);

@@ -53,6 +53,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return SEMANTIC;
 }
 
+<INITIAL>"fragment" {
+  yylval->num = 0;
+  return FRAGMENT;
+}
+
 <INITIAL>"abi" {
   yylval->num = 0;
   return ABI;

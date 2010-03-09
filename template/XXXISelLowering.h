@@ -40,6 +40,11 @@ namespace llvm {
 
   class __arch__`'TargetLowering : public TargetLowering {
     int VarArgsFrameOffset;   // Frame offset to start of varargs area.
+
+    SDNode *LowerCallResult(SDValue Chain, SDValue InFlag, CallSDNode *TheCall, 
+        unsigned CallingConv, SelectionDAG &DAG);
+    SDValue LowerCALL(SDValue Op, SelectionDAG &DAG);
+
   public:
     __arch__`'TargetLowering(TargetMachine &TM);
     virtual SDValue LowerOperation(SDValue Op, SelectionDAG &DAG);

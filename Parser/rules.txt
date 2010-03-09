@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Operators
+//==========================-- Operators --===================================//
 
 define operator +        as arity 2;
 define operator -        as arity 2;
@@ -21,7 +21,7 @@ define operator alias    as add => +;
 define operator alias    as sub => -;
 
 
-// Operands
+//===========================-- Operands --===================================//
 
 define operand int   as size 32;
 define operand regs  as size 32 like int;
@@ -30,7 +30,7 @@ define operand short as size 16 like int;
 define operand byte  as size 8  like int;
 define operand bit   as size 1  like int;
 
-// Rules
+//============================-- Rules --=====================================//
 
 AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
 
@@ -39,6 +39,8 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 const:int:0 <=> (xor Reg:regs Reg:regs);
 
 // Machine description
+
+//=====================-- Registers definitions --============================//
 
 define registers GPR:regs as (
   r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15
@@ -52,7 +54,7 @@ define registers CPSRbitV:bit as ( V );  // bit Overflow
 define registers CPSRbitZ:bit as ( Z );  // bit Zero
 define registers CPSRbitC:bit as ( C );  // bit Carry
 
-//===-- ABI stuff --===//
+//===========================-- ABI stuff --==================================//
 
 define abi as (
   define callee save registers as (r5   r6   r7);
@@ -61,9 +63,20 @@ define abi as (
   define return convention for int as (r8 r9 r10);
 );
 
+//==================-- Instruction semantic fragments --======================//
+
+// Addressing mode frag
+define semantic fragment AddrMode as (
+  Op5:GPR;    // Simple register addressing
+  (+ Op5:GPR Op6:GPR); //test
+);
+
+//=======================-- Instructions definitions --=======================//
+
 // Add instruction with two registers operands
 define instruction add1 semantic as (
-  (transfer Op3:GPR (+ Op4:GPR Op5:GPR));
+//  (transfer Op3:GPR (+ Op4:GPR Op5:GPR));
+  (transfer Op3:GPR (+ Op4:GPR AddrMode:fragment));
 ) cost 1;
 
 //Add instruction with immediate operand

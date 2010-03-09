@@ -27,6 +27,7 @@ OperatorTableManager OperatorTable;
 TransformationRules RuleManager;
 RegClassManager RegisterManager;
 InstrManager InstructionManager;
+FragmentManager FragMan;
 std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
 // Expression stack used to process operators parameters
@@ -58,7 +59,7 @@ void yyerror(char *error);
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
-%token<num> CALLING
+%token<num> CALLING FRAGMENT
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -78,6 +79,7 @@ statement:         ruledef       {}
                    | operanddef  {}
                    | regclassdef {}
                    | semanticdef {}
+                   | fragdef     {}
                    | abidef      {}
                    | translate   {}
                    | error       {} 
@@ -121,6 +123,20 @@ translate:         TRANSLATE exp SEMICOLON
                    }
                    ;
 
+/* Semantic fragments defintion. */
+
+fragdef:           DEFINE SEMANTIC FRAGMENT ID AS LPAREN semanticlist RPAREN
+                   SEMICOLON
+                   {
+		     int I = Stack.size() - 1;
+		     while (I >= 0) {
+		       FragMan.addFragment($4, Stack.top());
+		       Stack.pop();
+		       --I;
+		     }
+		     free($4);
+                   }
+
 /* Instruction semantic description. */
 
 semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
@@ -146,13 +162,24 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       YYERROR;
 		     }
 		     Instr->setCost($10);
-		     free($3);
                      int I = Stack.size() - 1;
                      while (I >= 0) {
+		       Tree* root = Stack.top();
+		       if (!FragMan.expandTree(&root, InsnOccurrencesMap[$3]-1))
+			 {
+			   std::cerr << "Line " << LineNumber <<
+			     "Failure to expand pattern fragments into " 
+				     << "instruction \"" << $3 << 
+			     "\" semantic.\n"; 
+			   free($3);
+			   ClearStack();
+			   YYERROR;
+			 }
                        Instr->addSemantic(Stack.top());
                        Stack.pop();
                        --I;
                      }
+		     free($3);
                    }
                    ;
 
@@ -418,6 +445,11 @@ exp:      LPAREN operator explist RPAREN
                       $$ = new ImmediateOperand(OperandTable.getType($5), $3);
 		      free($3);
 		      free($5);
+                    }
+          | ID COLON FRAGMENT
+	            {
+                      $$ = new FragOperand($1);
+		      free($1);
                     }
           | ID COLON ID
                     { 

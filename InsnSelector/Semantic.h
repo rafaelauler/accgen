@@ -97,6 +97,13 @@ namespace backendgen {
       std::string OperandName;
     };
 
+    // A FragOperand must be expanded by inserting a semantic
+    // fragment in its place
+    class FragOperand : public Operand {      
+    public:
+      FragOperand(const std::string &OpName): Operand(OperandType(), OpName) {}
+    };
+
     typedef unsigned int ConstType;
 
     // A specialization of operand: Constant operands are known
@@ -192,6 +199,26 @@ namespace backendgen {
       std::set<Register *> CalleeSaveRegisters;
       std::set<Register *> ReservedRegisters;
       std::list<CallingConvention*> CallConvs;
+    };
+
+    // This class stores and manages fragments of instruction semantic, used
+    // to factor out common parts used in more than one semantic tree.
+    // It must also apply these fragments to build the complete
+    // instruction semantic tree when necessary.
+    class FragmentManager {
+      std::map<std::string, std::vector<Tree*>*> FragMap;
+    public:      
+      ~FragmentManager();
+
+      // Iterators
+      typedef std::map<std::string, std::vector<Tree*>*>::iterator Iterator;
+      typedef std::vector<Tree*>::iterator VecIterator;
+
+      bool addFragment(const std::string &Name, Tree* Frag);
+      Iterator getBegin();
+      Iterator getEnd();
+      Iterator findFrag(const std::string &Name);
+      bool expandTree(Tree** Semantic, unsigned FragNdx);
     };
 
     // Special class of operand:  a register class

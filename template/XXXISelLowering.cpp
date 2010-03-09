@@ -1,4 +1,4 @@
-//===-- __arch__`ISelLowering.cpp' - __arch__ DAG Lowering Implementation ---------===//
+//===-- __arch__`ISelLowering.cpp' - __arch__ DAG Lowering Implementation -===//
 //
 //                     The ArchC LLVM Backend Generator
 //
@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the interfaces that __arch__ uses to lower LLVM code into a
-// selection DAG.
+// This file implements the interfaces that __arch__ uses to lower LLVM code 
+// into a selection DAG.
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,6 +30,180 @@ using namespace llvm;
 
 `#include "'__arch__`GenCallingConv.inc"'
 
+//===----------------------------------------------------------------------===//
+//                  CALL Calling Convention Implementation
+//===----------------------------------------------------------------------===//
+
+/// LowerCALL - functions arguments are copied from virtual regs to 
+/// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
+/// TODO: isVarArg, isTailCall.
+SDValue __arch__`'TargetLowering::
+LowerCALL(SDValue Op, SelectionDAG &DAG)
+{
+  MachineFunction &MF = DAG.getMachineFunction();
+
+  CallSDNode *TheCall = cast<CallSDNode>(Op.getNode());
+  SDValue Chain = TheCall->getChain();
+  SDValue Callee = TheCall->getCallee();
+  bool isVarArg = TheCall->isVarArg();
+  unsigned CC = TheCall->getCallingConv();
+
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+
+  // Analyze operands of the call, assigning locations to each operand.
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CC, isVarArg, getTargetMachine(), ArgLocs);
+
+  CCInfo.AnalyzeCallOperands(TheCall, CC_`'__arch__`');
+  
+  // Get a count of how many bytes are to be pushed on the stack.
+  unsigned NumBytes = CCInfo.getNextStackOffset();
+  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true));
+
+  // Use an arbitrary number to initialize vector (16)
+  SmallVector<std::pair<unsigned, SDValue>, 16> RegsToPass;
+  SmallVector<SDValue, 8> MemOpChains;
+
+  // First/LastArgStackLoc contains the first/last 
+  // "at stack" argument location.
+  int LastArgStackLoc = 0;
+  unsigned FirstStackArgLoc = 0;
+
+  // Walk the register/memloc assignments, inserting copies/stores.
+  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+    CCValAssign &VA = ArgLocs[i];
+
+    // Arguments start after the 5 first operands of ISD::CALL
+    SDValue Arg = TheCall->getArg(i);
+    
+    // Promote the value if needed.
+    switch (VA.getLocInfo()) {
+    default: assert(0 && "Unknown loc info!");
+    case CCValAssign::Full: break;
+    case CCValAssign::SExt:
+      Arg = DAG.getNode(ISD::SIGN_EXTEND, VA.getLocVT(), Arg);
+      break;
+    case CCValAssign::ZExt:
+      Arg = DAG.getNode(ISD::ZERO_EXTEND, VA.getLocVT(), Arg);
+      break;
+    case CCValAssign::AExt:
+      Arg = DAG.getNode(ISD::ANY_EXTEND, VA.getLocVT(), Arg);
+      break;
+    }
+    
+    // Arguments that can be passed on register must be kept at 
+    // RegsToPass vector
+    if (VA.isRegLoc()) {
+      RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
+      continue;
+    }
+    
+    // Register cant get to this point...
+    assert(VA.isMemLoc());
+    
+    // Create the frame index object for this incoming parameter
+    LastArgStackLoc = (FirstStackArgLoc + VA.getLocMemOffset());
+    int FI = MFI->CreateFixedObject(VA.getValVT().getSizeInBits()/8,
+                                    LastArgStackLoc);
+
+    SDValue PtrOff = DAG.getFrameIndex(FI,getPointerTy());
+
+    // emit ISD::STORE whichs stores the 
+    // parameter value to a stack Location
+    MemOpChains.push_back(DAG.getStore(Chain, Arg, PtrOff, NULL, 0));
+  }
+
+  // Transform all store nodes into one single node because all store
+  // nodes are independent of each other.
+  if (!MemOpChains.empty())     
+    Chain = DAG.getNode(ISD::TokenFactor, MVT::Other, 
+                        &MemOpChains[0], MemOpChains.size());
+
+  // Build a sequence of copy-to-reg nodes chained together with token 
+  // chain and flag operands which copy the outgoing args into registers.
+  // The InFlag in necessary since all emited instructions must be
+  // stuck together.
+  SDValue InFlag;
+  for (unsigned i = 0, e = RegsToPass.size(); i != e; ++i) {
+    Chain = DAG.getCopyToReg(Chain, RegsToPass[i].first, 
+                             RegsToPass[i].second, InFlag);
+    InFlag = Chain.getValue(1);
+  }
+
+  // If the callee is a GlobalAddress/ExternalSymbol node (quite common, every
+  // direct call is) turn it into a TargetGlobalAddress/TargetExternalSymbol 
+  // node so that legalize doesn't hack it. 
+  if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee)) 
+    Callee = DAG.getTargetGlobalAddress(G->getGlobal(), getPointerTy());
+  else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee))
+    Callee = DAG.getTargetExternalSymbol(S->getSymbol(), getPointerTy());
+
+
+  // MipsJmpLink = #chain, #target_address, #opt_in_flags...
+  //             = Chain, Callee, Reg#1, Reg#2, ...  
+  //
+  // Returns a chain & a flag for retval copy to use.
+  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Flag);
+  SmallVector<SDValue, 8> Ops;
+  Ops.push_back(Chain);
+  Ops.push_back(Callee);
+
+  // Add argument registers to the end of the list so that they are 
+  // known live into the call.
+  for (unsigned i = 0, e = RegsToPass.size(); i != e; ++i)
+    Ops.push_back(DAG.getRegister(RegsToPass[i].first,
+                                  RegsToPass[i].second.getValueType()));
+
+  if (InFlag.getNode())
+    Ops.push_back(InFlag);
+
+  Chain  = DAG.getNode(`'__arch_in_caps__`'ISD::CALL, NodeTys, &Ops[0], Ops.size());
+  InFlag = Chain.getValue(1);
+
+  // Create the CALLSEQ_END node.
+  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
+                             DAG.getIntPtrConstant(0, true), InFlag);
+  InFlag = Chain.getValue(1);
+
+  // Handle result values, copying them out of physregs into vregs that we
+  // return.
+  return SDValue(LowerCallResult(Chain, InFlag, TheCall, CC, DAG), Op.getResNo());
+}
+
+/// LowerCallResult - Lower the result values of an ISD::CALL into the
+/// appropriate copies out of appropriate physical registers.  This assumes that
+/// Chain/InFlag are the input chain/flag to use, and that TheCall is the call
+/// being lowered. Returns a SDNode with the same number of values as the 
+/// ISD::CALL.
+SDNode *`'__arch__`'TargetLowering::
+LowerCallResult(SDValue Chain, SDValue InFlag, CallSDNode *TheCall, 
+        unsigned CallingConv, SelectionDAG &DAG) {
+  
+  bool isVarArg = TheCall->isVarArg();
+
+  // Assign locations to each value returned by this call.
+  SmallVector<CCValAssign, 16> RVLocs;
+  CCState CCInfo(CallingConv, isVarArg, getTargetMachine(), RVLocs);
+
+  CCInfo.AnalyzeCallResult(TheCall, RetCC_`'__arch__`');
+  SmallVector<SDValue, 8> ResultVals;
+
+  // Copy all of the result registers out of their specified physreg.
+  for (unsigned i = 0; i != RVLocs.size(); ++i) {
+    Chain = DAG.getCopyFromReg(Chain, RVLocs[i].getLocReg(),
+                                 RVLocs[i].getValVT(), InFlag).getValue(1);
+    InFlag = Chain.getValue(2);
+    ResultVals.push_back(Chain.getValue(0));
+  }
+  
+  ResultVals.push_back(Chain);
+
+  // Merge everything together with a MERGE_VALUES node.
+  return DAG.getNode(ISD::MERGE_VALUES, TheCall->getVTList(),
+                     &ResultVals[0], ResultVals.size()).getNode();
+}
+
+
 void
 __arch__`'TargetLowering::LowerArguments(Function &F, SelectionDAG &DAG,
                                     SmallVectorImpl<SDValue> &ArgValues,
@@ -46,6 +220,9 @@ __arch__`'TargetLowering::LowerArguments(Function &F, SelectionDAG &DAG,
 
 __arch__`'TargetLowering::`'__arch__`'TargetLowering(TargetMachine &TM)
   : TargetLowering(TM) {
+
+  // Set up register classes
+__set_up_register_classes__
 
   computeRegisterProperties();
 }
@@ -72,18 +249,24 @@ __arch__`'TargetLowering::`'__arch__`'TargetLowering(TargetMachine &TM)
 /// be zero. Op is expected to be a target specific node. Used by DAG
 /// combiner.
 void __arch__`'TargetLowering::computeMaskedBitsForTargetNode(const SDValue Op,
-                                                         const APInt &Mask,
-                                                         APInt &KnownZero,
-                                                         APInt &KnownOne,
-                                                         const SelectionDAG &DAG,
-                                                         unsigned Depth) const {
+                                                        const APInt &Mask,
+                                                        APInt &KnownZero,
+                                                        APInt &KnownOne,
+                                                        const SelectionDAG &DAG,
+                                                        unsigned Depth) const {
   KnownZero = KnownOne = APInt(Mask.getBitWidth(), 0);   // Don't know anything.
 
 }
-
+#include <iostream>
 SDValue __arch__`'TargetLowering::
 LowerOperation(SDValue Op, SelectionDAG &DAG) {
-  assert(0 && "Should not custom lower this!");
+  std::cout << "Operation name:" << Op.getNode()->getOperationName() << "\n";
+
+  switch(Op.getOpcode()) {
+  default: assert(0 && "Should not custom lower this!");
+  case ISD::CALL:               return LowerCALL(Op, DAG);
+  }
+
 }
 
 MachineBasicBlock *

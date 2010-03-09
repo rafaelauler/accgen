@@ -1,4 +1,4 @@
-//===-- __arch__`'TargetMachine.cpp - Define TargetMachine for __arch__ -----------===//
+//===-- __arch__`'TargetMachine.cpp - Define TargetMachine for __arch__ ---===//
 //
 //                     The ArchC LLVM Backend Generator
 //
@@ -35,7 +35,7 @@ static RegisterTarget<`'__arch__`'TargetMachine> X("`'__arch__`'", "`'__arch_in_
 /// __arch__`'TargetMachine ctor
 ///
 __arch__`'TargetMachine::`'__arch__`'TargetMachine(const Module &M, const std::string &FS)
-  : DataLayout("E-p:32:32-f128:128:128"),
+  : `DataLayout("'__data_layout_string__`"),'
     Subtarget(M, FS), TLInfo(*this), InstrInfo(Subtarget),
     FrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0) {
 }

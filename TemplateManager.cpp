@@ -54,6 +54,11 @@ void TemplateManager::CreateM4File()
   O << generateInstructionsDefs() << "')m4_dnl\n";
   O << "m4_define(`__calling_conventions__',`";
   O << generateCallingConventions() << "')m4_dnl\n";
+  O << "m4_define(`__data_layout_string__',`";
+  O << buildDataLayoutString() << "')m4_dnl\n";
+  O << "m4_define(`__set_up_register_classes__',`";
+  O << generateRegisterClassesSetup() << "')m4_dnl\n";
+
 }
 
 // Inline helper procedure to write a register definition into tablegen
@@ -97,6 +102,23 @@ std::string TemplateManager::generateRegistersDefinitions() {
     ++Counter;
     DefinedRegisters.insert(*I);
   }
+
+  return SS.str();
+}
+
+// This procedure build the LLVM data layout string used to initialize
+// a DataLayout class living inside TargetMachine.
+std::string TemplateManager::buildDataLayoutString() {
+  std::stringstream SS;
+
+  // Endianess
+  if (IsBigEndian)
+    SS << "E";
+  else
+    SS << "e";
+  // Now for pointer information
+  // XXX: Hardcoded prefered alignment as the same as pointer size.
+  SS << "-p:" << WordSize << ":" << WordSize;
 
   return SS.str();
 }
@@ -186,6 +208,20 @@ std::string TemplateManager::generateReservedRegsList() {
 	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {
     SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");\n";
   }
+  return SS.str();
+}
+
+// Generates the register classes set up in ISelLowering.cpp
+std::string TemplateManager::generateRegisterClassesSetup() {
+  std::stringstream SS;
+
+  for (std::set<RegisterClass*>::const_iterator
+	 I = RegisterClassManager.getBegin(),
+	 E = RegisterClassManager.getEnd(); I != E; ++I) {
+    SS << "  addRegisterClass(MVT::" << InferValueType(*I) << ", "
+       << ArchName << "::" << (*I)->getName() << "RegisterClass);\n";
+  }
+
   return SS.str();
 }
 

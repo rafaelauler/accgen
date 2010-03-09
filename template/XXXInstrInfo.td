@@ -12,12 +12,23 @@
 
 include `"'__arch__`InstrFormats.td"'
 
+//===----------------------------------------------------------------------===//
+// Type profiles
+//===----------------------------------------------------------------------===//
+def SDT_Ret      : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
+def SDT_Call     : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
+def SDT_CallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 
-// These are target-independent nodes, but have target-specific formats.
-//def callseq_start : SDNode<"ISD::CALLSEQ_START", SDTLoad,
-//                           []>;
-//def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDTStore,
-//                           []>;
+//===----------------------------------------------------------------------===//
+// Target specific nodes
+//===----------------------------------------------------------------------===//
+def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_CallSeqStart,
+                           [SDNPHasChain, SDNPOutFlag]>;
+def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
+                           [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
+def Call : SDNode<"`'__arch__`'ISD::CALL",SDT_Call, [SDNPHasChain,
+                         SDNPOutFlag]>;
 
 //===----------------------------------------------------------------------===//
 // __arch__ instruction definitions
