@@ -58,7 +58,10 @@ namespace backendgen {
   Search::Search(TransformationRules& RulesMgr, 
 		 InstrManager& InstructionsMgr):
     RulesMgr(RulesMgr), InstructionsMgr(InstructionsMgr)
-  { }
+  { 
+    MaxDepth = 10; // default search depth, if none specified this will be
+                   // used
+  }
 
   // This auxiliary function searches for leafs in an expression and
   // gets their names and put they in a list.
@@ -131,8 +134,33 @@ namespace backendgen {
 	  return true;
 	}
 	
-	bool match = true;
-	// Now we know we are handling with operators and may safely cast
+
+	// Now we know we are handling with operators
+	// See if this is a guarded assignment
+	const AssignOperator *AO1 = dynamic_cast<const AssignOperator*>(E1),
+	  *AO2 = dynamic_cast<const AssignOperator*>(E2);
+	if (AO1 != NULL) {
+	  // If they don't agree with having a predicate, they're different
+	  // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
+	  if ((AO1->getPredicate() != NULL && AO2->getPredicate() == NULL) ||
+	      (AO1->getPredicate() == NULL && AO2->getPredicate() != NULL) )
+	    return false;
+	  if (AO1->getPredicate()) {
+	    // Check if the comparators for the guarded assignments are equal
+	    if (AO1->getPredicate()->getComparator() != 
+		AO2->getPredicate()->getComparator())
+	      return false;
+	    // Now check if the expressions being compared are equal
+	    if (!Compare<false>(AO1->getPredicate()->getLHS(), 
+				AO2->getPredicate()->getLHS()))
+	      return false;
+	    if (!Compare<false>(AO1->getPredicate()->getRHS(), 
+				AO2->getPredicate()->getRHS()))
+	      return false;
+	  }
+	}
+
+	bool match = true;	
 	// and analyze its children
 	const Operator *O1 = dynamic_cast<const Operator*>(E1),
 	  *O2 = dynamic_cast<const Operator*>(E2);
@@ -158,6 +186,11 @@ namespace backendgen {
     delete List;
   }
 
+  // Extracts a predicate primary operator type
+  inline unsigned PrimaryOperatorType(const Predicate* Pred) {
+    return Pred->getComparator() + 5000;
+  }
+
   // Extracts an expression's primary operator type
   inline unsigned PrimaryOperatorType (const Tree* Expression)
   {
@@ -165,8 +198,12 @@ namespace backendgen {
       return 0;
 
     const Operator* O = dynamic_cast<const Operator*>(Expression);
-    if (O->getType() == IfOp) {
-      return PrimaryOperatorType((*O)[0]);
+    if (O->getType() == AssignOp) {
+      const AssignOperator* AO = dynamic_cast<const AssignOperator*>
+	(Expression);      
+      assert(AO != NULL && "AssignOp not in a AssignOperator type");
+      if (AO->getPredicate() != NULL)
+	return PrimaryOperatorType(AO->getPredicate());
     } else if (O->getType() == AssignOp) {
       return PrimaryOperatorType((*O)[1]);
     }
@@ -339,9 +376,52 @@ namespace backendgen {
       UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed));
       return true;
     }
-
+    // Now check for guarded assignments before delving into each children
+    // of this operator
     SearchResult* TempResults = new SearchResult();
-    
+
+    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Transformed);
+    const AssignOperator* AOIns = 
+      dynamic_cast<const AssignOperator*>(InsnSemantic);
+    if (AO != NULL) {
+      // If they don't agree with having a predicate, they're different
+      // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
+      if ((AO->getPredicate() != NULL && AOIns->getPredicate() == NULL) ||
+	  (AO->getPredicate() == NULL && AOIns->getPredicate() != NULL) )
+	return false;
+      //If both have a predicate
+      if (AO->getPredicate() != NULL) {
+	// Check the comparator
+	if (AO->getPredicate()->getComparator() != AOIns->getPredicate()
+	    ->getComparator())
+	  return false;
+	// Check expressions being compared (involve recursive calls)
+	SearchResult* SR_LHS = 
+	  TransformExpression(AO->getPredicate()->getLHS(), 
+			      AOIns->getPredicate()->getLHS(), CurDepth+1);
+	// Failed to prove LHSs equal
+	if (SR_LHS->Cost == INT_MAX) {
+	  delete TempResults;
+	  delete SR_LHS;
+	  return false;
+	}
+	MergeSearchResults(TempResults, SR_LHS);
+	delete SR_LHS;
+	SearchResult* SR_RHS =
+	  TransformExpression(AO->getPredicate()->getRHS(), 
+			      AOIns->getPredicate()->getRHS(), CurDepth+1);
+	// Failed to prove RHSs equal
+	if (SR_RHS->Cost == INT_MAX) {
+	  delete TempResults;
+	  delete SR_RHS;
+	  return false;
+	}
+	MergeSearchResults(TempResults, SR_RHS);
+	delete SR_RHS;
+      }// end if both have a predicate
+    }// end if they are assignop
+
+    // Now for every operator, prove their children equal
     const Operator* O = dynamic_cast<const Operator*>(Transformed);
     const Operator* OIns = dynamic_cast<const Operator*>(InsnSemantic);
     for (int I = 0, E = O->getArity(); I != E; ++I) 
@@ -387,7 +467,7 @@ namespace backendgen {
     SearchResult* Result = new SearchResult();
 
     // Cancel this trial if it has exceeded maximum recursive depth allowed
-    if (CurDepth == MAXDEPTH) {
+    if (CurDepth == MaxDepth) {
       DbgIndent(CurDepth);
       DbgPrint("Maximum recursive depth reached.\n");
       return Result;
@@ -532,7 +612,7 @@ namespace backendgen {
     SearchResult* Result = new SearchResult();
 
     // Cancel this trial if it has exceeded maximum recursive depth allowed
-    if (CurDepth == MAXDEPTH) {
+    if (CurDepth == MaxDepth) {
       DbgIndent(CurDepth);
       DbgPrint("Maximum recursive depth reached.\n");
       return Result;

@@ -40,6 +40,33 @@ namespace backendgen {
     // instruction semantics over the processor state.    
     typedef Node Tree;
 
+    // These comparator types are used in a predicate to compare two
+    // expressions and evaluate if the guarded assignment is valid.
+    enum ComparatorTypes {EqualityComp=1, LessThanComp, GreaterThanComp,
+			  LessOrEqualComp, GreaterOrEqualComp};
+
+    // This class represents a predicate in a guarded assignment.
+    // The predicate must be true in order to the guarded expression be
+    // computed.
+    class Predicate {
+      Tree *LHS, *RHS;
+      unsigned Comparator;
+    public:
+      Predicate(unsigned Comparator, Tree *LHS, Tree *RHS) :
+	LHS(LHS), RHS(RHS), Comparator(Comparator) {}
+      ~Predicate() {
+	delete LHS;
+	delete RHS;
+      }
+      Predicate* clone() const { 
+	return new Predicate(Comparator, (LHS == NULL)? NULL : LHS->clone(),
+			     (RHS == NULL)? NULL : RHS->clone());
+      }
+      Tree *getLHS() const { return LHS; }
+      Tree *getRHS() const { return RHS; }
+      unsigned getComparator() const { return Comparator; }
+    };
+
     // We may have several operand types, albeit some predefined
     // values exist.
     enum KnownTypes {IntType=1, LastType};
@@ -100,8 +127,11 @@ namespace backendgen {
     // A FragOperand must be expanded by inserting a semantic
     // fragment in its place
     class FragOperand : public Operand {      
+      std::list<std::string> ParameterList;
     public:
-      FragOperand(const std::string &OpName): Operand(OperandType(), OpName) {}
+      FragOperand(const std::string &OpName, std::list<std::string>&List): 
+	Operand(OperandType(), OpName), ParameterList(List) {}
+      std::list<std::string>& getParameterList() { return ParameterList; }
     };
 
     typedef unsigned int ConstType;
@@ -218,7 +248,7 @@ namespace backendgen {
       Iterator getBegin();
       Iterator getEnd();
       Iterator findFrag(const std::string &Name);
-      bool expandTree(Tree** Semantic, unsigned FragNdx);
+      bool expandTree(Tree** Semantic);
     };
 
     // Special class of operand:  a register class
@@ -262,7 +292,7 @@ namespace backendgen {
       int Type;
       bool operator< (const OperatorType &a) const {
 	return (Type < a.Type);
-      }
+      }     
     };
 
     typedef std::map<std::string, OperatorType> OperatorMapType;
@@ -284,7 +314,7 @@ namespace backendgen {
     // does some computation based on its operands. The number
     // of operands is determined by its arity.   
     class Operator : public Node {
-    public:
+    protected:
       // Constructor
       Operator(OperatorType OpType): Node(), Children(OpType.Arity),
 				     Type(OpType)
@@ -293,6 +323,10 @@ namespace backendgen {
 	ReturnType.Size = 0;
 	ReturnType.DataType = 0;
       }
+    public:
+      // Operator factory
+      static Operator* BuildOperator(OperatorTableManager &Man,
+				     OperatorType OpType);
       // Subscripting directly access one of this node's children.
       Node*& operator[] (int index) {
 	//if (index >= Type.Arity)
@@ -342,11 +376,49 @@ namespace backendgen {
       unsigned getReturnTypeType() const {return ReturnType.Type;}
       int getArity() const {return Type.Arity;}
       OperatorType getOpType() const {return Type;}
-    private:
+    protected:
       std::vector<Node *> Children;
       OperatorType Type;
       OperandType ReturnType;
     };  
+
+    // AssignOperator is a special kind of operator that assigns
+    // a value computed by RHS expression to the operand in LHS.
+    class AssignOperator : public Operator {
+      Predicate* Pred; // Not null if this is a guarded assignment     
+      // Constructor used when cloning
+      AssignOperator(OperatorType AssignType, Tree* LHS, Tree* RHS,
+		     Predicate* Pred) : 
+	Operator(AssignType), Pred(Pred) {
+	Children[0] = LHS;
+	Children[1] = RHS;
+      }
+
+    public:
+      AssignOperator(OperatorTableManager& Man, Tree* LHS, Tree* RHS,
+		     Predicate* Pred) : 
+	Operator(Man.getType(AssignOpStr)), Pred(Pred) {
+	Children[0] = LHS;
+	Children[1] = RHS;
+      }
+
+      virtual ~AssignOperator() {
+	delete Pred;
+      }
+      
+      virtual Node* clone() const {
+	return new AssignOperator(Type, Children[0]->clone(),
+				  Children[1]->clone(), 
+				  (Pred != NULL)? Pred->clone() : NULL);
+      }
+
+      Predicate* getPredicate() const {
+	return Pred;
+      }
+      void setPredicate(Predicate *p) {
+	Pred = p;
+      }
+    };
 
   } // end namespace expression
   

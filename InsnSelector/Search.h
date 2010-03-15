@@ -42,12 +42,13 @@ namespace backendgen {
     ~SearchResult();
   };
 
-  const unsigned MAXDEPTH = 10;
-
   // Main interface for search algorithms
   class Search {
     TransformationRules& RulesMgr;    
     InstrManager& InstructionsMgr;
+
+    unsigned MaxDepth;
+
     inline bool HasCloseSemantic(unsigned InstrPO, unsigned ExpPO);
     SearchResult* TransformExpression(const Tree* Expression,
 				      const Tree* InsnSemantic, 
@@ -61,6 +62,8 @@ namespace backendgen {
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
     SearchResult* operator() (const Tree* Expression, unsigned CurDepth);
+    unsigned getMaxDepth() { return MaxDepth; }
+    void setMaxDepth(unsigned MaxDepth) { this->MaxDepth = MaxDepth; }
   };
 
 }

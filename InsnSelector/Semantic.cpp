@@ -11,6 +11,7 @@
 #include "Semantic.h"
 #include "../Support.h"
 #include <functional>
+#include <cassert>
 
 namespace backendgen {
 
@@ -165,14 +166,26 @@ namespace backendgen {
       return ReverseOperatorMap[type];
     }
 
+    // Operator member functions
+    Operator* Operator::BuildOperator(OperatorTableManager &Man,
+				      OperatorType OpType) {
+      if (OpType.Type == AssignOp)
+	return new AssignOperator(Man, NULL, NULL, NULL);
+      return new Operator(OpType);
+    }
+
     void Operator::setReturnType (const OperandType &OType) {
       ReturnType = OType;
     }
+
+    // Operand member functions 
 
     Operand::Operand (const OperandType &Type, const std::string &OpName) {
       this->Type = Type;
       OperandName = OpName;
     }
+
+    // Contant member functions
 
     Constant::Constant (const ConstType Val, const OperandType &Type):
       Operand(Type, "C")
@@ -374,19 +387,12 @@ namespace backendgen {
 
     // FragmentManager member functions
 
-    bool deleteFragNode(Tree** Element) {
-      delete *Element;
-      return true;
-    }
-
     FragmentManager::~FragmentManager() {
       for (FragmentManager::Iterator I = FragMap.begin(), E = FragMap.end();
 	   I != E; ++I) {
 	for (FragmentManager::VecIterator I2 = I->second->begin(), 
 	       E2 = I->second->end(); I2 != E2; ++I2) {
-	  ApplyToAllNodes
-	    <Tree*, Operator*, std::pointer_to_unary_function<Tree**, bool> >
-	    (&(*I2), std::ptr_fun(deleteFragNode));	
+	  delete (*I2);
         }
         delete I->second;
       }
@@ -401,31 +407,93 @@ namespace backendgen {
       return true;
     }
 
-    // Helper class used to analyze a leaf node and check if it needs
-    // to be expanded by fragments.
-    class ExpandTreeFunctor {
-      FragmentManager& Man;
-      unsigned FragNdx;
+    // This functor is used to rename all leafs of a semantic tree (used 
+    // together with ApplyToLeafs<> template in Support.h)
+    // The names to use as the new labels are passed as parameter
+    // to the constructor (list of strings).
+    class RenameLeafsFunctor {
+      std::list<std::string>* LeafsName;
     public:
-      ExpandTreeFunctor(FragmentManager& Manager, unsigned FragNdx) :
-	Man(Manager), FragNdx(FragNdx) {}
-      // Return false on error
-      bool operator() (Tree** Opr) {
-	FragOperand* Op =  dynamic_cast<FragOperand*>(*Opr);
+      RenameLeafsFunctor(std::list<std::string>* LeafsName) : 
+	LeafsName(LeafsName) {}
+      bool operator() (Tree* Opr) {
+	if (Opr == NULL) return true;
 
-	// Not interested in non-frag operands
-	if (Op == NULL)
-	  return true;			
+	Operand* O_and = dynamic_cast<Operand*>(Opr);
+	assert (O_and != NULL && "ApplyToLeafs sent us a non-leaf node");
 
-	FragmentManager::Iterator Pos = Man.findFrag(Op->getOperandName());
-	if (Pos == Man.getEnd()) 
-	  return false;	
-	if (Pos->second->size() <= FragNdx)
+	// Ignore other operands type not register or imm
+	if (!dynamic_cast<const RegisterOperand*>(O_and) &&
+	    !dynamic_cast<const ImmediateOperand*>(O_and))
+	  return true;
+
+	if (LeafsName->empty())
 	  return false;
 
-	delete *Opr;
-	*Opr = (*(Pos->second))[FragNdx]->clone();
+	O_and->changeOperandName(LeafsName->front());
+	LeafsName->pop_front();
 
+	return true;
+      }
+    };
+
+    // Helper class used to analyze a tree and check if it needs
+    // to be expanded by fragments.
+    // In this functor, we specifically scan for operators with leaf
+    // operands represented by fragments. Then, we expand these fragments
+    // among the operands of this operator. In the trivial case, there is
+    // only one operand expanded and the only the fragment node is substituted
+    class ExpandTreeFunctor {
+      FragmentManager& Man;
+    public:
+      ExpandTreeFunctor(FragmentManager& Manager) :
+	Man(Manager) {}
+      // Return false on error     
+      bool operator() (Tree* Opr) {
+	Operator* O_ator_ = dynamic_cast<Operator*>(Opr);
+	// Not interested in non-operator nodes
+	if (O_ator_ == NULL)
+	  return true;
+	Operator& O_ator = *O_ator_;
+
+	FragOperand* Op = NULL;
+	unsigned FragIndex, E = O_ator.getArity();
+	// Now scan for all operands looking for a FragOperand
+	for (FragIndex = 0; FragIndex != E; ++FragIndex)
+	  {	  
+	    Op =  dynamic_cast<FragOperand*>(O_ator[FragIndex]);
+	    // Not interested in non-frag operands
+	    if (Op == NULL)
+	      continue;
+	    break;
+	  }
+
+	// Could not find a fragment to expand
+	if (Op == NULL)
+	  return true;
+
+	FragmentManager::Iterator Pos = Man.findFrag(Op->getOperandName());
+	// We found a fragment, but could not find a definition for it
+	// Return false to flag an error
+	if (Pos == Man.getEnd()) 
+	  return false;	
+
+	std::list<std::string> Names = Op->getParameterList();
+	bool ChangeLeafNames = true;
+	if (Names.empty())
+	  ChangeLeafNames = false;
+	  	 
+	for (unsigned I = 0, E = Pos->second->size(); I != E; ++I) {
+	  Tree* old = O_ator[FragIndex];
+	  if (old != NULL)
+	    delete old;
+	  
+	  O_ator[FragIndex] = (*(Pos->second))[I]->clone();
+	  if (ChangeLeafNames)
+	    if (!ApplyToLeafs<Tree*, Operator*,RenameLeafsFunctor>
+		(O_ator[FragIndex], RenameLeafsFunctor(&Names)))
+	      return false;	
+	}
 	return true;
       }
     };
@@ -443,9 +511,10 @@ namespace backendgen {
       return FragMap.find(Name);
     }
     
-    bool FragmentManager::expandTree(Tree** Semantic, unsigned FragNdx) {      
-      return ApplyToLeafs<Tree*, Operator*, ExpandTreeFunctor>
-	(Semantic, ExpandTreeFunctor(*this, FragNdx));
+    bool FragmentManager::expandTree(Tree** Semantic) {      
+      // TODO: Expand when the root node is a fragment?
+      return ApplyToAllNodes<Tree*, Operator*, ExpandTreeFunctor>
+	(*Semantic, ExpandTreeFunctor(*this));
     }
 
     // RegisterOperand member functions

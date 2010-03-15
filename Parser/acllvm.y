@@ -1,4 +1,4 @@
-//===- acllvm.y - Bison input file for parser generation  -----------------===//
+//===- acllvm.y - Bison input file for parser generation  --*- Bison -*----===//
 //
 //              The ArchC Project - Compiler Backend Generation
 //
@@ -30,6 +30,8 @@ InstrManager InstructionManager;
 FragmentManager FragMan;
 std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
+// String list used to store fragment instance parameters
+std::list<std::string> StrList;
 // Expression stack used to process operators parameters
 std::stack<Node *> Stack;
 // Register stack used to process register lists, when defining register classes
@@ -59,11 +61,12 @@ void yyerror(char *error);
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
-%token<num> CALLING FRAGMENT
+%token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
+%token<num> LBRACE RBRACE PARAMETERS LEADSTO2
 
 %type<treenode> exp operator;
 %type<str> oper;
-%type<num> explist convtype;
+%type<num> explist convtype strlist comparator;
 
 %%
 
@@ -90,7 +93,16 @@ statement:         ruledef       {}
 translate:         TRANSLATE exp SEMICOLON
                    {
 		     Search S(RuleManager, InstructionManager);
-		     SearchResult *R = S($2, 0);
+		     unsigned SearchDepth = 5;
+		     SearchResult *R = NULL;
+		     while (R == NULL || R->Instructions->size() == 0) {
+		       if (SearchDepth == 10)
+			 break;
+		       std::cout << "Trying search with depth " << SearchDepth
+				 << "\n";
+		       S.setMaxDepth(SearchDepth++);
+		       R = S($2, 0);
+		     }
 		     std::cout << "Translation results\n=======\n";
 		     if (R == NULL)
 		       std::cout << "Not found!\n";
@@ -125,8 +137,8 @@ translate:         TRANSLATE exp SEMICOLON
 
 /* Semantic fragments defintion. */
 
-fragdef:           DEFINE SEMANTIC FRAGMENT ID AS LPAREN semanticlist RPAREN
-                   SEMICOLON
+fragdef:           DEFINE SEMANTIC FRAGMENT ID AS LPAREN explist SEMICOLON
+                   RPAREN SEMICOLON
                    {
 		     int I = Stack.size() - 1;
 		     while (I >= 0) {
@@ -165,10 +177,10 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
                      int I = Stack.size() - 1;
                      while (I >= 0) {
 		       Tree* root = Stack.top();
-		       if (!FragMan.expandTree(&root, InsnOccurrencesMap[$3]-1))
+		       if (!FragMan.expandTree(&root))
 			 {
 			   std::cerr << "Line " << LineNumber <<
-			     "Failure to expand pattern fragments into " 
+			     ": Failure to expand pattern fragments into " 
 				     << "instruction \"" << $3 << 
 			     "\" semantic.\n"; 
 			   free($3);
@@ -382,11 +394,41 @@ ruledef:  exp EQUIVALENCE exp SEMICOLON
 
 /* Expressions */
 
+comparator: EQUALS | LESS | GREATER | LESSOREQUAL | GREATEROREQUAL;
+
+strlist:   /* empty */ {}
+          | strlist ID { StrList.push_back($2); free($2); }
+          ; 
+
 explist:  /* empty */ {}
           | explist exp  { Stack.push($2); }         
           ; 
 
-exp:      LPAREN operator explist RPAREN 
+exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist 
+          RPAREN
+                    {
+		      AssignOperator *Op = dynamic_cast<AssignOperator*>($8);
+		      if (Op == NULL) {
+			std::cerr << "Line " << LineNumber << ": Using a "
+			       << "guarded assignment in something that is not "
+			       << "an assignment.\n";
+			ClearStack();
+			YYERROR;
+		      }
+		      if (Stack.size() != 2) {
+			std::cerr << "Line " << LineNumber << ": Invalid number"
+				  << " of operands for assignment operator.\n";
+			ClearStack();
+			YYERROR;
+		      }
+		      (*dynamic_cast<Operator*>($8))[1] = Stack.top();
+		      Stack.pop();
+		      (*dynamic_cast<Operator*>($8))[0] = Stack.top();
+		      Stack.pop();
+                      Op->setPredicate(new Predicate($3, $2, $4));
+		      $$ = $8;
+                    }
+          | LPAREN operator explist RPAREN 
                     {
                       int i = dynamic_cast<Operator*>($2)->getArity();         
 	              if (i > Stack.size())
@@ -448,8 +490,15 @@ exp:      LPAREN operator explist RPAREN
                     }
           | ID COLON FRAGMENT
 	            {
-                      $$ = new FragOperand($1);
+		      StrList.clear();
+                      $$ = new FragOperand($1, StrList);
 		      free($1);
+                    }
+          | ID COLON FRAGMENT PARAMETERS LPAREN strlist RPAREN
+                    {
+                      $$ = new FragOperand($1, StrList);
+                      free($1);
+                      StrList.clear();
                     }
           | ID COLON ID
                     { 
@@ -474,11 +523,13 @@ exp:      LPAREN operator explist RPAREN
 
 
 operator: OPERATOR      { 
-                          $$ = new Operator(OperatorTable.getType($1));
+                          $$ = Operator::BuildOperator
+			    (OperatorTable, OperatorTable.getType($1));
 			  free($1);
                         }
           | ID          { 
-                          $$ = new Operator(OperatorTable.getType($1));
+                          $$ = Operator::BuildOperator
+			    (OperatorTable, OperatorTable.getType($1));
 			  free($1);
                         }
           ;

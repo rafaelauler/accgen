@@ -31,10 +31,10 @@ lex.o: acllvm.tab.h lex.yybe.c InsnSelector/Semantic.h InsnSelector/Transformati
 	$(CXX) $(CXX_FLAGS) -c lex.yybe.c -o lex.o
 
 acllvm.tab.h: Parser/acllvm.y
-	bison --name-prefix=yybe -d Parser/acllvm.y
+	bison -v --name-prefix=yybe -d Parser/acllvm.y
 
 acllvm.tab.c: Parser/acllvm.y
-	bison --name-prefix=yybe -d Parser/acllvm.y
+	bison -v --name-prefix=yybe -d Parser/acllvm.y
 
 lex.h: Parser/acllvm.l
 	flex -Pyybe --header-file=lex.h Parser/acllvm.l

@@ -85,10 +85,22 @@ namespace backendgen {
 
   inline unsigned ExtractOperandNumber(const std::string& OpName) {
     std::string::size_type idx;
-    idx = OpName.find_first_of("0123456789");
-    if (idx == std::string::npos)
-      return 0;
+    idx = OpName.find_first_of("0123456789");    
+    assert (idx != std::string::npos && 
+	    "Operand name does not have a sequence number");
     return atoi(OpName.substr(idx).c_str());
+  }
+
+  // This auxiliary function checks if the operand has an operand number,
+  // which means it may be assigned by the assembler via assembly instruction
+  // syntax.
+  // TODO: Provide a more formal way of assigning operands to the 
+  // assembly writer, rather than "guessing" based on the presence of
+  // numbers in the operand's name.
+  inline bool HasOperandNumber(const std::string& OpName) {
+    std::string::size_type idx;
+    idx = OpName.find_first_of("0123456789");
+    return (idx != std::string::npos);
   }
 
   // Extract all defined operands in this instructions (outs)
@@ -160,6 +172,17 @@ namespace backendgen {
     return Result;
   }
 
+  inline unsigned CountAssemblyUsefulOperands(std::list<const Operand*>& list)
+  {
+      unsigned Size = 0;
+      for (std::list<const Operand*>::iterator I = list.begin(), E = list.end();
+	   I != E; ++I) {
+	  if (HasOperandNumber((*I)->getOperandName()))
+	      Size++;
+      }
+      return Size;
+  }
+
   // Extract all operands (leaf nodes) from this instruction semantic forest
   std::list<const Operand*>* Instruction::getOperandsBySemantic() {
     std::list<const Operand*>* Result = new std::list<const Operand*>();
@@ -174,12 +197,23 @@ namespace backendgen {
       while (Queue.size() > 0) {
 	const Tree* Element = Queue.front();
 	Queue.pop_front();
-	const Operand* Op = dynamic_cast<const Operand*>(Element);
-	// If operand
+	const Operand* Op = dynamic_cast
+	  <const RegisterOperand*>(Element);
+	// If register operand
 	if (Op != NULL) {
 	  Result->push_back(Op);	  
 	  continue;
 	}
+	Op = dynamic_cast<const ImmediateOperand*>(Element);
+	// If immediate operand
+	if (Op != NULL) {
+	  Result->push_back(Op);
+	}
+	Op = dynamic_cast<const Operand*>(Element);
+	// Other types of operands are uninteresting
+	if (Op != NULL) 
+	  continue;	
+
 	// Otherwise we have an operator
 	const Operator* O = dynamic_cast<const Operator*>(Element);
 	assert (O != NULL && "Unexpected tree node type");
@@ -206,7 +240,8 @@ namespace backendgen {
     // For each missing operand, we insert a dummy operand just to fill
     // the position and correctly order remaining defined operands
     for (std::list<const Operand*>::iterator I = Result->begin(),
-	   E = Result->end(), C = Result->end(); I !=  E; C = I++) {
+	   E = Result->end(), C = Result->end(); 
+	 I !=  E && HasOperandNumber((*I)->getOperandName()); C = I++) {
       if (C == Result->end())
 	continue;
       const int Diff = ExtractOperandNumber((*I)->getOperandName()) -
@@ -214,12 +249,13 @@ namespace backendgen {
       if (Diff > 0) 
 	Result->insert(I, Diff, &DummyOperand);
     }
-    if (Result->begin() != Result->end()) {
+    if (Result->begin() != Result->end() && 
+	HasOperandNumber((*(Result->begin()))->getOperandName())) {
       const int Diff = ExtractOperandNumber((*(Result->begin()))
 					    ->getOperandName()) - 1;
       Result->insert(Result->begin(), Diff, &DummyOperand);
     }
-    const int Diff = getNumOperands() - Result->size();
+    const int Diff = getNumOperands() - CountAssemblyUsefulOperands(*Result);
     if (Diff > 0)
       Result->insert(Result->end(), Diff, &DummyOperand);
 
@@ -242,9 +278,11 @@ namespace backendgen {
       const Operand* Op = dynamic_cast<const Operand*>(Element);
       // If operand
       if (Op != NULL) {
-	OperandsIndexes.push_back(ExtractOperandNumber(Op->getOperandName()));
+	if (HasOperandNumber(Op->getOperandName())) 
+	  OperandsIndexes.push_back
+	    (ExtractOperandNumber(Op->getOperandName())); 		
 	continue;
-      }
+      }      
       // Otherwise we have an operator
       const Operator* O = dynamic_cast<const Operator*>(Element);
       assert (O != NULL && "Unexpected tree node type");

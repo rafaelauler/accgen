@@ -14,10 +14,10 @@ lex.o:	acllvm.tab.h lex.yybe.c ../InsnSelector/Semantic.h ../InsnSelector/Transf
 	g++ $(CXX_FLAGS) -c lex.yybe.c -o lex.o
 
 acllvm.tab.h: acllvm.y
-	bison --name-prefix=yybe -d acllvm.y
+	bison -v --name-prefix=yybe -d acllvm.y
 
 acllvm.tab.c: acllvm.y
-	bison --name-prefix=yybe -d acllvm.y
+	bison -v --name-prefix=yybe -d acllvm.y
 
 lex.h:	acllvm.l
 	flex -Pyybe --header-file=lex.h acllvm.l

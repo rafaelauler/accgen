@@ -1,4 +1,4 @@
-//===- __arch__`InstrInfo.td' - __arch__ Instruction defs --------------------*- C++ -*-===//
+//===- __arch__`InstrInfo.td' - __arch__ Instruction defs --*- tablegen -*-===//
 //
 //                     The ArchC LLVM Backend Generator
 //

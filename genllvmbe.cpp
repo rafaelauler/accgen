@@ -395,9 +395,9 @@ int main(int argc, char **argv) {
   TM.SetArchName("sparc16");
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);
-  TM.CreateBackendFiles();
   TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);
   TM.SetWordSize(wordsize);
+  TM.CreateBackendFiles();
 
   DeallocateFormats();
   MemWatcher->ReportStatistics(std::cout);
