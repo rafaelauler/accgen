@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cassert>
+#include <climits>
 
 namespace backendgen {
 
@@ -59,35 +60,13 @@ namespace backendgen {
 
   static const Operand DummyOperand(OperandType(0,0,0), "dummy");
 
-  std::string Instruction::parseOperandsFmts() {
-    std::string Result(OperandFmts);
-    replaceStr(Result, "\\\\%lo(%)", "%");
-    replaceStr(Result, "\\\\%hi(%)", "%");
-
-    int DummyIndex = 1;
-    std::list<const Operand*>* ListOps = getOperandsBySemantic();  
-    Result.insert(0, Mnemonic);
-    for (ConstOpIt I = ListOps->begin(), E = ListOps->end(); I != E; ++I) {
-      std::string New = std::string("${");
-      New.append((*I)->getOperandName());
-      if (*I == &DummyOperand)
-	New.append(getStrForInteger(DummyIndex++));
-      New.append("}");
-      replaceStr(Result, "%", New);
-    }
-    delete ListOps;
-    return Result;
-  }
-  
-  std::string Instruction::getName() const {
-    return Name;
-  }
-
   inline unsigned ExtractOperandNumber(const std::string& OpName) {
     std::string::size_type idx;
+    //std::cout << "ExtractOperandNumber called with " << OpName << "\n";
     idx = OpName.find_first_of("0123456789");    
-    assert (idx != std::string::npos && 
-	    "Operand name does not have a sequence number");
+    // "Operand name does not have a sequence number"
+    if (idx == std::string::npos)
+      return INT_MAX;
     return atoi(OpName.substr(idx).c_str());
   }
 
@@ -101,6 +80,34 @@ namespace backendgen {
     std::string::size_type idx;
     idx = OpName.find_first_of("0123456789");
     return (idx != std::string::npos);
+  }
+
+  std::string Instruction::parseOperandsFmts() {
+    std::string Result(OperandFmts);
+    replaceStr(Result, "\\\\%lo(%)", "%");
+    replaceStr(Result, "\\\\%hi(%)", "%");
+
+    int DummyIndex = 1;
+    std::list<const Operand*>* ListOps = getOperandsBySemantic();  
+    Result.insert(0, Mnemonic);
+    for (ConstOpIt I = ListOps->begin(), E = ListOps->end(); I != E; ++I) {
+      std::string New = std::string("${");
+      // Ignore operands not meant for assembly writing
+      if (*I != &DummyOperand && 
+	  !HasOperandNumber((*I)->getOperandName()))
+	  continue;
+      New.append((*I)->getOperandName());
+      if (*I == &DummyOperand)
+	New.append(getStrForInteger(DummyIndex++));
+      New.append("}");
+      replaceStr(Result, "%", New);
+    }
+    delete ListOps;
+    return Result;
+  }
+  
+  std::string Instruction::getName() const {
+    return Name;
   }
 
   // Extract all defined operands in this instructions (outs)
@@ -177,7 +184,7 @@ namespace backendgen {
       unsigned Size = 0;
       for (std::list<const Operand*>::iterator I = list.begin(), E = list.end();
 	   I != E; ++I) {
-	  if (HasOperandNumber((*I)->getOperandName()))
+	  if (*I == &DummyOperand || HasOperandNumber((*I)->getOperandName()))
 	      Size++;
       }
       return Size;
@@ -213,7 +220,14 @@ namespace backendgen {
 	// Other types of operands are uninteresting
 	if (Op != NULL) 
 	  continue;	
-
+	
+	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
+	// If we have an assignment operator, includes the operands contained
+	// in guarded statements
+	if (AO != NULL && AO->getPredicate() != NULL) {
+	  Queue.push_back(AO->getPredicate()->getLHS());
+	  Queue.push_back(AO->getPredicate()->getRHS());
+	}
 	// Otherwise we have an operator
 	const Operator* O = dynamic_cast<const Operator*>(Element);
 	assert (O != NULL && "Unexpected tree node type");
@@ -286,6 +300,11 @@ namespace backendgen {
       // Otherwise we have an operator
       const Operator* O = dynamic_cast<const Operator*>(Element);
       assert (O != NULL && "Unexpected tree node type");
+      const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Element);
+      if (AO != NULL && AO->getPredicate() != NULL) {
+	Queue.push_back(AO->getPredicate()->getLHS());
+	Queue.push_back(AO->getPredicate()->getRHS());
+      }
       for (int I = 0, E = O->getArity(); I != E; ++I) {
 	Queue.push_back((*O)[I]);
       }

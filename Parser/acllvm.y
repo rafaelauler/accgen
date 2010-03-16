@@ -415,7 +415,7 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
 			ClearStack();
 			YYERROR;
 		      }
-		      if (Stack.size() != 2) {
+		      if (Stack.size() < 2) {
 			std::cerr << "Line " << LineNumber << ": Invalid number"
 				  << " of operands for assignment operator.\n";
 			ClearStack();

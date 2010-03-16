@@ -144,6 +144,7 @@ namespace backendgen {
       Constant (const ConstType Val, const OperandType &Type);
       virtual void print(std::ostream &S) const { S << Value;  }
       virtual Node* clone() const { return new Constant(*this); }
+      ConstType getConstValue() const { return Value; }
     private:
       ConstType Value;
     };

@@ -24,7 +24,7 @@ namespace backendgen {
     std::cerr << text;
   } 
   inline void DbgIndent(unsigned CurDepth) {
-    for (int I = 0; I < CurDepth; ++I)
+    for (unsigned I = 0; I < CurDepth; ++I)
       std::cerr << " ";
   }
 #define Dbg(x) x
@@ -76,9 +76,15 @@ namespace backendgen {
 
     // A leaf
     if (Exp->isOperand()) {
-      // Constants does not have names, ignore them
+      // Constants don't have names, ignore them
       if (dynamic_cast<const Constant*>(Exp)) 
 	return Result;
+      // Immediates don't have names, ignore them
+      if (dynamic_cast<const ImmediateOperand*>(Exp))
+	return Result;
+      // We should not expect fragments to be present here
+      assert(dynamic_cast<const FragOperand*>(Exp) == NULL &&
+	     "Unexpected node type.");
       const Operand* O = dynamic_cast<const Operand*>(Exp);
       Result->push_back(O->getOperandName());
       return Result;
@@ -86,6 +92,18 @@ namespace backendgen {
 
     // An operator
     const Operator* O = dynamic_cast<const Operator*>(Exp);
+    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Exp);
+      if (AO != NULL && AO->getPredicate() != NULL) {
+	NameListType* ChildResult = ExtractLeafsNames
+	  (AO->getPredicate()->getLHS());
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;
+	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS());
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;	       
+      }
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
@@ -95,6 +113,9 @@ namespace backendgen {
       }
     return Result;
   }
+
+  // Auxiliaries EqualTypes and EqualNodeTypes are used in the
+  // prune heuristic to compare node types
 
   // A special comparison that considers if the node type has value 0,
   // in which cases this type matches all
@@ -112,33 +133,44 @@ namespace backendgen {
 	    (T1.Size <= T2.Size || T1.Size == 0 || T2.Size == 0));
   }
 
-  // Auxiliary function returns true if two trees are directly
-  // equivalent
+  // This template is extensively used in the Search algorithm to 
+  // conclude if two expressions are equal. If the template is instantiated
+  // with JustTopLevel=true, the function doesn't descend into childrens, but
+  // just compare the top level node.
   template <bool JustTopLevel>
   bool Compare (const Tree *E1, const Tree *E2)
   {
     bool isOperator;
-    // Notes: We match if E2 implements the same operation if
+    // Notes: We match if E2 implements the same operation with
     // greater data size - this means we imply that E1 is the
     // wanted expression and E2 is the implementation proposal
     if ((isOperator = E1->isOperator()) == E2->isOperator() &&
 	E1->getType() == E2->getType() &&
 	E1->getSize() <= E2->getSize())
       {
-	// If we don't wanna recursive comparison, that's enough
-	if (JustTopLevel)
-	  return true;
-
 	// Leaf?
 	if (!isOperator) {
+	  const Constant* C1 = dynamic_cast<const Constant*>(E1);
+	  // Depending on the operand type, we need to make further checkings
+	  // Constants must be equal
+	  if (C1 != NULL) {
+	    const Constant* C2 = dynamic_cast<const Constant*>(E2);
+	    assert (C2 != NULL && "Nodes must agree in type at this stage.");
+	    if (C1->getConstValue() != C2->getConstValue())
+	      return false;
+	  }
 	  return true;
-	}
-	
+	}	
+
+	if (JustTopLevel)
+	  return true;
 
 	// Now we know we are handling with operators
 	// See if this is a guarded assignment
 	const AssignOperator *AO1 = dynamic_cast<const AssignOperator*>(E1),
 	  *AO2 = dynamic_cast<const AssignOperator*>(E2);
+	assert ((AO1 == NULL) == (AO2 == NULL) &&
+		"Nodes must agree with type at this stage");
 	if (AO1 != NULL) {
 	  // If they don't agree with having a predicate, they're different
 	  // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
@@ -200,13 +232,13 @@ namespace backendgen {
     const Operator* O = dynamic_cast<const Operator*>(Expression);
     if (O->getType() == AssignOp) {
       const AssignOperator* AO = dynamic_cast<const AssignOperator*>
-	(Expression);      
+      	(Expression);      
       assert(AO != NULL && "AssignOp not in a AssignOperator type");
-      if (AO->getPredicate() != NULL)
-	return PrimaryOperatorType(AO->getPredicate());
-    } else if (O->getType() == AssignOp) {
+      // Ignores the predicate currently, for heuristic reasons
+      //if (AO->getPredicate() != NULL)
+      //	return PrimaryOperatorType(AO->getPredicate());
       return PrimaryOperatorType((*O)[1]);
-    }
+    }    
 
     return O->getType();
   }
@@ -650,6 +682,7 @@ namespace backendgen {
       return Result;
     }
 
+#if 0
     DbgIndent(CurDepth);
     DbgPrint("Trying decomposition rules\n");
 
@@ -680,6 +713,7 @@ namespace backendgen {
     // If found something, return it
     if (Result->Cost != INT_MAX)
       return Result;
+#endif
 
     DbgIndent(CurDepth);
     DbgPrint("Trying transformations\n");

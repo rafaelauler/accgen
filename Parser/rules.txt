@@ -41,10 +41,19 @@ AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
 
 AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
-const:int:0 <=> (xor Reg:regs Reg:regs);
+// const:int:0 <=> (xor Reg:regs Reg:regs);
 
 (transfer OperA:any OperB:any) => 
+	  (dec (transfer AReg:regs const:int:1)
+	  {AReg:regs == const:int:1} -> (transfer OperA:any OperB:any))
+	  ;
+
+(transfer OperA:any OperB:any) =>
 	  {AReg:regs == AReg:regs} -> (transfer OperA:any OperB:any);
+
+// {AReg:regs == const:int:1} ->
+// (transfer OperA:any OperB:any) <=> (dec (transfer AReg:regs const:int:1) 
+// (transfer OperA:any OperB:any));
 
 // Machine description
 
@@ -196,16 +205,17 @@ define instruction mov1 semantic as (
 ) cost 1;
 define instruction mov2 semantic as (
   (transfer Op3:GPR RegShifted2AddrMode:fragment params (Op4 Op6));
+//  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (
-  {SR:CPSR == const:int:1} -> 
+  {SR:CPSR == const:int:1} ->  	
   	   (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
 ) cost 1;
 
 //====-- TEQ --====//
-//define instruction teq1 semantic as (
-//  {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
-//) cost 1;
+define instruction teq1 semantic as (
+  {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
+) cost 1;
 
 
 
