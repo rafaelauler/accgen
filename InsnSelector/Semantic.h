@@ -33,7 +33,9 @@ namespace backendgen {
       virtual bool isOperator() const { return false; }
       virtual unsigned getType() const { return 0; }
       virtual unsigned getSize() const { return 0; }
-      virtual Node* clone() const { return new Node(*this); }
+      virtual Node* clone() const = 0;
+      virtual unsigned getHash(unsigned hash_chain) const =  0;
+      virtual unsigned getHash() const { return getHash(0); }
     };
 
     // An expression tree, representing a single assertion of an
@@ -114,6 +116,7 @@ namespace backendgen {
       virtual unsigned getType() const { return Type.Type; }
       virtual unsigned getSize() const { return Type.Size; }
       virtual Node* clone() const { return new Operand(*this); }
+      virtual unsigned getHash(unsigned hash_chain) const;
       const std::string& getOperandName() const {return OperandName;}
       unsigned getDataType() const { return Type.DataType; }
       void changeOperandName(const std::string &NewName) {
@@ -366,6 +369,7 @@ namespace backendgen {
 	      delete Children[I];
 	  }
       }
+      virtual unsigned getHash(unsigned hash_chain) const;
       void detachNode() { 
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {	    

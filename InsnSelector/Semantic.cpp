@@ -19,8 +19,8 @@ namespace backendgen {
     
     // Generic hash function based on ELF's hash function for symbol names.
     template<typename T> inline
-    unsigned int hash (const T &Name) {
-      unsigned long int Hash = 0;
+    unsigned int hash (const T &Name, unsigned hash_in) {
+      unsigned long int Hash = hash_in;
       typename T::const_iterator I = Name.begin(), 
 	E = Name.end();
       
@@ -46,7 +46,7 @@ namespace backendgen {
 	if (Name == IntTypeStr)
 	  NewType.Type = IntType;
 	else {
-	  NewType.Type = hash<std::string>(Name);	
+	  NewType.Type = hash<std::string>(Name, 0);	
 	  if (NewType.Type < LastType)
 	    NewType.Type += LastType;
 	}
@@ -122,7 +122,7 @@ namespace backendgen {
 	else if (TypeName == AssignOpStr)
 	  NewType.Type = AssignOp;
 	else { // User defined operator
-	  NewType.Type = hash<std::string>(TypeName);
+	  NewType.Type = hash<std::string>(TypeName, 0);
 	  if (NewType.Type < LastOp)
 	    NewType.Type += LastOp;
 	}
@@ -178,11 +178,26 @@ namespace backendgen {
       ReturnType = OType;
     }
 
+    unsigned Operator::getHash(unsigned hash_chain) const {
+      for (unsigned I = 0, E = Type.Arity; I != E; ++I) {
+	hash_chain = Children[I]->getHash(hash_chain);
+      }
+      hash_chain = (hash_chain << 4) + Type.Type;
+      unsigned Hi = hash_chain & 0xf0000000;
+      hash_chain ^=  Hi;
+      hash_chain ^=  Hi >> 24;      
+      return hash_chain;
+    }
+
     // Operand member functions 
 
     Operand::Operand (const OperandType &Type, const std::string &OpName) {
       this->Type = Type;
       OperandName = OpName;
+    }
+
+    unsigned Operand::getHash(unsigned hash_chain) const {
+      return hash<std::string>(OperandName, hash_chain);
     }
 
     // Contant member functions

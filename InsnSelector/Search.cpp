@@ -13,7 +13,8 @@
 #include <climits>
 #include <cassert>
 
-//#define DEBUG
+#define DEBUG
+#define USETRANSCACHE
 
 namespace backendgen {
 
@@ -33,86 +34,7 @@ namespace backendgen {
   inline void DbgIndent(unsigned CurDepth) {}
 #define Dbg(x)
 #endif
-  
-  // SearchResult member functions
 
-  SearchResult::SearchResult() {
-    Instructions = new InstrList();
-    Cost = INT_MAX;
-    OperandsDefs = new OperandsDefsType();
-  }
-
-  SearchResult::~SearchResult() {
-    delete Instructions;
-    for (OperandsDefsType::iterator I = OperandsDefs->begin(),
-	   E = OperandsDefs->end(); I != E; ++I)
-      {
-	delete *I;
-      }
-    delete OperandsDefs;
-  }
-
-  // Search member functions
-
-  // Constructor
-  Search::Search(TransformationRules& RulesMgr, 
-		 InstrManager& InstructionsMgr):
-    RulesMgr(RulesMgr), InstructionsMgr(InstructionsMgr)
-  { 
-    MaxDepth = 10; // default search depth, if none specified this will be
-                   // used
-  }
-
-  // This auxiliary function searches for leafs in an expression and
-  // gets their names and put they in a list.
-  // With this information, we know what names to use as operands
-  // of instructions.
-  NameListType* ExtractLeafsNames(const Tree* Exp) {	
-    // Sanity check
-    if (Exp == NULL)
-      return NULL;
-    
-    NameListType* Result = new NameListType();
-
-    // A leaf
-    if (Exp->isOperand()) {
-      // Constants don't have names, ignore them
-      if (dynamic_cast<const Constant*>(Exp)) 
-	return Result;
-      // Immediates don't have names, ignore them
-      if (dynamic_cast<const ImmediateOperand*>(Exp))
-	return Result;
-      // We should not expect fragments to be present here
-      assert(dynamic_cast<const FragOperand*>(Exp) == NULL &&
-	     "Unexpected node type.");
-      const Operand* O = dynamic_cast<const Operand*>(Exp);
-      Result->push_back(O->getOperandName());
-      return Result;
-    }
-
-    // An operator
-    const Operator* O = dynamic_cast<const Operator*>(Exp);
-    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Exp);
-      if (AO != NULL && AO->getPredicate() != NULL) {
-	NameListType* ChildResult = ExtractLeafsNames
-	  (AO->getPredicate()->getLHS());
-	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
-	delete ChildResult;
-	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS());
-	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
-	delete ChildResult;	       
-      }
-    for (int I = 0, E = O->getArity(); I != E; ++I) 
-      {
-	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
-	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
-	delete ChildResult;
-      }
-    return Result;
-  }
 
   // Auxiliaries EqualTypes and EqualNodeTypes are used in the
   // prune heuristic to compare node types
@@ -205,6 +127,134 @@ namespace backendgen {
 	return match;
       }
     return false;
+  }
+
+  
+  // SearchResult member functions
+
+  SearchResult::SearchResult() {
+    Instructions = new InstrList();
+    Cost = INT_MAX;
+    OperandsDefs = new OperandsDefsType();
+  }
+
+  SearchResult::~SearchResult() {
+    delete Instructions;
+    for (OperandsDefsType::iterator I = OperandsDefs->begin(),
+	   E = OperandsDefs->end(); I != E; ++I)
+      {
+	delete *I;
+      }
+    delete OperandsDefs;
+  }
+
+  // TransformationCache member functions
+  TransformationCache::TransformationCache() : HASHSIZE(1024) {
+    HashTable = new ColisionList* [HASHSIZE];
+    assert (HashTable != NULL && "MemAlloc fail");
+    for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
+      HashTable[I] = NULL;
+    }
+  }
+  
+  TransformationCache::~TransformationCache() {
+    for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
+      if (HashTable[I] != NULL) {
+	delete HashTable[I];
+	HashTable[I] = NULL;
+      }
+    }
+    delete [] HashTable;
+  }
+
+  inline void TransformationCache::Add(const Tree* Exp, const Tree* Target) {
+    unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
+    ColisionList *ColList = HashTable[Hash];
+    if (ColList == NULL) {
+      ColList = HashTable[Hash] = new ColisionList();    
+    }
+    ColList->push_back(std::make_pair(Exp->clone(), Target->clone()));
+    return;
+  }
+
+  inline TransformationCache::EntryT* TransformationCache::LookUp
+  (const Tree* Exp, const Tree* Target) const {
+    unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
+    ColisionList *ColList = HashTable[Hash];
+    // Miss
+    if (ColList == NULL) {
+      return NULL;
+    }
+    for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
+	 I != E; ++I) {
+      EntryT &Entry = *I;
+      if (Compare<false>(Exp, Entry.first) && 
+	  Compare<false>(Target, Entry.second))
+	return &Entry;
+    }
+    return NULL;
+  }
+
+  // Search member functions
+
+  // Constructor
+  Search::Search(TransformationRules& RulesMgr, 
+		 InstrManager& InstructionsMgr):
+    RulesMgr(RulesMgr), InstructionsMgr(InstructionsMgr)
+  { 
+    MaxDepth = 10; // default search depth, if none specified this will be
+                   // used
+  }
+
+  // This auxiliary function searches for leafs in an expression and
+  // gets their names and put they in a list.
+  // With this information, we know what names to use as operands
+  // of instructions.
+  NameListType* ExtractLeafsNames(const Tree* Exp) {	
+    // Sanity check
+    if (Exp == NULL)
+      return NULL;
+    
+    NameListType* Result = new NameListType();
+
+    // A leaf
+    if (Exp->isOperand()) {
+      // Constants don't have names, ignore them
+      if (dynamic_cast<const Constant*>(Exp)) 
+	return Result;
+      // Immediates don't have names, ignore them
+      if (dynamic_cast<const ImmediateOperand*>(Exp))
+	return Result;
+      // We should not expect fragments to be present here
+      assert(dynamic_cast<const FragOperand*>(Exp) == NULL &&
+	     "Unexpected node type.");
+      const Operand* O = dynamic_cast<const Operand*>(Exp);
+      Result->push_back(O->getOperandName());
+      return Result;
+    }
+
+    // An operator
+    const Operator* O = dynamic_cast<const Operator*>(Exp);
+    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Exp);
+      if (AO != NULL && AO->getPredicate() != NULL) {
+	NameListType* ChildResult = ExtractLeafsNames
+	  (AO->getPredicate()->getLHS());
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;
+	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS());
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;	       
+      }
+    for (int I = 0, E = O->getArity(); I != E; ++I) 
+      {
+	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
+	assert (ChildResult != NULL && "Must return a valid pointer");
+	Result->merge(*ChildResult);
+	delete ChildResult;
+      }
+    return Result;
   }
 
   // Deallocated a decompose list
@@ -505,6 +555,16 @@ namespace backendgen {
       return Result;
     }
 
+#ifdef USETRANSCACHE
+    // Check Transformation Cache to see if transforming Expression
+    // into InsnSemantic is a dead end
+    if (TransCache.LookUp(Expression, InsnSemantic)) {
+      DbgIndent(CurDepth);
+      DbgPrint("Cache informs us there is no such transformation.\n");
+      return Result;
+    }
+#endif
+    
     const unsigned PO = PrimaryOperatorType(Expression);
 
     // Prune unworthy trials (heuristic)
@@ -628,6 +688,10 @@ namespace backendgen {
 
     DbgIndent(CurDepth);
     DbgPrint("Fail to prove both expressions are equivalent.\n");
+
+#ifdef USETRANSCACHE
+    TransCache.Add(Expression, InsnSemantic);
+#endif
 
     // We tried but could not find anything
     return Result;

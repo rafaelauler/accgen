@@ -42,10 +42,32 @@ namespace backendgen {
     ~SearchResult();
   };
 
+  // This class speeds up search algorithm by hashing expressions
+  // which are known to lead to a dead end. When such expressions are
+  // recognized, the search algorith may safely skip them.
+  class TransformationCache {
+    // Each entry in the hash table leads to a colision list, capable
+    // of holding many elements.
+    typedef std::pair<const Tree*, const Tree*> EntryT;
+    typedef std::list<EntryT> ColisionList;
+    // The hash table 
+    ColisionList** HashTable;
+    const unsigned HASHSIZE;
+
+  public:
+    // Constructor and destructor signatures
+    TransformationCache();
+    ~TransformationCache();
+    // Public member functions
+    inline void Add(const Tree* Exp, const Tree* Target);
+    inline EntryT* LookUp(const Tree* Exp, const Tree* Target) const;   
+  };
+
   // Main interface for search algorithms
   class Search {
     TransformationRules& RulesMgr;    
     InstrManager& InstructionsMgr;
+    TransformationCache TransCache;
 
     unsigned MaxDepth;
 
