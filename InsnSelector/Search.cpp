@@ -526,14 +526,18 @@ namespace backendgen {
       // If they don't agree with having a predicate, they're different
       // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
       if ((AO->getPredicate() != NULL && AOIns->getPredicate() == NULL) ||
-	  (AO->getPredicate() == NULL && AOIns->getPredicate() != NULL) )
+	  (AO->getPredicate() == NULL && AOIns->getPredicate() != NULL) ) {
+	delete TempResults;
 	return false;
+      }
       //If both have a predicate
       if (AO->getPredicate() != NULL) {
 	// Check the comparator
 	if (AO->getPredicate()->getComparator() != AOIns->getPredicate()
-	    ->getComparator())
+	    ->getComparator()) {
+	  delete TempResults;
 	  return false;
+	}
 	// Check expressions being compared (involve recursive calls)
 	SearchResult* SR_LHS = 
 	  TransformExpression(AO->getPredicate()->getLHS(), 

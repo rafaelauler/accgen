@@ -101,6 +101,8 @@ translate:         TRANSLATE exp SEMICOLON
 		       std::cout << "Trying search with depth " << SearchDepth
 				 << "\n";
 		       S.setMaxDepth(SearchDepth++);
+		       if (R != NULL)
+                         delete R;
 		       R = S($2, 0);
 		     }
 		     std::cout << "Translation results\n=======\n";

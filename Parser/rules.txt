@@ -27,13 +27,13 @@ define operator alias    as sub => -;
 
 //===========================-- Operands --===================================//
 
-define operand int   as size 32;
-define operand regs  as size 32 like int;
-define operand immed as size 32 like int;
-define operand short as size 16 like int;
-define operand byte  as size 8  like int;
+define operand int    as size 32;
+define operand regs   as size 32 like int;
+define operand immed  as size 32 like int;
+define operand short  as size 16 like int;
+define operand byte   as size 8  like int;
 define operand nibble as size 4 like int;
-define operand bit   as size 1  like int;
+define operand bit    as size 1  like int;
 
 //============================-- Rules --=====================================//
 
@@ -208,13 +208,13 @@ define instruction mov2 semantic as (
 //  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (
-  {Op1:CPSR == const:int:1} ->  	
+  {SR:CPSR == const:int:1} ->  	
   	   (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
 ) cost 1;
 
 //====-- TEQ --====//
 define instruction teq1 semantic as (
-  {Op2:GPR == Op3:GPR} -> (transfer Op1:CPSR const:int:1);
+  {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
 ) cost 1;
 
 
