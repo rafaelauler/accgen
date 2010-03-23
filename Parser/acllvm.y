@@ -132,6 +132,8 @@ translate:         TRANSLATE exp SEMICOLON
 		     }
 		     delete $2;
 		     std::cout << "\n";
+                     RuleManager.print(std::cerr);
+                     //InstructionManager.printAll(std::cerr);
                    }
                    ;
 
@@ -503,10 +505,15 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
           | ID COLON ID
                     { 
                       RegisterClass *RegClass = RegisterManager.getRegClass($3);
-                      if (RegClass == NULL)
-                        $$ = new Operand(OperandTable.getType($3), $1); 
-                      else 
-                        $$ = new RegisterOperand(RegClass, $1);  
+                      if (RegClass == NULL) 
+                        $$ = new Operand(OperandTable.getType($3), $1);       
+                      else {
+                        RegisterOperand *RO = new RegisterOperand(RegClass, $1);
+                        if (RegClass->hasRegisterName($1)) {
+			  RO->setSpecificReference(true);
+                        }
+                        $$ = RO;
+		      }
 		      free($1);
 		      free($3);
                     }

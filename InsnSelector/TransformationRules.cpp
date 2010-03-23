@@ -14,10 +14,14 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <cassert>
 
 namespace backendgen {
 
   using namespace backendgen::expression;
+
+  // Static number used when generating operands names. Start at 200.
+  unsigned Rule::OpNum = 200;
 
   // Traverse tree looking for a specific operator type
   bool FindOperator(Tree* T, unsigned OpType) {
@@ -38,8 +42,8 @@ namespace backendgen {
   // Rule member functions
 
   // Constructor
-  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence):
-    LHS(LHS), RHS(RHS), Equivalence(Equivalence)
+  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned ID):
+    LHS(LHS), RHS(RHS), Equivalence(Equivalence), RuleID(ID)
   {
     Composition = FindOperator(LHS, DecompOp);
     Decomposition = FindOperator(RHS, DecompOp);
@@ -82,6 +86,60 @@ namespace backendgen {
 	  return Result;
 	}
 	
+	// Now we know we are handling with operators
+	// See if this is a guarded assignment
+	const AssignOperator *AO1 = dynamic_cast<const AssignOperator*>(R),
+	  *AO2 = dynamic_cast<const AssignOperator*>(E);
+	assert ((AO1 == NULL) == (AO2 == NULL) &&
+		"Nodes must agree with type at this stage");
+	if (AO1 != NULL) {
+	  // If they don't agree with having a predicate, they're different
+	  // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
+	  if ((AO1->getPredicate() != NULL && AO2->getPredicate() == NULL) ||
+	      (AO1->getPredicate() == NULL && AO2->getPredicate() != NULL) ) {
+	    if (!JustCompare) delete Result;
+	    return NULL;
+	  }
+	  if (AO1->getPredicate()) {
+	    // Check if the comparators for the guarded assignments are equal
+	    if (AO1->getPredicate()->getComparator() != 
+		AO2->getPredicate()->getComparator()) {
+	      if (!JustCompare) delete Result;
+	      return NULL;
+	    }
+	    // Now check if the expressions being compared are equal
+	    AnnotatedTreeList *ChildResult =
+	      MatchExpByRule<JustCompare>(AO1->getPredicate()->getLHS(), 
+					  AO2->getPredicate()->getLHS());
+	    if (JustCompare) {
+	      if (ChildResult == 0)
+	        return 0;	      		
+	    } else {
+	      if (ChildResult == NULL) {
+		delete Result;
+		return NULL;
+	      }
+	      Result->merge(*ChildResult);
+	      delete ChildResult;
+	    }
+	    ChildResult = MatchExpByRule<JustCompare>(AO1->getPredicate()
+	  					      ->getRHS(),
+						      AO2->getPredicate()
+						      ->getRHS());
+	    if (JustCompare) {
+	      if (ChildResult == 0)
+	        return 0;	      		
+	    } else {
+	      if (ChildResult == NULL) {
+		delete Result;
+		return NULL;
+	      }
+	      Result->merge(*ChildResult);
+	      delete ChildResult;
+	    }
+	  }
+	}
+
 	// Now we know we are handling with operators and may safely cast
 	// and analyze its children
 	const Operator *RO = dynamic_cast<const Operator*>(R),
@@ -142,6 +200,11 @@ namespace backendgen {
   // similar names with the same generated names.
   void SubstituteLeafs(Tree** T, AnnotatedTreeList* List) {
     if ((*T)->isOperator()) {
+      AssignOperator *AO = dynamic_cast<AssignOperator*>(*T);
+      if (AO != NULL && AO->getPredicate() != NULL) {
+	  SubstituteLeafs(AO->getPredicate()->getLHSAddr(), List);
+	  SubstituteLeafs(AO->getPredicate()->getRHSAddr(), List);
+      }
       Operator *O = dynamic_cast<Operator*>(*T);
       for (int I = 0, E = O->getArity(); I != E; ++I)
 	{
@@ -166,7 +229,7 @@ namespace backendgen {
       if (!Matched) {
 	std::string Name = O->getOperandName();
 	std::stringstream SS;
-	SS << Name << rand();
+	SS << Name << Rule::OpNum++;
 	O->changeOperandName(SS.str());
 	AnnotatedTree AT(Name, O);
 	List->push_back(AT);
@@ -277,7 +340,7 @@ namespace backendgen {
   bool TransformationRules::createRule(Tree* LHS,
 				       Tree* RHS,
 				       bool Equivalence) {
-    Rule newRule(LHS, RHS, Equivalence);
+    Rule newRule(LHS, RHS, Equivalence, CurrentRuleNumber++);
 
     Rules.push_back(newRule);
 
@@ -291,6 +354,7 @@ namespace backendgen {
     for (std::list<Rule>::const_iterator I = Rules.begin(), E = Rules.end();
 	 I != E; ++I)
       {
+        S << "Rule number " << I->RuleID << ": ";
 	I->LHS->print(S);
 	if (I->Equivalence)
 	  S << "<=> ";

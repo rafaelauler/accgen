@@ -22,6 +22,7 @@ namespace backendgen {
 
   typedef std::list<std::string> NameListType;
   typedef std::list<NameListType*> OperandsDefsType;
+  typedef std::list<unsigned> RulesAppliedList;
   // This pair stores the instruction and the specific semantic of that
   // instruction that matched our purposes in the search. (Remember
   // an instruction may have many semantic trees describing its behaviour).
@@ -38,8 +39,10 @@ namespace backendgen {
     InstrList *Instructions;    
     CostType Cost;
     OperandsDefsType *OperandsDefs;    
+    RulesAppliedList *RulesApplied;
     SearchResult();
     ~SearchResult();
+    void DumpResults(std::ostream& S);
   };
 
   // This class speeds up search algorithm by hashing expressions
@@ -57,6 +60,7 @@ namespace backendgen {
     // Each entry in the hash table leads to a colision list, capable
     // of holding many elements.
     typedef std::list<CacheEntry> ColisionList;
+    typedef std::list<CacheEntry>::iterator EntryIterator;
     // The hash table 
     ColisionList** HashTable;
     const unsigned HASHSIZE;

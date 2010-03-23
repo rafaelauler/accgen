@@ -14,6 +14,7 @@
 #include <cassert>
 
 //#define DEBUG
+#define DEBUG_SEARCH_RESULTS
 //#define USETRANSCACHE
 
 namespace backendgen {
@@ -81,6 +82,21 @@ namespace backendgen {
 	    if (C1->getConstValue() != C2->getConstValue())
 	      return false;
 	  }
+	  // References to specific registers must be equal
+	  // XXX
+#if 0	 
+	  const Operand * O1 = dynamic_cast<const Operand*>(E1),
+	    * O2 = dynamic_cast<const Operand*>(E2);
+	  assert (O1 != NULL && O2 != NULL && "Nodes must be operands");
+	  // As O2 is the implementation proposal, it must not be restrict
+	  // to a specific register if O1 also is not.
+	  if (O2->isSpecificReference() && !O1->isSpecificReference())
+	    return false;
+	  // If both are specific references, they must match ref. names
+	  if (O2->isSpecificReference() && 
+	      O1->getOperandName() != O2->getOperandName()) 
+	    return false;	      
+#endif
 	  return true;
 	}	
 
@@ -136,6 +152,7 @@ namespace backendgen {
     Instructions = new InstrList();
     Cost = INT_MAX;
     OperandsDefs = new OperandsDefsType();
+    RulesApplied = new RulesAppliedList();
   }
 
   SearchResult::~SearchResult() {
@@ -146,7 +163,35 @@ namespace backendgen {
 	delete *I;
       }
     delete OperandsDefs;
+    delete RulesApplied;
   }
+
+  void SearchResult::DumpResults(std::ostream& S) {
+    S << "\n==== Search results internal dump =====\nInstructions list:\n";
+    for (InstrList::iterator I = Instructions->begin(), E = Instructions->end();
+	 I != E; ++I) {
+      S << I->first->getName();
+      S << "\n";
+    }
+    S << "\nOperandsDefs list:\n";
+    for (OperandsDefsType::iterator I = OperandsDefs->begin(), 
+	   E = OperandsDefs->end(); I != E; ++I) {      
+      for (NameListType::iterator I2 = (*I)->begin(), E2 = (*I)->end();
+	   I2 != E2; ++I2) {
+	S << *I2;
+	S << " ";
+      }
+      S << "\n";
+    }
+    S << "\nRules applied, by number:\n";
+    for (RulesAppliedList::reverse_iterator I = RulesApplied->rbegin(),
+	   E = RulesApplied->rend(); I != E; ++I) {
+      S << *I;
+      S << " ";
+    }
+    S << "\n=======================================\n\n";
+  }
+
 
   // TransformationCache member functions
   TransformationCache::TransformationCache() : HASHSIZE(1024) {
@@ -160,6 +205,11 @@ namespace backendgen {
   TransformationCache::~TransformationCache() {
     for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
       if (HashTable[I] != NULL) {
+	for (EntryIterator I2 = HashTable[I]->begin(), E2 = HashTable[I]->end();
+	     I2 != E2; ++I2) {
+	  delete I2->LHS;
+	  delete I2->RHS;
+	}
 	delete HashTable[I];
 	HashTable[I] = NULL;
       }
@@ -353,6 +403,8 @@ namespace backendgen {
     // Now tranfer discovered instructions in Source
     Destination->Instructions->splice(Destination->Instructions->begin(),
 				      *(Source->Instructions));
+    Destination->RulesApplied->splice(Destination->RulesApplied->begin(),
+				      *(Source->RulesApplied));
     // Now merge cost
 
     // If Destination doesn't have a solution yet, set its cost to zero
@@ -411,10 +463,12 @@ namespace backendgen {
 
     SearchResult* CandidateSolution = new SearchResult();
 
-    for (std::list<Tree*>::iterator I = DecomposeList->begin(),
-	   E = DecomposeList->end(); I != E; ++I)
+    for (std::list<Tree*>::reverse_iterator I = DecomposeList->rbegin(),
+	   E = DecomposeList->rend(); I != E; ++I)
       {
 	// Check for goal
+	// XXX: Need a better checking of goal! Sometimes a wrong tree
+	// will be matched as goal and all is lost!
 	if (Goal != NULL) {
 	  if (Compare<true>(Goal, *I) == true &&
 	      MatchedGoal == NULL) {
@@ -641,6 +695,7 @@ namespace backendgen {
 				     CurDepth) == true)
 	    {
 	      delete Transformed;
+	      Result->RulesApplied->push_back(I->RuleID);
 	      return Result;
 	    }
 	  delete Transformed;
@@ -681,6 +736,7 @@ namespace backendgen {
 	    MergeSearchResults(Result, ChildResult);
 	    delete ChildResult;
 	    delete Transformed;
+	    Result->RulesApplied->push_back(I->RuleID);
 	    return Result;
 	  }
 	DbgIndent(CurDepth);
@@ -746,6 +802,11 @@ namespace backendgen {
     if (Result->Cost != INT_MAX) {
       DbgIndent(CurDepth);
       DbgPrint("Direct match successful\n");
+#ifdef DEBUG_SEARCH_RESULTS
+      if (CurDepth == 0) {
+	Result->DumpResults(std::cerr);
+      }
+#endif
       return Result;
     }
 
@@ -826,8 +887,14 @@ namespace backendgen {
       }
 
     // If found something, return it
-    if (Result->Cost != INT_MAX)
+    if (Result->Cost != INT_MAX) {
+#ifdef DEBUG_SEARCH_RESULTS
+      if (CurDepth == 0) {
+	Result->DumpResults(std::cerr);
+      }
+#endif
       return Result;    
+    }
 
     // We can't find anything
     return Result;

@@ -66,6 +66,8 @@ namespace backendgen {
       }
       Tree *getLHS() const { return LHS; }
       Tree *getRHS() const { return RHS; }
+      Tree **getLHSAddr() { return &LHS; }
+      Tree **getRHSAddr() { return &RHS; }
       unsigned getComparator() const { return Comparator; }
     };
 
@@ -110,7 +112,7 @@ namespace backendgen {
     public:
       Operand (const OperandType &Type, const std::string &OpName);
       virtual void print(std::ostream &S) const {	
-	S << "Operand" << Type.Type;  
+	S << OperandName << ":Operand" << Type.Type;  
       }
       virtual bool isOperand() const { return true; }
       virtual unsigned getType() const { return Type.Type; }
@@ -119,12 +121,18 @@ namespace backendgen {
       virtual unsigned getHash(unsigned hash_chain) const;
       const std::string& getOperandName() const {return OperandName;}
       unsigned getDataType() const { return Type.DataType; }
+      bool isSpecificReference() const { return SpecificReference; }
+      void setSpecificReference(bool Val) {SpecificReference = Val; }
       void changeOperandName(const std::string &NewName) {
 	OperandName = NewName;
       }
     protected:      
       OperandType Type;
       std::string OperandName;
+      // The operand name bounds to an assembly operand, in which
+      // case the exact reference is determined by the assembly construct, OR 
+      // it refers directly to a specific register in the architecture.
+      bool SpecificReference;
     };
 
     // A FragOperand must be expanded by inserting a semantic
@@ -155,11 +163,14 @@ namespace backendgen {
     // Defines a register
     class Register {
     public:
+      typedef std::list<Register*>::iterator Iterator;
+      typedef std::list<Register*>::const_iterator ConstIterator;
+
       Register(const std::string &RegName);
       void addSubClass(Register *Reg);
       const std::string &getName() const;
-      std::list<Register*>::const_iterator getSubsBegin() const;
-      std::list<Register*>::const_iterator getSubsEnd() const;
+      ConstIterator getSubsBegin() const;
+      ConstIterator getSubsEnd() const;
     private:
       std::string Name;
       std::list<Register*> SubClasses;      
@@ -168,14 +179,18 @@ namespace backendgen {
     // Defines a class of uniform registers
     class RegisterClass {
     public:
+      typedef std::set<Register*>::iterator Iterator;
+      typedef std::set<Register*>::const_iterator ConstIterator;
+
       RegisterClass(const std::string &ClassName);
       RegisterClass(const std::string &ClassName, const OperandType &OpType);
       bool addRegister(Register *Reg);
       bool hasRegister(Register *Reg);
+      bool hasRegisterName(const std::string &RegName);
       const std::string &getName() const;
       OperandType getOperandType() const;
-      std::set<Register*>::const_iterator getBegin() const;
-      std::set<Register*>::const_iterator getEnd() const;
+      ConstIterator getBegin() const;
+      ConstIterator getEnd() const;
     private:
       std::set<Register *> Registers;    
       std::string Name;
@@ -262,7 +277,7 @@ namespace backendgen {
       RegisterOperand (const RegisterClass *RegClass,
 		       const std::string &OpName);
       virtual void print(std::ostream &S)  const { 
-	S << MyRegClass->getName() << ":" << Type.Type;
+	S << OperandName << ":" << MyRegClass->getName() << ":" << Type.Type;
       };
       virtual Node* clone() const { return new RegisterOperand(*this); }
       const RegisterClass *getRegisterClass() const;
@@ -415,6 +430,31 @@ namespace backendgen {
 	return new AssignOperator(Type, Children[0]->clone(),
 				  Children[1]->clone(), 
 				  (Pred != NULL)? Pred->clone() : NULL);
+      }
+    enum ComparatorTypes {EqualityComp=1, LessThanComp, GreaterThanComp,
+			  LessOrEqualComp, GreaterOrEqualComp};
+
+      virtual void print(std::ostream& S) const {
+	if (Pred != NULL) {
+	  S << "{";
+	  Pred->getLHS()->print(S);
+	  switch (Pred->getComparator()) {
+	  case EqualityComp: S << " == ";
+	    break;
+	  case LessThanComp: S << " < ";
+	    break;
+	  case GreaterThanComp: S << " > ";
+	    break;
+	  case LessOrEqualComp: S << " <= ";
+	    break;
+	  case GreaterOrEqualComp: S << " >= ";
+	    break;
+	  default: break;
+	  }
+	  Pred->getRHS()->print(S);
+	  S << "} -> ";
+	}
+	Operator::print(S);
       }
 
       Predicate* getPredicate() const {

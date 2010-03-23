@@ -217,11 +217,11 @@ namespace backendgen {
       SubClasses.push_back(Reg);
     }
 
-    std::list<Register*>::const_iterator Register::getSubsBegin() const {
+    Register::ConstIterator Register::getSubsBegin() const {
       return SubClasses.begin();
     }
     
-    std::list<Register*>::const_iterator Register::getSubsEnd() const {
+    Register::ConstIterator Register::getSubsEnd() const {
       return SubClasses.end();
     }
 
@@ -248,6 +248,22 @@ namespace backendgen {
     bool RegisterClass::hasRegister(Register *Reg) {
       return (Registers.find(Reg) != Registers.end());
     }
+
+    bool RegisterClass::hasRegisterName(const std::string &RegName) {
+      for (ConstIterator I = getBegin(), E = getEnd(); I != E; ++I) {
+	Register *Element = *I;
+	if (Element->getName() == RegName)
+	  return true;
+	for (Register::ConstIterator I2 = Element->getSubsBegin(), 
+	       E2 = Element->getSubsEnd(); I2 != E2; ++I2) {
+	  Register *SubEl = *I2;
+	  if (SubEl->getName() == RegName)
+	    return true;
+	}
+      }
+      return false;
+    }
+
     
     const std::string &RegisterClass::getName() const {
       return Name;
@@ -257,11 +273,11 @@ namespace backendgen {
       return Type;
     }
     
-    std::set<Register*>::const_iterator RegisterClass::getBegin() const {
+    RegisterClass::ConstIterator RegisterClass::getBegin() const {
       return Registers.begin();
     }
     
-    std::set<Register*>::const_iterator RegisterClass::getEnd() const {
+    RegisterClass::ConstIterator RegisterClass::getEnd() const {
       return Registers.end();
     }
 
