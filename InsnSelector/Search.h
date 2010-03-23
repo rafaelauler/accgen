@@ -46,10 +46,17 @@ namespace backendgen {
   // which are known to lead to a dead end. When such expressions are
   // recognized, the search algorith may safely skip them.
   class TransformationCache {
+    // Inner class containing information for each hash table entry
+    // We need to store two trees (one transforming into another) and the
+    // depth used to take the conclusion that the expression can not be
+    // transformed.
+    struct CacheEntry {
+      const Tree *LHS, *RHS;
+      unsigned Depth;
+    };
     // Each entry in the hash table leads to a colision list, capable
     // of holding many elements.
-    typedef std::pair<const Tree*, const Tree*> EntryT;
-    typedef std::list<EntryT> ColisionList;
+    typedef std::list<CacheEntry> ColisionList;
     // The hash table 
     ColisionList** HashTable;
     const unsigned HASHSIZE;
@@ -59,8 +66,9 @@ namespace backendgen {
     TransformationCache();
     ~TransformationCache();
     // Public member functions
-    inline void Add(const Tree* Exp, const Tree* Target);
-    inline EntryT* LookUp(const Tree* Exp, const Tree* Target) const;   
+    inline void Add(const Tree* Exp, const Tree* Target, unsigned Depth);
+    inline CacheEntry* LookUp(const Tree* Exp, const Tree* Target, 
+			      unsigned Depth) const;   
   };
 
   // Main interface for search algorithms

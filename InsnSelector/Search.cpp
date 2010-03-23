@@ -13,8 +13,8 @@
 #include <climits>
 #include <cassert>
 
-#define DEBUG
-#define USETRANSCACHE
+//#define DEBUG
+//#define USETRANSCACHE
 
 namespace backendgen {
 
@@ -167,18 +167,20 @@ namespace backendgen {
     delete [] HashTable;
   }
 
-  inline void TransformationCache::Add(const Tree* Exp, const Tree* Target) {
+  inline void TransformationCache::Add(const Tree* Exp, const Tree* Target,
+				       unsigned Depth) {
+    CacheEntry NewEntry = {Exp->clone(), Target->clone(), Depth};
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
-    ColisionList *ColList = HashTable[Hash];
+    ColisionList *ColList = HashTable[Hash];    
     if (ColList == NULL) {
       ColList = HashTable[Hash] = new ColisionList();    
     }
-    ColList->push_back(std::make_pair(Exp->clone(), Target->clone()));
+    ColList->push_back(NewEntry);
     return;
   }
 
-  inline TransformationCache::EntryT* TransformationCache::LookUp
-  (const Tree* Exp, const Tree* Target) const {
+  inline TransformationCache::CacheEntry* TransformationCache::LookUp
+  (const Tree* Exp, const Tree* Target, unsigned Depth) const {
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
     ColisionList *ColList = HashTable[Hash];
     // Miss
@@ -187,9 +189,10 @@ namespace backendgen {
     }
     for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
 	 I != E; ++I) {
-      EntryT &Entry = *I;
-      if (Compare<false>(Exp, Entry.first) && 
-	  Compare<false>(Target, Entry.second))
+      CacheEntry &Entry = *I;
+      if (Compare<false>(Exp, Entry.LHS) && 
+	  Compare<false>(Target, Entry.RHS) &&
+	  Depth <= Entry.Depth)
 	return &Entry;
     }
     return NULL;
@@ -558,7 +561,7 @@ namespace backendgen {
 #ifdef USETRANSCACHE
     // Check Transformation Cache to see if transforming Expression
     // into InsnSemantic is a dead end
-    if (TransCache.LookUp(Expression, InsnSemantic)) {
+    if (TransCache.LookUp(Expression, InsnSemantic, MaxDepth-CurDepth)) {
       DbgIndent(CurDepth);
       DbgPrint("Cache informs us there is no such transformation.\n");
       return Result;
@@ -690,7 +693,7 @@ namespace backendgen {
     DbgPrint("Fail to prove both expressions are equivalent.\n");
 
 #ifdef USETRANSCACHE
-    TransCache.Add(Expression, InsnSemantic);
+    TransCache.Add(Expression, InsnSemantic, MaxDepth-CurDepth);
 #endif
 
     // We tried but could not find anything
