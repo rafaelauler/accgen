@@ -15,7 +15,7 @@
 
 //#define DEBUG
 #define DEBUG_SEARCH_RESULTS
-//#define USETRANSCACHE
+#define USETRANSCACHE
 
 namespace backendgen {
 
@@ -83,8 +83,7 @@ namespace backendgen {
 	      return false;
 	  }
 	  // References to specific registers must be equal
-	  // XXX
-#if 0	 
+#if 0
 	  const Operand * O1 = dynamic_cast<const Operand*>(E1),
 	    * O2 = dynamic_cast<const Operand*>(E2);
 	  assert (O1 != NULL && O2 != NULL && "Nodes must be operands");

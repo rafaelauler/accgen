@@ -57,6 +57,8 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 // Machine description
 
+//====================-- Machine specific rules --============================//
+
 //=====================-- Registers definitions --============================//
 
 define registers GPR:regs as (

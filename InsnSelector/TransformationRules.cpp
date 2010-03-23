@@ -77,11 +77,39 @@ namespace backendgen {
 
 	// Leaf? Cast to operand
 	if (!isOperator) {	
+	  const Constant* C1 = dynamic_cast<const Constant*>(R);
+	  // Depending on the operand type, we need to make further checkings
+	  // Constants must be equal
+	  if (C1 != NULL) {
+	    const Constant* C2 = dynamic_cast<const Constant*>(E);
+	    assert (C2 != NULL && "Nodes must agree in type at this stage.");
+	    if (C1->getConstValue() != C2->getConstValue()) {
+	      if (!JustCompare) delete Result;
+	      return NULL;
+	    }
+	  }
+	  // References to specific registers must be equal
+	  const Operand * O1 = dynamic_cast<const Operand*>(R);	 
+#if 0
+	  const Operand * O2 = dynamic_cast<const Operand*>(E);
+	  assert (O1 != NULL && O2 != NULL && "Nodes must be operands");
+	  if ((O2->isSpecificReference() && !O1->isSpecificReference()) ||
+	      (!O2->isSpecificReference() && O1->isSpecificReference())) {
+	    if (!JustCompare) delete Result;
+	    return NULL;
+	  }
+	  // If both are specific references, they must match ref. names
+	  if (O2->isSpecificReference() && 
+	      O1->getOperandName() != O2->getOperandName()) {
+	    if (!JustCompare) delete Result;
+	    return NULL;
+	  }
+#endif
+	  // Both operands agree
 	  if (JustCompare) {	    
 	    return reinterpret_cast<AnnotatedTreeList*>(1);
 	  }
-	  const Operand* Op = dynamic_cast<const Operand*>(R);
-	  AnnotatedTree AT(Op->getOperandName(), E);
+	  AnnotatedTree AT(O1->getOperandName(), E);
 	  Result->push_back(AT);
 	  return Result;
 	}
