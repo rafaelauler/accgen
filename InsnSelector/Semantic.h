@@ -1,4 +1,5 @@
-//===- Semantic.h - Header file for Semantic related class--*- C++ -*------===//
+//                    -*- Mode: C++; c-basic-offset: 2; indent-tabs-mode nil-*-
+//===- Semantic.h - Header file for Semantic related class-----------------===//
 //
 //              The ArchC Project - Compiler Backend Generation
 //
@@ -20,6 +21,8 @@
 
 namespace backendgen {
 
+  typedef std::list<std::string> NameListType;
+	 
   // Expression namespace encapsulates all classes related to
   // expression trees (the tree itself and its nodes).
   namespace expression {
@@ -41,6 +44,15 @@ namespace backendgen {
     // An expression tree, representing a single assertion of an
     // instruction semantics over the processor state.    
     typedef Node Tree;
+
+  }
+
+  struct Semantic {
+    const expression::Tree* SemanticExpression;
+    NameListType* OperandsBindings;
+  };
+
+  namespace expression {
 
     // These comparator types are used in a predicate to compare two
     // expressions and evaluate if the guarded assignment is valid.

@@ -89,7 +89,7 @@ class Instruction {
 		    std::ostream& S) const;
 
  private:
-  std::vector<const Tree *> Semantic;
+  std::vector<Semantic> SemanticVec;
   const std::string Name;
   CostType Cost;
   // ArchC related information

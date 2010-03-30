@@ -20,7 +20,6 @@ using namespace backendgen::expression;
 
 namespace backendgen {
 
-  typedef std::list<std::string> NameListType;
   // This list should store operands for each instruction of the sequence
   // returned by SearchResult.
   typedef std::list<NameListType*> OperandsDefsType;
