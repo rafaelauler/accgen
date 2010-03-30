@@ -21,7 +21,16 @@ using namespace backendgen::expression;
 namespace backendgen {
 
   typedef std::list<std::string> NameListType;
+  // This list should store operands for each instruction of the sequence
+  // returned by SearchResult.
   typedef std::list<NameListType*> OperandsDefsType;
+  // This list stores a mapping of virtual to real registers. This occur
+  // when an expression matches with an instruction that uses real registers
+  // in its semantics.
+  typedef std::pair<std::string, std::string> RegPair;
+  typedef std::list<RegPair> VirtualToRealMap;
+  // This list stores the rules applied to the searched expression for
+  // debugging reasons.
   typedef std::list<unsigned> RulesAppliedList;
   // This pair stores the instruction and the specific semantic of that
   // instruction that matched our purposes in the search. (Remember
@@ -40,8 +49,10 @@ namespace backendgen {
     CostType Cost;
     OperandsDefsType *OperandsDefs;    
     RulesAppliedList *RulesApplied;
+    VirtualToRealMap *VirtualToReal;
     SearchResult();
     ~SearchResult();
+    void FilterAssignedNames();
     void DumpResults(std::ostream& S);
   };
 
@@ -86,16 +97,19 @@ namespace backendgen {
     inline bool HasCloseSemantic(unsigned InstrPO, unsigned ExpPO);
     SearchResult* TransformExpression(const Tree* Expression,
 				      const Tree* InsnSemantic, 
-				      unsigned CurDepth);
+				      unsigned CurDepth,
+				      const VirtualToRealMap* VR);
     SearchResult* ApplyDecompositionRule(const Rule *R, const Tree* Expression,
 					 const Tree* Goal, Tree *& MatchedGoal,
-					 unsigned CurDepth);
+					 unsigned CurDepth, 
+					 const VirtualToRealMap* VR);
     bool TransformExpressionAux(const Tree* Transformed,
 				const Tree* InsnSemantic, SearchResult* Result,
-				unsigned CurDepth);
+				unsigned CurDepth, const VirtualToRealMap *VR);
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
-    SearchResult* operator() (const Tree* Expression, unsigned CurDepth);
+    SearchResult* operator() (const Tree* Expression, unsigned CurDepth,
+			      const VirtualToRealMap* VR);
     unsigned getMaxDepth() { return MaxDepth; }
     void setMaxDepth(unsigned MaxDepth) { this->MaxDepth = MaxDepth; }
   };

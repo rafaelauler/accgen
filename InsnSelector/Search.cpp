@@ -56,12 +56,53 @@ namespace backendgen {
 	    (T1.Size <= T2.Size || T1.Size == 0 || T2.Size == 0));
   }
 
+  // VirtualToRealMap related auxiliary functions
+
+  // This auxiliary function adds an element to a Virtual-to-Real register
+  // mapping. But if the virtual register is already mapped, returns false.
+  inline
+  bool AddToVRList(VirtualToRealMap *VR, RegPair Element) {
+    for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	 I != E; ++I) {
+      if (I->first == Element.first && I->second != Element.second)
+	return false;
+    }
+    VR->push_back(Element);
+    return true;
+  }
+
+  // Predicate function used to determine if two SearchResults define the
+  // same virtual register in their VirtualToRealMap. If this happens,
+  // the result may not be merged.
+  inline
+  bool HasConflictingVRDefinitions(const VirtualToRealMap* A, 
+				   const VirtualToRealMap* B)
+  {
+    if (A == NULL || B == NULL)
+      return false;
+
+    for (VirtualToRealMap::const_iterator I = A->begin(), E = A->end();
+	 I != E; ++I) {
+      for (VirtualToRealMap::const_iterator I2 = B->begin(), E2 = B->end();
+	   I2 != E2; ++ I2) {
+	if (I->first == I2->first && I->second != I2->second)
+	  return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Miscellaneous auxiliary functions
+
   // This template is extensively used in the Search algorithm to 
   // conclude if two expressions are equal. If the template is instantiated
   // with JustTopLevel=true, the function doesn't descend into childrens, but
   // just compare the top level node.
+  // RR is a pointer to a list of real registers used by E2 while matching
+  // with E1's generic registers. If RR is NULL, this list is not updated.
   template <bool JustTopLevel>
-  bool Compare (const Tree *E1, const Tree *E2)
+  bool Compare (const Tree *E1, const Tree *E2, VirtualToRealMap *VR)
   {
     bool isOperator;
     // Notes: We match if E2 implements the same operation with
@@ -83,21 +124,31 @@ namespace backendgen {
 	      return false;
 	  }
 	  // References to specific registers must be equal
-#if 0
 	  const Operand * O1 = dynamic_cast<const Operand*>(E1),
 	    * O2 = dynamic_cast<const Operand*>(E2);
 	  assert (O1 != NULL && O2 != NULL && "Nodes must be operands");
 	  // As O2 is the implementation proposal, it must not be restrict
 	  // to a specific register if O1 also is not.
-	  if (O2->isSpecificReference() && !O1->isSpecificReference())
-	    return false;
-	  // If both are specific references, they must match ref. names
-	  if (O2->isSpecificReference() && 
-	      O1->getOperandName() != O2->getOperandName()) 
-	    return false;	      
-#endif
+	  // But if O2 is a specific register and O1 is not, we must add
+	  // a mapping of virtual to real register.
+	  if (O2->isSpecificReference() && !O1->isSpecificReference()) {
+	    // It will return true only if the virtual register (specified
+	    // by E1) is not already mapped to a different real reg.
+	    if (VR != NULL) {
+	      return AddToVRList(VR, std::make_pair(O1->getOperandName(),
+						    O2->getOperandName()));
+	    } else {
+	      return false;
+	    }
+	  
+	    // If both are specific references, they must match ref. names
+	    if (O2->isSpecificReference() && O1->isSpecificReference() && 
+		O1->getOperandName() != O2->getOperandName()) 
+	      return false;	      
+	  }
+	  
 	  return true;
-	}	
+	} // end if (Leaf)	
 
 	if (JustTopLevel)
 	  return true;
@@ -121,10 +172,10 @@ namespace backendgen {
 	      return false;
 	    // Now check if the expressions being compared are equal
 	    if (!Compare<false>(AO1->getPredicate()->getLHS(), 
-				AO2->getPredicate()->getLHS()))
+				AO2->getPredicate()->getLHS(), VR))
 	      return false;
 	    if (!Compare<false>(AO1->getPredicate()->getRHS(), 
-				AO2->getPredicate()->getRHS()))
+				AO2->getPredicate()->getRHS(), VR))
 	      return false;
 	  }
 	}
@@ -134,7 +185,7 @@ namespace backendgen {
 	const Operator *O1 = dynamic_cast<const Operator*>(E1),
 	  *O2 = dynamic_cast<const Operator*>(E2);
 	for (int I = 0, E = O1->getArity(); I != E; ++I) {
-	  if (!Compare<false>((*O1)[I], (*O2)[I])) {
+	  if (!Compare<false>((*O1)[I], (*O2)[I], VR)) {
 	    match = false;
 	    break;
 	  }
@@ -152,6 +203,7 @@ namespace backendgen {
     Cost = INT_MAX;
     OperandsDefs = new OperandsDefsType();
     RulesApplied = new RulesAppliedList();
+    VirtualToReal = new VirtualToRealMap();
   }
 
   SearchResult::~SearchResult() {
@@ -163,7 +215,27 @@ namespace backendgen {
       }
     delete OperandsDefs;
     delete RulesApplied;
+    delete VirtualToReal;
   }
+
+  // Removes names from OperandsDefs list that are already assigned
+  // to a real register (if it is preassigned, it is not an assembly
+  // operand).
+  void SearchResult::FilterAssignedNames() {
+    VirtualToRealMap* VR = this->VirtualToReal;
+    for (OperandsDefsType::iterator It = OperandsDefs->begin(), 
+	   End = OperandsDefs->end(); It != End; ++It) {
+      NameListType* In = *It;
+
+      for (VirtualToRealMap::const_iterator I2 = VR->begin(), E2 = VR->end();
+	   I2 != E2; ++I2) {
+	if (!In->empty())
+	  In->remove(I2->first);
+      }
+    
+    }
+  }
+
 
   void SearchResult::DumpResults(std::ostream& S) {
     S << "\n==== Search results internal dump =====\nInstructions list:\n";
@@ -181,6 +253,11 @@ namespace backendgen {
 	S << " ";
       }
       S << "\n";
+    }
+    S << "\nVirtual to Real mapping list:\n";
+    for (VirtualToRealMap::const_iterator I = VirtualToReal->begin(),
+	   E = VirtualToReal->end(); I != E; ++I) {
+      S << I->first << " <= " << I->second << "\n";
     }
     S << "\nRules applied, by number:\n";
     for (RulesAppliedList::reverse_iterator I = RulesApplied->rbegin(),
@@ -239,8 +316,8 @@ namespace backendgen {
     for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
 	 I != E; ++I) {
       CacheEntry &Entry = *I;
-      if (Compare<false>(Exp, Entry.LHS) && 
-	  Compare<false>(Target, Entry.RHS) &&
+      if (Compare<false>(Exp, Entry.LHS, NULL) && 
+	  Compare<false>(Target, Entry.RHS, NULL) &&
 	  Depth <= Entry.Depth)
 	return &Entry;
     }
@@ -403,7 +480,9 @@ namespace backendgen {
     Destination->Instructions->splice(Destination->Instructions->begin(),
 				      *(Source->Instructions));
     Destination->RulesApplied->splice(Destination->RulesApplied->begin(),
-				      *(Source->RulesApplied));
+				      *(Source->RulesApplied));    
+    Destination->VirtualToReal->splice(Destination->VirtualToReal->begin(),
+				      *(Source->VirtualToReal));
     // Now merge cost
 
     // If Destination doesn't have a solution yet, set its cost to zero
@@ -451,7 +530,8 @@ namespace backendgen {
 					       const Tree* Expression,
 					       const Tree* Goal,
 					       Tree *& MatchedGoal,
-					       unsigned CurDepth)
+					       unsigned CurDepth,
+					       const VirtualToRealMap *VR)
   {
     if (!R->Decomposition && !R->Composition)
       return NULL;
@@ -469,13 +549,19 @@ namespace backendgen {
 	// XXX: Need a better checking of goal! Sometimes a wrong tree
 	// will be matched as goal and all is lost!
 	if (Goal != NULL) {
-	  if (Compare<true>(Goal, *I) == true &&
+	  VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
+	  if (Compare<true>(Goal, *I, VirtualBindings) == true &&
+	      !HasConflictingVRDefinitions(VR, VirtualBindings) &&
 	      MatchedGoal == NULL) {
+	    delete CandidateSolution->VirtualToReal;
+	    CandidateSolution->VirtualToReal = VirtualBindings;
 	    MatchedGoal = (*I)->clone();
 	    continue;
-	  }	    
+	  } else {
+	    delete VirtualBindings;
+	  }
 	}
-	SearchResult* ChildResult = (*this)(*I, CurDepth + 1);
+	SearchResult* ChildResult = (*this)(*I, CurDepth + 1, VR);
 	// Failed to find an implementatin for this child?
 	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
 	  delete CandidateSolution;	  
@@ -502,18 +588,25 @@ namespace backendgen {
   bool Search::TransformExpressionAux(const Tree* Transformed, 
 				      const Tree* InsnSemantic,
 				      SearchResult* Result,
-				      unsigned CurDepth) {    
+				      unsigned CurDepth,
+				      const VirtualToRealMap *VR) {    
     // First check the top level node
-    if (Compare<true>(Transformed, InsnSemantic) == false) {
+    VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
+    if (Compare<true>(Transformed, InsnSemantic, VirtualBindings) == false) {
+      delete VirtualBindings;
       return false;
     }
     
     // Transformation revealed that these expressions match directly
     if (Transformed->isOperand()) {
       Result->Cost = 0;
+      delete Result->VirtualToReal;
+      Result->VirtualToReal = VirtualBindings;
       UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed));
       return true;
     }
+    delete VirtualBindings;
+
     // Now check for guarded assignments before delving into each children
     // of this operator
     SearchResult* TempResults = new SearchResult();
@@ -540,7 +633,7 @@ namespace backendgen {
 	// Check expressions being compared (involve recursive calls)
 	SearchResult* SR_LHS = 
 	  TransformExpression(AO->getPredicate()->getLHS(), 
-			      AOIns->getPredicate()->getLHS(), CurDepth+1);
+			      AOIns->getPredicate()->getLHS(), CurDepth+1, VR);
 	// Failed to prove LHSs equal
 	if (SR_LHS->Cost == INT_MAX) {
 	  delete TempResults;
@@ -551,7 +644,7 @@ namespace backendgen {
 	delete SR_LHS;
 	SearchResult* SR_RHS =
 	  TransformExpression(AO->getPredicate()->getRHS(), 
-			      AOIns->getPredicate()->getRHS(), CurDepth+1);
+			      AOIns->getPredicate()->getRHS(), CurDepth+1, VR);
 	// Failed to prove RHSs equal
 	if (SR_RHS->Cost == INT_MAX) {
 	  delete TempResults;
@@ -569,7 +662,7 @@ namespace backendgen {
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	SearchResult* SRChild = 
-	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1);
+	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1, VR);
 	
 	// Failed
 	if (SRChild->Cost == INT_MAX) {
@@ -597,7 +690,8 @@ namespace backendgen {
   // know (the Instruction Semantic)
   SearchResult* Search::TransformExpression(const Tree* Expression,
 					    const Tree* InsnSemantic,
-					    unsigned CurDepth)
+					    unsigned CurDepth, 
+					    const VirtualToRealMap *VR)
   {   
     DbgIndent(CurDepth);
     DbgPrint("Entering TransformExpression\n        Expression: ");
@@ -635,13 +729,18 @@ namespace backendgen {
     }
 
     // See if we already have a match
-    if (Compare<false>(Expression, InsnSemantic) == true) {
+    VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
+    if (Compare<false>(Expression, InsnSemantic, VirtualBindings) == true &&
+	!HasConflictingVRDefinitions(VR, VirtualBindings)) {
       DbgIndent(CurDepth);
       DbgPrint("Already matches!\n");
       Result->Cost = 0;
+      delete Result->VirtualToReal;
+      Result->VirtualToReal = VirtualBindings;
       UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Expression));
       return Result;
     }      
+    delete VirtualBindings;
 
     DbgIndent(CurDepth);
     DbgPrint("Trying to transform children without applying any rule");   
@@ -649,7 +748,7 @@ namespace backendgen {
 
     // See if we obtain success without applying a transformation
     // at this level
-    if (TransformExpressionAux(Expression, InsnSemantic, Result, CurDepth) 
+    if (TransformExpressionAux(Expression, InsnSemantic, Result, CurDepth, VR) 
 	== true)      	
 	return Result;
       
@@ -695,7 +794,7 @@ namespace backendgen {
 	  // This may involve recursive calls to this function (to transform
 	  // and adapt the children nodes).
 	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
-				     CurDepth) == true)
+				     CurDepth, VR) == true)
 	    {
 	      delete Transformed;
 	      Result->RulesApplied->push_back(I->RuleID);
@@ -715,7 +814,7 @@ namespace backendgen {
 	Tree* Transformed = NULL;
 	SearchResult* ChildResult = 
 	  ApplyDecompositionRule(&*I, Expression, InsnSemantic, Transformed,
-				 CurDepth);
+				 CurDepth, VR);
 	
 	//Failed
 	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
@@ -732,7 +831,7 @@ namespace backendgen {
 	// This may involve recursive calls to this function (to transform
 	// and adapt the children nodes).
 	if (TransformExpressionAux(Transformed, InsnSemantic, Result,
-				   CurDepth) == true)
+				   CurDepth, VR) == true)
 	  {
 	    DbgIndent(CurDepth);
 	    DbgPrint("Decomposition was successful\n");
@@ -760,7 +859,11 @@ namespace backendgen {
   }
   
   // This operator overload effectively starts the search
-  SearchResult* Search::operator() (const Tree* Expression, unsigned CurDepth)
+  // VR is a mapping with current bindings of virtual registers (operand names)
+  // to real registers, so we need to avoid redefinitions when searching
+  // for an implementation of Expression.
+  SearchResult* Search::operator() (const Tree* Expression, unsigned CurDepth,
+				    const VirtualToRealMap* VR)
   {
     DbgIndent(CurDepth);
     DbgPrint("Search started on ");
@@ -787,17 +890,24 @@ namespace backendgen {
 	for (SemanticIterator I2 = (*I)->getBegin(), 
 	       E2 = (*I)->getEnd(); I2 != E2; ++I2)
 	  {
-	    if (Compare<false>(Expression, *I2) && 
+	    VirtualToRealMap* VirtualBindings = new VirtualToRealMap();
+	    if (Compare<false>(Expression, *I2, VirtualBindings) && 
+		!HasConflictingVRDefinitions(VirtualBindings, VR) &&
 		Result->Cost >= (*I)->getCost())
 	      {
 		delete Result;
+		delete VirtualBindings;
 		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
 		Result->Instructions->push_back(std::make_pair(*I,I2));
+		delete Result->VirtualToReal;
+		Result->VirtualToReal = VirtualBindings;
 		UpdateCurrentOperandDefinition(Result, 
 					       ExtractLeafsNames(Expression));
 		break;
-	      }
+	      } else {
+	      delete VirtualBindings;
+	    }
 	  }
       }
 
@@ -826,7 +936,7 @@ namespace backendgen {
 	SearchResult* CandidateSolution = ApplyDecompositionRule(&*I, 
 								 Expression,
 								 NULL, dummy,
-								 CurDepth);
+								 CurDepth, VR);
 
 	if (CandidateSolution == NULL)
 	  continue;
@@ -863,7 +973,7 @@ namespace backendgen {
 	     I1 != E1; ++I1)
 	  {
 	    SearchResult* CandidateSolution = 
-	      TransformExpression(Expression, *I1, CurDepth);
+	      TransformExpression(Expression, *I1, CurDepth, VR);
 
 	    // Failed
 	    if (CandidateSolution->Cost == INT_MAX) {

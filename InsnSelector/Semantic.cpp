@@ -194,6 +194,7 @@ namespace backendgen {
     Operand::Operand (const OperandType &Type, const std::string &OpName) {
       this->Type = Type;
       OperandName = OpName;
+      SpecificReference = false;
     }
 
     unsigned Operand::getHash(unsigned hash_chain) const {

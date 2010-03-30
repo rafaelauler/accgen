@@ -103,7 +103,7 @@ translate:         TRANSLATE exp SEMICOLON
 		       S.setMaxDepth(SearchDepth++);
 		       if (R != NULL)
                          delete R;
-		       R = S($2, 0);
+		       R = S($2, 0, NULL);
 		     }
 		     std::cout << "Translation results\n=======\n";
 		     if (R == NULL)
@@ -112,6 +112,7 @@ translate:         TRANSLATE exp SEMICOLON
 		       if (R->Instructions->size() == 0)
 			 std::cout << "Not found!\n";
 		       else {
+			 R->FilterAssignedNames();
 			 OperandsDefsType::const_iterator I1 =
 			   R->OperandsDefs->begin();
 			 for (InstrList::iterator I = 
