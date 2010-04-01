@@ -184,6 +184,16 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return LIKE;
 }
 
+<INITIAL>"in" {
+  yylval->num = 0;
+  return IN;
+}
+
+<INITIAL>"let" {
+  yylval->num = 0;
+  return LET;
+}
+
 <INITIAL>";" {
 
   /* Some small tokens */
@@ -263,6 +273,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return GREATEROREQUAL;
 }
 
+<INITIAL>"=" {
+  yylval->num = 0;
+  return ASSIGN;
+}
+
 <INITIAL>{DIGIT}+ {
 
   /* Some patterns */
@@ -271,12 +286,17 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return NUM;
 }
 
+<INITIAL>\"[^\n\"\(\)]*\" {
+  yylval->str = strdup(yytext);
+  return QUOTEDSTR;
+}
+
 <INITIAL>{IDENT} {
   yylval->str = strdup(yytext);
   return ID;
 }
 
-<INITIAL>[^ \t\n\r\(\)\:\;\/\{\}]+ {
+<INITIAL>[^ \t\n\r\"\,\(\)\:\;\/\{\}]+ {
   yylval->str = strdup(yytext);
   return OPERATOR;
 }

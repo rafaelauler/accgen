@@ -34,6 +34,11 @@ unsigned LineNumber = 1;
 std::list<std::string> StrList;
 // Expression stack used to process operators parameters
 std::stack<Node *> Stack;
+// Stack used to store semantics definitions for an instruction
+std::stack<Semantic> SemanticStack;
+// Stack used to parse operands bindings (let ... operator) in instructions
+// semantics
+std::stack<ABinding> BindingsStack;
 // Register stack used to process register lists, when defining register classes
 std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
@@ -56,13 +61,13 @@ void ClearStack();
 void yyerror(char *error);
 %}
 
-%token<str> ID OPERATOR
+%token<str> ID OPERATOR QUOTEDSTR
 %token<num> NUM LPAREN RPAREN DEFINE OPERATOR2 ARITY SEMICOLON CONST
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
-%token<num> LBRACE RBRACE PARAMETERS LEADSTO2
+%token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -126,7 +131,7 @@ translate:         TRANSLATE exp SEMICOLON
 			     //  std::cout << *I2 << " ";
 			     //}
 			     //std::cout << "\n";
-			     I->first->emitAssembly(*I1, I->second, std::cout);
+			     I->first->emitAssembly(**I1, I->second, std::cout);
 			     ++I1;
 			     //(I->first)->print(std::cout);
 			   }
@@ -179,9 +184,11 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       YYERROR;
 		     }
 		     Instr->setCost($10);
-                     int I = Stack.size() - 1;
+                     int I = SemanticStack.size() - 1;
                      while (I >= 0) {
-		       Tree* root = Stack.top();
+		       Semantic S = SemanticStack.top();
+		       SemanticStack.pop();
+		       Tree* root = S.SemanticExpression;
 		       if (!FragMan.expandTree(&root))
 			 {
 			   std::cerr << "Line " << LineNumber <<
@@ -189,11 +196,11 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 				     << "instruction \"" << $3 << 
 			     "\" semantic.\n"; 
 			   free($3);
-			   ClearStack();
+			   //TODO: Clear SemanticStack()
+			   //ClearStack();
 			   YYERROR;
 			 }
-                       Instr->addSemantic(Stack.top());
-                       Stack.pop();
+                       Instr->addSemantic(S);
                        --I;
                      }
 		     free($3);
@@ -206,9 +213,42 @@ semanticlist:      /* empty */
                    }
                    ;
 
-semantic:          exp SEMICOLON
+semantic:          LET assignst IN exp SEMICOLON
                    {
-                     Stack.push($1);
+		     BindingsList *BL = new BindingsList();
+		     int I = BindingsStack.size() - 1;
+		     while (I >= 0) {
+		       ABinding El = BindingsStack.top();
+		       BindingsStack.pop();
+		       BL->push_back(El);
+		       --I;
+		     }
+		     Semantic S;
+		     S.SemanticExpression = $4;
+		     S.OperandsBindings = BL;
+                     SemanticStack.push(S);
+                   }
+                   | exp SEMICOLON
+                   {
+		     Semantic S;
+		     S.SemanticExpression = $1;
+		     S.OperandsBindings = NULL;
+                     SemanticStack.push(S);
+                   }
+                   ;
+
+assignlist:        /* empty */
+                   | assignst COMMA
+                   {
+                   }
+                   ;
+
+assignst:          assignlist ID ASSIGN QUOTEDSTR
+                   {
+		     std::string input($4);
+		     free($4);		     
+		     BindingsStack.push(std::make_pair(std::string($2),
+					 input.substr(1, input.length()-2)));
                    }
                    ;
 

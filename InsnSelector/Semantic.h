@@ -20,8 +20,6 @@
 #include <set>
 
 namespace backendgen {
-
-  typedef std::list<std::string> NameListType;
 	 
   // Expression namespace encapsulates all classes related to
   // expression trees (the tree itself and its nodes).
@@ -47,9 +45,16 @@ namespace backendgen {
 
   }
 
+  typedef std::pair<std::string, std::string> ABinding;
+  typedef std::list<ABinding> BindingsList;
+
   struct Semantic {
-    const expression::Tree* SemanticExpression;
-    NameListType* OperandsBindings;
+    expression::Tree* SemanticExpression;
+    BindingsList* OperandsBindings;
+    Semantic() {
+      SemanticExpression = NULL;
+      OperandsBindings = NULL;
+    }
   };
 
   namespace expression {

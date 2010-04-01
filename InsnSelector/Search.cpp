@@ -891,7 +891,8 @@ namespace backendgen {
 	       E2 = (*I)->getEnd(); I2 != E2; ++I2)
 	  {
 	    VirtualToRealMap* VirtualBindings = new VirtualToRealMap();
-	    if (Compare<false>(Expression, *I2, VirtualBindings) && 
+	    if (Compare<false>(Expression, I2->SemanticExpression,
+			       VirtualBindings) && 
 		!HasConflictingVRDefinitions(VirtualBindings, VR) &&
 		Result->Cost >= (*I)->getCost())
 	      {
@@ -973,7 +974,8 @@ namespace backendgen {
 	     I1 != E1; ++I1)
 	  {
 	    SearchResult* CandidateSolution = 
-	      TransformExpression(Expression, *I1, CurDepth, VR);
+	      TransformExpression(Expression, I1->SemanticExpression,
+				  CurDepth, VR);
 
 	    // Failed
 	    if (CandidateSolution->Cost == INT_MAX) {

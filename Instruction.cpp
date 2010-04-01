@@ -35,10 +35,13 @@ namespace backendgen {
   // Destructor must deallocate all semantic nodes (expression tree)
   // and InsnOperands
   Instruction::~Instruction() {
-    for (std::vector<const Tree*>::iterator I = Semantic.begin(),
-	   E = Semantic.end(); I != E; ++I)
+    for (std::vector<Semantic>::iterator I = SemanticVec.begin(),
+	   E = SemanticVec.end(); I != E; ++I)
       {
-	delete *I;       
+	if (I->SemanticExpression != NULL)
+	  delete I->SemanticExpression;
+	if (I->OperandsBindings != NULL)
+	  delete I->OperandsBindings;
       }
     for (std::vector<InsnOperand*>::iterator I = Operands.begin(),
 	   E = Operands.end(); I != E; ++I)
@@ -114,9 +117,9 @@ namespace backendgen {
   std::list<const Operand*>* Instruction::getOuts() {
     std::list<const Operand*>* Result = new std::list<const Operand*>();
     // We extract this information from our semantics forest.
-    for (SemanticIterator I = Semantic.begin(), E = Semantic.end();
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
 	 I != E; ++I) {
-      const Operator *OP = dynamic_cast<const Operator*>(*I);
+      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
       assert (OP != NULL && "Semantics top level node must be an operator");
       assert (OP->getType() == AssignOp && 
 	      "Semantics top level operator must be transfer");
@@ -197,10 +200,10 @@ namespace backendgen {
     // node in all semantic trees). If not found, it is never used and
     // not considered a valid operand. Thus, the generated assembly format
     // must already provide some value for this never used operand.
-    for (SemanticIterator I = Semantic.begin(), E = Semantic.end();
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
 	 I != E; ++I) {
       std::list<const Tree*> Queue;
-      Queue.push_back(*I);
+      Queue.push_back(I->SemanticExpression);
       while (Queue.size() > 0) {
 	const Tree* Element = Queue.front();
 	Queue.pop_front();
@@ -276,7 +279,7 @@ namespace backendgen {
     return Result;
   }
 
-  void Instruction::emitAssembly(std::list<std::string>* Operands,
+  void Instruction::emitAssembly(std::list<std::string> Operands,
 				 SemanticIterator SI, std::ostream& S) 
     const {
     // Discover which operands are available in the Operands string list
@@ -284,8 +287,18 @@ namespace backendgen {
     // by side effect compensation algorithms)
     std::list<const Tree*> Queue;
     std::list<unsigned> OperandsIndexes;
+    // First "insert" pre-defined operands bindings for this semantic
+    if (SI->OperandsBindings != NULL) {
+      for (BindingsList::const_iterator I = SI->OperandsBindings->begin(),
+	     E = SI->OperandsBindings->end(); I != E; ++I) {
+	if (HasOperandNumber(I->first)) {
+	  OperandsIndexes.push_front(ExtractOperandNumber(I->first));
+	  Operands.push_front(I->second);
+	}
+      }
+    }
     // Put into queue the top level operator of this semantic.
-    Queue.push_back(*SI);
+    Queue.push_back(SI->SemanticExpression);
     while(Queue.size() > 0) {
       const Tree* Element = Queue.front();
       Queue.pop_front();
@@ -315,17 +328,17 @@ namespace backendgen {
     std::string AssemblyOperands = OperandFmts;
     for (unsigned I = 0, E = getNumOperands(); I != E; ++I) {
       // Search for this operand
-      std::list<std::string>::const_iterator OI = Operands->begin();
+      std::list<std::string>::const_iterator OI = Operands.begin();
       for (std::list<unsigned>::const_iterator I2 = OperandsIndexes.begin(),
 	     E2 = OperandsIndexes.end(); I2 != E2; ++I2) {
-	assert(OI != Operands->end() && "Invalid operands names list");
+	assert(OI != Operands.end() && "Invalid operands names list");
 	if (*I2 == I+1) 
 	  break;	
 	++OI;
       }
       std::string OperandName;
       // If not found
-      if (OI == Operands->end())
+      if (OI == Operands.end())
 	OperandName = "XXX"; // we don't known this operand's value
       else
 	OperandName = *OI;
@@ -335,28 +348,28 @@ namespace backendgen {
     S << "\n";
   }
   
-  void Instruction::addSemantic(const Tree * Expression) {
-      Semantic.push_back(Expression);
+  void Instruction::addSemantic(Semantic S) {
+      SemanticVec.push_back(S);
   }
   
   void Instruction::print(std::ostream &S) const {
     S << "Instruction \"" << Name << "\", semantic:\n";
-    for (std::vector<const Tree*>::const_iterator I = Semantic.begin(),
-	   E = Semantic.end(); I != E; ++I)
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I)
       {
 	S << "  ";
-	(*I)->print(S);       
+	I->SemanticExpression->print(S);       
 	S << "\n";
       }
     S << "\n\n";
   }
   
   SemanticIterator Instruction::getBegin() const {
-    return Semantic.begin();
+    return SemanticVec.begin();
   }
   
   SemanticIterator Instruction::getEnd() const {
-    return Semantic.end();
+    return SemanticVec.end();
   }
   
   // InstrManager member functions

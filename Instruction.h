@@ -49,7 +49,7 @@ private:
   std::vector<FormatField *> Fields;
 };
 
-typedef std::vector<const Tree *>::const_iterator SemanticIterator;
+typedef std::vector<Semantic>::const_iterator SemanticIterator;
 
 typedef unsigned CostType;
 
@@ -58,7 +58,7 @@ typedef unsigned CostType;
 // in parallel.
 class Instruction {
  public:     
-  void addSemantic(const Tree * Expression);
+  void addSemantic(Semantic S);
   Instruction(const std::string name, const std::string operandFmts,
 	      InsnFormat *insnFormat, const std::string Mnemonic) : 
     Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {}
@@ -85,7 +85,7 @@ class Instruction {
   void replaceStr(std::string &s, std::string Src, std::string New,
 		  size_t initPos = 0) const;  
   std::string parseOperandsFmts();
-  void emitAssembly(std::list<std::string>* Operands, SemanticIterator SI,
+  void emitAssembly(std::list<std::string> Operands, SemanticIterator SI,
 		    std::ostream& S) const;
 
  private:
@@ -93,7 +93,7 @@ class Instruction {
   const std::string Name;
   CostType Cost;
   // ArchC related information
-  std::string OperandFmts; //FmtStr;
+  std::string OperandFmts; 
   const std::string Mnemonic;
   InsnFormat *IF;
   std::vector<InsnOperand *> Operands;
