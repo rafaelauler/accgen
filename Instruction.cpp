@@ -114,7 +114,7 @@ namespace backendgen {
   }
 
   // Extract all defined operands in this instructions (outs)
-  std::list<const Operand*>* Instruction::getOuts() {
+  std::list<const Operand*>* Instruction::getOuts() const {
     std::list<const Operand*>* Result = new std::list<const Operand*>();
     // We extract this information from our semantics forest.
     for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
@@ -169,7 +169,7 @@ namespace backendgen {
   };
 
   // Extract all used operands in this instruction (ins)
-  std::list<const Operand*>* Instruction::getIns() {
+  std::list<const Operand*>* Instruction::getIns() const {
     std::list<const Operand*>* Result = getOperandsBySemantic();
     // Now we remove the defined nodes from this list, leaving the
     // used (ins) operands
@@ -194,7 +194,7 @@ namespace backendgen {
   }
 
   // Extract all operands (leaf nodes) from this instruction semantic forest
-  std::list<const Operand*>* Instruction::getOperandsBySemantic() {
+  std::list<const Operand*>* Instruction::getOperandsBySemantic() const {
     std::list<const Operand*>* Result = new std::list<const Operand*>();
     // For each operand, tries to discover its type (find the corresponding
     // node in all semantic trees). If not found, it is never used and

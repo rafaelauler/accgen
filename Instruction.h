@@ -50,6 +50,7 @@ private:
 };
 
 typedef std::vector<Semantic>::const_iterator SemanticIterator;
+typedef std::list<const Operand*> CnstOperandsList;
 
 typedef unsigned CostType;
 
@@ -69,9 +70,9 @@ class Instruction {
   SemanticIterator getBegin() const;
   SemanticIterator getEnd() const;
   CostType getCost() const {return Cost;}
-  std::list<const Operand*>* getOuts();
-  std::list<const Operand*>* getIns();
-  std::list<const Operand*>* getOperandsBySemantic();
+  CnstOperandsList* getOuts() const;
+  CnstOperandsList* getIns() const;
+  CnstOperandsList* getOperandsBySemantic() const;
 
   void addOperand(InsnOperand *IO) {
     Operands.push_back(IO);
