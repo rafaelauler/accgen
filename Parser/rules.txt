@@ -21,6 +21,7 @@ define operator shl      as arity 2;            // Shift left
 define operator shr      as arity 2;            // Shift right
 define operator and      as arity 2;
 define operator or       as arity 2;
+define operator memref   as arity 1;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -28,6 +29,7 @@ define operator alias    as sub => -;
 //===========================-- Operands --===================================//
 
 define operand int    as size 32;
+define operand mem    as size 32;
 define operand regs   as size 32 like int;
 define operand immed  as size 32 like int;
 define operand short  as size 16 like int;
@@ -55,7 +57,12 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 // (transfer OperA:any OperB:any) <=> (dec (transfer AReg:regs const:int:1) 
 // (transfer OperA:any OperB:any));
 
-// Machine description
+//=========================-- LLVM Patterns --================================//
+
+define pattern STORE as (
+  "(store regs:$src regs:$addr)";
+  (transfer (memref addr:regs) src:regs);
+);
 
 //====================-- Machine specific rules --============================//
 
@@ -220,8 +227,12 @@ define instruction teq1 semantic as (
   {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
 ) cost 1;
 
+//====-- STR --====//
+define instruction str1 semantic as (
+  let Op1 = "" in
+    (transfer (memref Op2:GPR) Op3:GPR);
+) cost 1;
 
-
-translate (transfer a3:regs (+ a1:immed a2:immed));
+//translate (transfer a3:regs (+ a1:immed a2:immed));
 
 //translate (transfer a3:int (+ a1:int a2:int));

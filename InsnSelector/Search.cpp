@@ -223,6 +223,8 @@ namespace backendgen {
   // operand).
   void SearchResult::FilterAssignedNames() {
     VirtualToRealMap* VR = this->VirtualToReal;
+    if (VR == NULL)
+      return;
     for (OperandsDefsType::iterator It = OperandsDefs->begin(), 
 	   End = OperandsDefs->end(); It != End; ++It) {
       NameListType* In = *It;
@@ -254,10 +256,12 @@ namespace backendgen {
       }
       S << "\n";
     }
-    S << "\nVirtual to Real mapping list:\n";
-    for (VirtualToRealMap::const_iterator I = VirtualToReal->begin(),
-	   E = VirtualToReal->end(); I != E; ++I) {
-      S << I->first << " <= " << I->second << "\n";
+    if (VirtualToReal != NULL) {
+	S << "\nVirtual to Real mapping list:\n";    
+	for (VirtualToRealMap::const_iterator I = VirtualToReal->begin(),
+		 E = VirtualToReal->end(); I != E; ++I) {
+	    S << I->first << " <= " << I->second << "\n";
+	}
     }
     S << "\nRules applied, by number:\n";
     for (RulesAppliedList::reverse_iterator I = RulesApplied->rbegin(),
@@ -896,8 +900,7 @@ namespace backendgen {
 		!HasConflictingVRDefinitions(VirtualBindings, VR) &&
 		Result->Cost >= (*I)->getCost())
 	      {
-		delete Result;
-		delete VirtualBindings;
+		delete Result;		
 		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
 		Result->Instructions->push_back(std::make_pair(*I,I2));

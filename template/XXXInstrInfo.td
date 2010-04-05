@@ -50,4 +50,12 @@ def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                             "!ADJCALLSTACKUP $amt1",
                             []>;
 
+//===----------------------------------------------------------------------===//
+// Non-Instruction Patterns
+//===----------------------------------------------------------------------===//
 
+__simple_patterns__
+
+// Small immediates.
+//def : Pat<(i32 simm13:$val),
+  //        (ORri G0, imm:$val)>;

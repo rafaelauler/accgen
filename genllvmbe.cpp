@@ -36,6 +36,7 @@ extern backendgen::InstrManager InstructionManager;
 extern backendgen::expression::OperandTableManager OperandTable;
 extern backendgen::TransformationRules RuleManager;
 extern backendgen::expression::RegClassManager RegisterManager;
+extern backendgen::expression::PatternManager PatMan;
 
 char *file_name = NULL; /* name of the main ArchC file */
 char *isa_filename_with_path = NULL;
@@ -74,7 +75,8 @@ void parse_archc_description(char **argv) {
   acppUnload();
 
   /* Parse the ISA file */
-  isa_filename_with_path = (char *)malloc(strlen(argv[1]) + strlen(isa_filename) + 1);
+  isa_filename_with_path = (char *)malloc(strlen(argv[1]) + strlen(isa_filename)
+					  + 1);
   strcpy(isa_filename_with_path, argv[1]);
   strcpy(isa_filename_with_path + strlen(argv[1]), isa_filename);
   
@@ -250,8 +252,8 @@ void BuildInsn() {
     InsnIdMap[pinsn->insn->id].push_back(I);
     InstructionManager.addInstruction(I);
   }
-
   InstructionManager.SortInstructions();
+
   //DebugInsn();
 }
 
@@ -391,7 +393,7 @@ int main(int argc, char **argv) {
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
-		     OperandTable);
+		     OperandTable, PatMan);
   TM.SetArchName("sparc16");
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);

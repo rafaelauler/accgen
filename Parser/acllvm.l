@@ -54,6 +54,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return SEMANTIC;
 }
 
+<INITIAL>"pattern" {
+  yylval->num = 0;
+  return PATTERN;
+}
+
 <INITIAL>"fragment" {
   yylval->num = 0;
   return FRAGMENT;
@@ -286,7 +291,7 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return NUM;
 }
 
-<INITIAL>\"[^\n\"\(\)]*\" {
+<INITIAL>\"[^\n\"]*\" {
   yylval->str = strdup(yytext);
   return QUOTEDSTR;
 }

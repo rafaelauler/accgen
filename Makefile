@@ -8,7 +8,7 @@ ARCH_ACPP_LIB = -L$(ARCH_SRC_DIR)/acpp/.libs/
 
 CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB)
 
-objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o
+objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o PatternTranslator.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h

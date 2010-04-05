@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 #include "Instruction.h"
 #include "InsnFormat.h"
+#include "Support.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cassert>
-#include <climits>
 
 namespace backendgen {
 
@@ -31,7 +31,7 @@ namespace backendgen {
   }
 
   // Instruction member functions    
-  
+
   // Destructor must deallocate all semantic nodes (expression tree)
   // and InsnOperands
   Instruction::~Instruction() {
@@ -62,28 +62,7 @@ namespace backendgen {
   typedef std::list<const Operand*>::iterator ConstOpIt;
 
   static const Operand DummyOperand(OperandType(0,0,0), "dummy");
-
-  inline unsigned ExtractOperandNumber(const std::string& OpName) {
-    std::string::size_type idx;
-    //std::cout << "ExtractOperandNumber called with " << OpName << "\n";
-    idx = OpName.find_first_of("0123456789");    
-    // "Operand name does not have a sequence number"
-    if (idx == std::string::npos)
-      return INT_MAX;
-    return atoi(OpName.substr(idx).c_str());
-  }
-
-  // This auxiliary function checks if the operand has an operand number,
-  // which means it may be assigned by the assembler via assembly instruction
-  // syntax.
-  // TODO: Provide a more formal way of assigning operands to the 
-  // assembly writer, rather than "guessing" based on the presence of
-  // numbers in the operand's name.
-  inline bool HasOperandNumber(const std::string& OpName) {
-    std::string::size_type idx;
-    idx = OpName.find_first_of("0123456789");
-    return (idx != std::string::npos);
-  }
+  static const Operand MemRefOperand(OperandType(0,0,0), "mem");
 
   std::string Instruction::parseOperandsFmts() {
     std::string Result(OperandFmts);
@@ -127,8 +106,16 @@ namespace backendgen {
       // This destination is a instruction definition, thus must be
       // member of outs
       const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);
-      assert (Oper != NULL && "Transfer first child is not an operand");
-      Result->push_back(Oper);
+      if (Oper != NULL) {
+	Result->push_back(Oper);
+	continue;
+      }
+      // Exceptionally, we have a memory reference and thus it is not an operand
+      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
+      assert (O != NULL && "Must be either operand or operator");
+      assert (O->getType() == MemRefOp && "Transfer first child must be \
+operand or memory reference.");     
+      Result->push_back(&MemRefOperand);
     }
     return Result;
   }
@@ -373,6 +360,10 @@ namespace backendgen {
   }
   
   // InstrManager member functions
+
+  InstrManager::InstrManager() {
+    OrderNum = 0;
+  }
   
   InstrManager::~InstrManager() {
     for (std::vector<Instruction*>::iterator I = Instructions.begin(),
@@ -384,6 +375,7 @@ namespace backendgen {
   
   void InstrManager::addInstruction (Instruction *Instr) {
     Instructions.push_back(Instr);
+    Instr->OrderNum = OrderNum++;
   }
   
   Instruction *InstrManager::getInstruction(const std::string &Name,
@@ -431,6 +423,8 @@ namespace backendgen {
   class InstructionsComparator {
   public:
     bool operator() (const Instruction* A, const Instruction* B) const {
+      if (A->getName() == B->getName())
+	return A->OrderNum < B->OrderNum;
       return A->getName() < B->getName();
     }
   };

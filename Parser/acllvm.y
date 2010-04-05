@@ -28,6 +28,7 @@ TransformationRules RuleManager;
 RegClassManager RegisterManager;
 InstrManager InstructionManager;
 FragmentManager FragMan;
+PatternManager  PatMan;
 std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
 // String list used to store fragment instance parameters
@@ -67,7 +68,7 @@ void yyerror(char *error);
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
-%token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN
+%token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -82,6 +83,7 @@ statementlist:     /* empty */
                    ;
 
 statement:         ruledef       {}
+                   | patdef      {}
                    | opdef       {}
                    | opalias     {}
                    | operanddef  {}
@@ -92,6 +94,15 @@ statement:         ruledef       {}
                    | translate   {}
                    | error       {} 
                    ;
+
+/* Pattern definition */
+patdef:            DEFINE PATTERN ID AS LPAREN QUOTEDSTR SEMICOLON 
+		   exp SEMICOLON RPAREN SEMICOLON
+                   {
+		     PatMan.AddPattern($3, $6, $8);
+                     free($3);
+                     free($6);
+                   }
 
 /* Translation request */
 

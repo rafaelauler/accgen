@@ -312,13 +312,15 @@ namespace backendgen {
 
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
-    enum KnownOperators {AddOp=1, SubOp, DecompOp, IfOp, AssignOp, LastOp};
+    enum KnownOperators {AddOp=1, SubOp, DecompOp, IfOp, AssignOp, MemRefOp,
+			 LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
     const std::string DecompOpStr = "dec";        
     const std::string IfOpStr = "if";
     const std::string AssignOpStr = "transfer";
+    const std::string MemRefOpStr = "memref";
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 
@@ -480,6 +482,27 @@ namespace backendgen {
       void setPredicate(Predicate *p) {
 	Pred = p;
       }
+    };
+
+    struct PatternElement {
+      std::string Name;
+      std::string LLVMDAG;
+      const Tree* TargetImpl;
+      PatternElement(std::string n, std::string d, const Tree* ti) :
+	  Name(n), LLVMDAG(d), TargetImpl(ti) {}
+    };
+
+    typedef std::list<PatternElement> PatternList;
+
+    class PatternManager {
+      PatternList PatList;
+    public:
+      typedef PatternList::iterator Iterator;
+      ~PatternManager();
+      void AddPattern(std::string Name, std::string LLVMDAG,
+		      const Tree* TargetImpl);
+      Iterator begin();
+      Iterator end();
     };
 
   } // end namespace expression

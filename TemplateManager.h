@@ -10,6 +10,7 @@
 #include "InsnSelector/TransformationRules.h"
 #include "InsnSelector/Semantic.h"
 #include "InsnSelector/Search.h"
+#include "PatternTranslator.h"
 #include <cstdlib>
 #include <locale>
 
@@ -28,6 +29,8 @@ class TemplateManager {
   InstrManager& InstructionManager;
   RegClassManager& RegisterClassManager;
   OperandTableManager& OperandTable;
+  PatternManager& PatMan;
+  PatternTranslator PatTrans;
   // Working directory where macro files are created and output
   // is stored.
   const char * WorkingDir;
@@ -42,6 +45,9 @@ class TemplateManager {
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
   std::string generateCallingConventions();
+  SearchResult* FindImplementation(const expression::Tree *Exp,
+				   std::ostream &Log);
+  std::string generateSimplePatterns(std::ostream &Log);
   std::string buildDataLayoutString();
 
   // Private helper functions
@@ -49,10 +55,11 @@ class TemplateManager {
 
  public:
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
-			   RegClassManager& RM, OperandTableManager &OM):
+			   RegClassManager& RM, OperandTableManager &OM,
+			   PatternManager& PM):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
-    WorkingDir(NULL) {}
+    PatMan(PM), PatTrans(), WorkingDir(NULL) {}
 
   ~TemplateManager() {}
 

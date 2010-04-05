@@ -121,6 +121,8 @@ namespace backendgen {
 	  NewType.Type = IfOp;
 	else if (TypeName == AssignOpStr)
 	  NewType.Type = AssignOp;
+	else if (TypeName == MemRefOpStr)
+	  NewType.Type = MemRefOp;
 	else { // User defined operator
 	  NewType.Type = hash<std::string>(TypeName, 0);
 	  if (NewType.Type < LastOp)
@@ -565,7 +567,29 @@ namespace backendgen {
     ImmediateOperand::ImmediateOperand(const OperandType &Type, 
 				       const std::string &OpName):
       Operand(Type, OpName) {}
-        
+
+    // PatternManager member functions
+
+    PatternManager::~PatternManager() {
+      for (PatternList::iterator I = PatList.begin(), E = PatList.end();
+	   I != E; ++I) {
+	delete I->TargetImpl;
+      }
+    }
+
+    void PatternManager::AddPattern(std::string Name, std::string LLVMDAG,
+				    const Tree* TargetImpl) {      
+      PatList.push_back(PatternElement(Name, LLVMDAG, TargetImpl));
+    }
+
+    PatternManager::Iterator PatternManager::begin() {
+      return PatList.begin();
+    }
+
+    PatternManager::Iterator PatternManager::end() {
+      return PatList.end();
+    }
+
 
 
   } // End namespace expression

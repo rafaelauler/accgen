@@ -62,7 +62,9 @@ class Instruction {
   void addSemantic(Semantic S);
   Instruction(const std::string name, const std::string operandFmts,
 	      InsnFormat *insnFormat, const std::string Mnemonic) : 
-    Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {}
+    Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {
+    OrderNum = 0;    
+  }
   void setCost(const CostType Cost) {this->Cost = Cost;}
   ~Instruction();
   std::string getName() const;
@@ -73,6 +75,9 @@ class Instruction {
   CnstOperandsList* getOuts() const;
   CnstOperandsList* getIns() const;
   CnstOperandsList* getOperandsBySemantic() const;
+
+  void setLLVMName(std::string LLVMName) {this->LLVMName = LLVMName;}
+  std::string getLLVMName() const {return LLVMName;}
 
   void addOperand(InsnOperand *IO) {
     Operands.push_back(IO);
@@ -89,9 +94,11 @@ class Instruction {
   void emitAssembly(std::list<std::string> Operands, SemanticIterator SI,
 		    std::ostream& S) const;
 
+  unsigned OrderNum; // Order of appearance in archc isa file
  private:
   std::vector<Semantic> SemanticVec;
   const std::string Name;
+  std::string LLVMName;
   CostType Cost;
   // ArchC related information
   std::string OperandFmts; 
@@ -108,6 +115,7 @@ class InstrManager {
  public:
   void addInstruction (Instruction *Instr);
   Instruction *getInstruction(const std::string &Name, unsigned Occurrence);
+  InstrManager();
   ~InstrManager();
   void printAll(std::ostream &S);
   InstrIterator getBegin() const;
@@ -115,6 +123,7 @@ class InstrManager {
   void SortInstructions();
  private:
   std::vector<Instruction*> Instructions;
+  unsigned OrderNum; // Order of appearance in archc isa file for current ins
 };
 
 }

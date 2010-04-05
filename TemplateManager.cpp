@@ -12,6 +12,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <cassert>
+#include <ctime>
 
 using namespace backendgen;
 using namespace backendgen::expression;
@@ -58,6 +59,8 @@ void TemplateManager::CreateM4File()
   O << buildDataLayoutString() << "')m4_dnl\n";
   O << "m4_define(`__set_up_register_classes__',`";
   O << generateRegisterClassesSetup() << "')m4_dnl\n";
+  O << "m4_define(`__simple_patterns__',`";
+  O << generateSimplePatterns(std::cout) << "')m4_dnl\n";
 
 }
 
@@ -262,20 +265,30 @@ std::string TemplateManager::generateInstructionsDefs() {
        I != E; Prev = I++) {
     if (Prev != E && (*Prev)->getName() != (*I)->getName())
       CurInsVersion = 0;
-    SS << "def " << (*I)->getName() << "_" << ++CurInsVersion << "\t: " 
-       << (*I)->getFormat()->getName();
+    // Define the instruction's LLVM name, a string tag used whenever we
+    // reference this instruction in LLVM generated code.
+    {
+      std::stringstream SStmp;
+      SStmp << (*I)->getName() << "_" << ++CurInsVersion;
+      std::string LLVMName = SStmp.str();
+      (*I)->setLLVMName(LLVMName);
+    }
+    SS << "def " << (*I)->getLLVMName() << "\t: " << (*I)->getFormat()
+      ->getName();
     SS << "<(outs ";
     std::list<const Operand*> *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
     // Prints all defined operands (outs)
     for (std::list<const Operand*>::const_iterator I2 = Outs->begin(),
 	   E2 = Outs->end(); I2 != E2; ++I2) {
-   
       if (I2 != Outs->begin())
 	SS << ",";
       const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(*I2);
-      assert (RO != NULL && "Defined operand must be a register");
-      SS << RO->getRegisterClass()->getName();
-      SS << ":$" << RO->getOperandName();
+      // If it is not a register operand, it must be a memory reference
+      // FIXME: Enforce this
+      if (RO != NULL) {
+	SS << RO->getRegisterClass()->getName();
+	SS << ":$" << RO->getOperandName();
+      } 
     }
     delete Outs;
     SS << "), (ins ";
@@ -377,6 +390,69 @@ std::string TemplateManager::generateCallingConventions() {
     SS << "\n";
   }
   SS << "]>;\n\n";
+  return SS.str();
+}
+
+SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
+						  std::ostream &Log) {
+  Search S(RuleManager, InstructionManager);
+  unsigned SearchDepth = 5;
+  SearchResult *R = NULL;
+  // Increasing search depth loop - first try with low depth to speed up
+  // easy matches
+  while (R == NULL || R->Instructions->size() == 0) {
+    if (SearchDepth == 10)
+      break;
+    Log << "  Trying search with depth " << SearchDepth << "\n";
+    S.setMaxDepth(SearchDepth++);
+    if (R != NULL)
+      delete R;
+    R = S(Exp, 0, NULL);
+  }
+  // Detecting failures
+  if (R == NULL) {
+    Log << "  Not found!\n";
+    return NULL;
+  } else if (R->Instructions->size() == 0) {
+    Log << "  Not found!\n";
+    delete R;
+    return NULL;
+  }
+  // Refining output
+  R->FilterAssignedNames();
+  
+  return R;                 
+}
+
+// Here we must find the implementation of several simple patterns. For that
+// we use the search algorithm.
+std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
+  std::stringstream SS;
+  unsigned count = 0;
+  time_t start, end;
+  start = time(0);
+  Log << "Pattern implementation inference will start now. This may take"
+      << " several\nminutes.\n\n";
+  for (PatternManager::Iterator I = PatMan.begin(), E = PatMan.end();
+       I != E; ++I) {
+    count ++;
+    Log << "Now finding implementation for : " << I->Name << "\n";
+    SearchResult *SR = FindImplementation(I->TargetImpl, Log);
+    if (SR == NULL) {
+      std::cerr << "Failed: Could not find implementation for pattern " <<
+	I->Name << "\n";
+      abort();
+    }
+    SDNode* DAG = PatTrans.generateInsnsDAG(SR);
+    SS << "def " << I->Name << " : Pat<" << I->LLVMDAG << ",\n";
+    DAG->Print(SS);
+    SS << ">;\n\n";
+    delete DAG;
+  }
+  end = time(0);
+  Log << count << " pattern(s) implemented successfully in " << 
+    difftime(end,start) << " second(s).\n";
+
   return SS.str();
 }
 
