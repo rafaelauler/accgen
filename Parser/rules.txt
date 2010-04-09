@@ -60,7 +60,7 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 //=========================-- LLVM Patterns --================================//
 
 define pattern STORE as (
-  "(store regs:$src regs:$addr)";
+  "(store regs:$src, regs:$addr)";
   (transfer (memref addr:regs) src:regs);
 );
 

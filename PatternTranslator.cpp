@@ -62,6 +62,8 @@ void SDNode::Print(std::ostream &S) {
       S << ")";
     else {
       for (unsigned i = 0; i < NumOperands; ++i) {
+	if (i != 0)
+	  S << ",";
 	S << " ";
 	ops[i]->Print(S);
       }

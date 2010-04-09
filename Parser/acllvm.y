@@ -99,7 +99,8 @@ statement:         ruledef       {}
 patdef:            DEFINE PATTERN ID AS LPAREN QUOTEDSTR SEMICOLON 
 		   exp SEMICOLON RPAREN SEMICOLON
                    {
-		     PatMan.AddPattern($3, $6, $8);
+		     std::string input($6);
+		     PatMan.AddPattern($3, input.substr(1, input.length()-2), $8);
                      free($3);
                      free($6);
                    }
