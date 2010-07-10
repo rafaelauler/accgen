@@ -61,6 +61,7 @@ namespace {
     bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo, 
                          unsigned AsmVariant, const char *ExtraCode);
     void printOperand(const MachineInstr *MI, int opNum);
+    void printLiteral(const MachineInstr *MI, int opNum);
     void printUnsignedImm(const MachineInstr *MI, int opNum);
     void printMemOperand(const MachineInstr *MI, int opNum, 
                          const char *Modifier = 0);
@@ -204,6 +205,12 @@ PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
 
   printOperand(MI, OpNo);
   return false;
+}
+
+void __arch__`'AsmPrinter::
+printLiteral(const MachineInstr *MI, int opNum) 
+{
+
 }
 
 void __arch__`'AsmPrinter::

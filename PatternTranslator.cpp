@@ -23,6 +23,7 @@ SDNode::SDNode() {
   OpName = NULL;
   ops = NULL;
   NumOperands = 0;
+  IsLiteral = false;
 }
 
 SDNode::~SDNode() {
@@ -70,7 +71,12 @@ void SDNode::Print(std::ostream &S) {
       S << ")";
     }
   } else if (OpName != NULL) {
-    S << "i32:`$'" << *OpName;
+    if (IsLiteral)
+      // TODO: Calculate a meaningful index and use it to inform 
+      // AssemblyWriter which string to use here.
+      S << "(tgliteral (i32 0))" << *OpName;
+    else
+      S << "i32:`$'" << *OpName;
   }
 }
 
@@ -135,7 +141,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	continue;
       }
       // dummy operand?
-      if (Element->getType() == 0) {
+      if (Element->getType() == 0) {	
 	// See if bindings list has a definition for it
 	if (Bindings != NULL) {
 	  for (BindingsList::const_iterator I = Bindings->begin(),
@@ -143,6 +149,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	    if (HasOperandNumber(I->first)) {
 	      if(ExtractOperandNumber(I->first) == i + 1) {
 		N->ops[i] = new SDNode();
+		N->ops[i]->IsLiteral = true;
 		N->ops[i]->OpName = new std::string(I->second);
 	      }
 	    }
@@ -151,13 +158,13 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	++i;
 	continue;
       }
-      // Is this operands already defined?
+      // Is this operand already defined?
       DefList::iterator DI = find_if(Defs.begin(), Defs.end(), 
 				     DefineName(*NI));
       if (DI != Defs.end()) {
 	N->ops[i] = DI->second;
-      ++NI;
-      ++i;
+	++NI;
+	++i;
 	continue;
       }
       // This operand is not defined by another node, so it must be input

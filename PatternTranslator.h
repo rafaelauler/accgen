@@ -27,6 +27,11 @@ namespace backendgen {
   public:
     const Instruction *RefInstr; // If this node refers to a machine instruction
     std::string *OpName;         // If this node refers to a leaf operand
+    // In case this node represents a leaf operand and is a literal value 
+    // (i.e. in a "dummy" operand, defined by "let" clauses). In this case,
+    // we need to write it using the LLVM Assembly Writter.
+    bool IsLiteral;              
+                                 
     unsigned NumOperands;
     SDNode** ops;
     SDNode();

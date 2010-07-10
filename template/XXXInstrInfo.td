@@ -29,6 +29,13 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
                            [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
 def Call : SDNode<"`'__arch__`'ISD::CALL",SDT_Call, [SDNPHasChain,
                          SDNPOutFlag]>;
+// This operand is used in our MachineDAG to represent literals to be coded
+// in the target assembly language. It corresponds to "IsLiteral" flag
+// used in the PatternTranslator class of the LLVM backend generator.
+def tgliteral : Operand<i32> {
+  let PrintMethod = "printLiteral";
+  let MIOperandInfo = (ops i32imm); // No operands
+}
 
 //===----------------------------------------------------------------------===//
 // __arch__ instruction definitions
