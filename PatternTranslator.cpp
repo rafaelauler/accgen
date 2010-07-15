@@ -21,6 +21,7 @@ namespace backendgen {
 SDNode::SDNode() {
   RefInstr = NULL;
   OpName = NULL;
+  TypeName = NULL;
   ops = NULL;
   NumOperands = 0;
   IsLiteral = false;
@@ -74,9 +75,9 @@ void SDNode::Print(std::ostream &S) {
     if (IsLiteral)
       // TODO: Calculate a meaningful index and use it to inform 
       // AssemblyWriter which string to use here.
-      S << "(tgliteral (i32 0))" << *OpName;
+      S << "(i32 0)" << *OpName;
     else
-      S << "i32:`$'" << *OpName;
+      S << *TypeName << ":`$'" << *OpName;
   }
 }
 
@@ -151,6 +152,8 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 		N->ops[i] = new SDNode();
 		N->ops[i]->IsLiteral = true;
 		N->ops[i]->OpName = new std::string(I->second);
+		// Here we leave N->TypeName as null, because a 
+		// dummy operand does not have type.
 	      }
 	    }
 	  }	
@@ -171,6 +174,14 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
       // to the expression
       N->ops[i] = new SDNode();
       N->ops[i]->OpName = new std::string(*NI);
+      // Test to see if this is a RegisterOperand
+      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
+      if (RO != NULL) {
+	N->ops[i]->TypeName = &RO->getRegisterClass()->getName();
+      } else {
+	N->ops[i]->TypeName = &OperandTable.getTypeName(Element->
+							getOperandType());
+      }
       ++NI;
       ++i;
     }

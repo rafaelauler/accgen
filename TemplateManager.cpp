@@ -305,7 +305,9 @@ std::string TemplateManager::generateInstructionsDefs() {
 	// know what kind this operand is (it is never mentioned in the 
 	// semantic tree).
 	if ((*I2)->getType() == 0) {
-	  SS << "i32imm:$dummy" << DummyIndex++;
+	  // LLVM Operand "tgliteral" is tablegen defined and reserved
+	  // for dummies
+	  SS << "tgliteral:$dummy" << DummyIndex++;
 	} else {
 	  SS << InferValueType(*I2) << "imm";
 	  SS << ":$" << (*I2)->getOperandName();
@@ -424,6 +426,45 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   return R;                 
 }
 
+// In this member function, a LLVM DAG String (that is, a LLVM SelectionDAG
+// to be matched) is postprocessed and its node types may be changed
+// according to the target implementation found for this particular DAG.
+std::string 
+TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
+  std::string Result(S);
+  // Traverse 
+  std::list<const SDNode*> Queue;
+  Queue.push_back(DAG);
+  while (Queue.size() > 0) {
+    const SDNode* Element = Queue.front();
+    Queue.pop_front();
+    // If not leaf, simply add its children without further processing
+    if (Element->NumOperands != 0) {
+      for (unsigned I = 0, E = Element->NumOperands; I != E; ++I) {
+	Queue.push_back(Element->ops[I]);	
+      }
+      continue;
+    }
+    // If dummy
+    if (Element->IsLiteral)
+      continue;
+    // If leaf and not dummy, check the name and, if this name can
+    // be found in the LLVM DAG string, change the LLVM node to its type
+    assert(Element->OpName != NULL && "Leaf SDNode type must have a name");
+    assert(Element->TypeName != NULL && 
+	   "Non-dummy leaf SDNode must have a type");
+    std::string::size_type idx = Result.find(*Element->OpName);
+    if (idx == std::string::npos)
+      continue;
+    std::string::size_type idx2 = Result.rfind(" ", idx);
+    assert(idx2 != 0 && idx2 != std::string::npos && 
+	   "Malformed LLVM DAG String");    
+    Result.replace(idx2+1, idx-3-idx2, *(Element->TypeName));
+  }
+  return Result;
+}
+
+
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
 std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
@@ -444,7 +485,8 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
       abort();
     }
     SDNode* DAG = PatTrans.generateInsnsDAG(SR);
-    SS << "def " << I->Name << " : Pat<" << I->LLVMDAG << ",\n";
+    SS << "def " << I->Name << " : Pat<" 
+       << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
     DAG->Print(SS);
     SS << ">;\n\n";
     delete DAG;

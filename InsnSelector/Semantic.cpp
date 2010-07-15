@@ -34,6 +34,16 @@ namespace backendgen {
       
       return Hash;
     }
+
+    const std::string& 
+    OperandTableManager::getTypeName (const OperandType &OpType) {
+      // If the element does not exists, it gets created!
+      // So assert it exists, otherwise it is an error to call this member
+      // function
+      assert(ReverseTypeMap.find(OpType) != ReverseTypeMap.end() &&
+	     "Operand type must exist");
+      return ReverseTypeMap[OpType];
+    }
     
     OperandType OperandTableManager::getType (const std::string &Name) {    
       

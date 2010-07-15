@@ -115,6 +115,7 @@ namespace backendgen {
     class OperandTableManager {
     public:
       OperandType getType(const std::string &Name);
+      const std::string& getTypeName(const OperandType &OpType);
       int updateSize (OperandType Type, unsigned int NewSize);
       void setCompatible (const std::string &O1, const std::string &O2);
       void printAll (std::ostream& S) const;
@@ -137,6 +138,7 @@ namespace backendgen {
       virtual Node* clone() const { return new Operand(*this); }
       virtual unsigned getHash(unsigned hash_chain) const;
       const std::string& getOperandName() const {return OperandName;}
+      const OperandType& getOperandType() const {return Type;}
       unsigned getDataType() const { return Type.DataType; }
       bool isSpecificReference() const { return SpecificReference; }
       void setSpecificReference(bool Val) {SpecificReference = Val; }

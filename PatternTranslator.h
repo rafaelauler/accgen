@@ -15,6 +15,7 @@
 
 //===-- Includes ---===//
 #include "InsnSelector/Search.h"
+#include "InsnSelector/Semantic.h"
 #include "Instruction.h"
 
 //===-- Class prototypes ---===//
@@ -27,6 +28,8 @@ namespace backendgen {
   public:
     const Instruction *RefInstr; // If this node refers to a machine instruction
     std::string *OpName;         // If this node refers to a leaf operand
+    const std::string *TypeName; // If this node regers to a leaf operand, we
+                                 // need also its type
     // In case this node represents a leaf operand and is a literal value 
     // (i.e. in a "dummy" operand, defined by "let" clauses). In this case,
     // we need to write it using the LLVM Assembly Writter.
@@ -53,7 +56,12 @@ namespace backendgen {
   // tablegen limits us to express patterns in DAG syntax. We thus must have
   // methods to convert from quadruples do DAG.
   class PatternTranslator {
+    OperandTableManager &OperandTable;
   public:
+    PatternTranslator(OperandTableManager &OM): 
+      OperandTable(OM) {
+      //OM.printAll(std::cout);
+    }
     SDNode *generateInsnsDAG(SearchResult *SR);
   };
 

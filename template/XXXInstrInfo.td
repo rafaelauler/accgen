@@ -32,6 +32,8 @@ def Call : SDNode<"`'__arch__`'ISD::CALL",SDT_Call, [SDNPHasChain,
 // This operand is used in our MachineDAG to represent literals to be coded
 // in the target assembly language. It corresponds to "IsLiteral" flag
 // used in the PatternTranslator class of the LLVM backend generator.
+// An Operand instance is used in instructions operands (ins or outs dags) to
+// determine the types and how to print the operands in assembly form.
 def tgliteral : Operand<i32> {
   let PrintMethod = "printLiteral";
   let MIOperandInfo = (ops i32imm); // No operands

@@ -47,6 +47,7 @@ class TemplateManager {
   std::string generateCallingConventions();
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);
+  std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
   std::string generateSimplePatterns(std::ostream &Log);
   std::string buildDataLayoutString();
 
@@ -59,7 +60,7 @@ class TemplateManager {
 			   PatternManager& PM):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
-    PatMan(PM), PatTrans(), WorkingDir(NULL) {}
+    PatMan(PM), PatTrans(OM), WorkingDir(NULL) {}
 
   ~TemplateManager() {}
 
