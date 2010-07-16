@@ -1,7 +1,6 @@
 
 ARCH_SRC_DIR := ../archc/src
 
-CXX = g++
 ARCH_INC = -I../install/include/archc/ 
 ARCH_ACPP_INC	= -I$(ARCH_SRC_DIR)/acpp/
 ARCH_ACPP_LIB = -L$(ARCH_SRC_DIR)/acpp/.libs/

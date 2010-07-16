@@ -355,9 +355,6 @@ namespace backendgen {
       // Constants don't have names, ignore them
       if (dynamic_cast<const Constant*>(Exp)) 
 	return Result;
-      // Immediates don't have names, ignore them
-      if (dynamic_cast<const ImmediateOperand*>(Exp))
-	return Result;
       // We should not expect fragments to be present here
       assert(dynamic_cast<const FragOperand*>(Exp) == NULL &&
 	     "Unexpected node type.");

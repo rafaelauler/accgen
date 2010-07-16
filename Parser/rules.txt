@@ -22,6 +22,7 @@ define operator shr      as arity 2;            // Shift right
 define operator and      as arity 2;
 define operator or       as arity 2;
 define operator memref   as arity 1;
+define operator call     as arity 1;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -64,13 +65,22 @@ define pattern STORE as (
   (transfer (memref addr:regs) src:regs);
 );
 
+define pattern CALL as (
+  "(call tglobaladdr:$tgt)";
+  (call imm:tgt:immed);
+);
+
+define pattern ADD as (
+  "(add i32:$a1, i32:$a2)";
+  (transfer a3:regs (+ a1:regs a2:regs));
+);
+
 //====================-- Machine specific rules --============================//
 
 //=====================-- Registers definitions --============================//
 
 define registers GPR:regs as (
   r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15
-  r16 r17 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 r28 r29 r30 r31
 );
 
 // Current Program Status Register
@@ -116,6 +126,18 @@ define semantic fragment ImmAddrMode as (
 );
 
 //=======================-- Instructions definitions --=======================//
+
+// Branch instructions
+define instruction b semantic as (
+  let Op1 = "" in
+    (transfer r15:GPR imm:Op2:immed);
+) cost 1;
+define instruction b semantic as (
+  let Op1 = "" in
+    (call imm:Op2:immed);
+) cost 1;
+
+// Data processing instructions
 
 //====-- AND --====//
 define instruction and1 semantic as (

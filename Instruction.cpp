@@ -76,7 +76,7 @@ namespace backendgen {
       std::string New = std::string("${");
       // Ignore operands not meant for assembly writing
       if (*I != &DummyOperand && 
-	  !HasOperandNumber((*I)->getOperandName()))
+	  !HasOperandNumber(*I))
 	  continue;
       New.append((*I)->getOperandName());
       if (*I == &DummyOperand)
@@ -100,8 +100,11 @@ namespace backendgen {
 	 I != E; ++I) {
       const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
       assert (OP != NULL && "Semantics top level node must be an operator");
-      assert (OP->getType() == AssignOp && 
-	      "Semantics top level operator must be transfer");
+      // If semantics top level operator is not a transfer, then we don't
+      // have outs
+      // TODO: Check if it is OK to do not have any outs
+      if (OP->getType() != AssignOp)
+	continue;
       // First operand of a transfer operator will give us the destination.
       // This destination is a instruction definition, thus must be
       // member of outs
@@ -174,7 +177,7 @@ operand or memory reference.");
       unsigned Size = 0;
       for (std::list<const Operand*>::iterator I = list.begin(), E = list.end();
 	   I != E; ++I) {
-	  if (*I == &DummyOperand || HasOperandNumber((*I)->getOperandName()))
+	  if (*I == &DummyOperand || HasOperandNumber(*I))
 	      Size++;
       }
       return Size;
@@ -245,7 +248,7 @@ operand or memory reference.");
     // the position and correctly order remaining defined operands
     for (std::list<const Operand*>::iterator I = Result->begin(),
 	   E = Result->end(), C = Result->end(); 
-	 I !=  E && HasOperandNumber((*I)->getOperandName()); C = I++) {
+	 I !=  E && HasOperandNumber(*I); C = I++) {
       if (C == Result->end())
 	continue;
       const int Diff = ExtractOperandNumber((*I)->getOperandName()) -
@@ -254,7 +257,7 @@ operand or memory reference.");
 	Result->insert(I, Diff, &DummyOperand);
     }
     if (Result->begin() != Result->end() && 
-	HasOperandNumber((*(Result->begin()))->getOperandName())) {
+	HasOperandNumber(*(Result->begin()))) {
       const int Diff = ExtractOperandNumber((*(Result->begin()))
 					    ->getOperandName()) - 1;
       Result->insert(Result->begin(), Diff, &DummyOperand);
@@ -292,7 +295,7 @@ operand or memory reference.");
       const Operand* Op = dynamic_cast<const Operand*>(Element);
       // If operand
       if (Op != NULL) {
-	if (HasOperandNumber(Op->getOperandName())) 
+	if (HasOperandNumber(Op)) 
 	  OperandsIndexes.push_back
 	    (ExtractOperandNumber(Op->getOperandName())); 		
 	continue;

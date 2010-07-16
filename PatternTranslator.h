@@ -28,7 +28,7 @@ namespace backendgen {
   public:
     const Instruction *RefInstr; // If this node refers to a machine instruction
     std::string *OpName;         // If this node refers to a leaf operand
-    const std::string *TypeName; // If this node regers to a leaf operand, we
+    std::string TypeName;        // If this node regers to a leaf operand, we
                                  // need also its type
     // In case this node represents a leaf operand and is a literal value 
     // (i.e. in a "dummy" operand, defined by "let" clauses). In this case,

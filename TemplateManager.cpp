@@ -3,7 +3,7 @@
 // LLVM backend. Manages data necessary to transform template into 
 // specific code to the target architecture.
 
-
+#include "Support.h"
 #include "TemplateManager.h"
 #include "InsnFormat.h"
 #include <iostream>
@@ -124,45 +124,6 @@ std::string TemplateManager::buildDataLayoutString() {
   SS << "-p:" << WordSize << ":" << WordSize;
 
   return SS.str();
-}
-
-inline std::string InferValueType(const RegisterClass *RC) {
-  if (RC->getOperandType().DataType == IntType) {
-    std::stringstream SS;
-    SS << "i" << RC->getOperandType().Size;
-    return SS.str();
-  }
-
-  // Should not reach here!
-  assert(0 && "Unknown data type!");
-
-  return std::string("**UNKNOWN**");
-}
-
-inline std::string InferValueType(const Operand *O) {
-  if (O->getDataType() == IntType) {
-    std::stringstream SS;
-    SS << "i" << O->getSize();
-    return SS.str();
-  }
-
-  // Should not reach here!
-  assert(0 && "Unknown data type!");
-
-  return std::string("**UNKNOWN**");
-}
-
-inline std::string InferValueType(const OperandType *O) {
-  if (O->DataType == IntType) {
-    std::stringstream SS;
-    SS << "i" << O->Size;
-    return SS.str();
-  }
-
-  // Should not reach here!
-  assert(0 && "Unknown data type!");
-
-  return std::string("**UNKNOWN**");
 }
 
 // Generates the list used in XXXRegisterInfo.cpp
@@ -433,10 +394,10 @@ std::string
 TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
   std::string Result(S);
   // Traverse 
-  std::list<const SDNode*> Queue;
+  std::list<SDNode*> Queue;
   Queue.push_back(DAG);
   while (Queue.size() > 0) {
-    const SDNode* Element = Queue.front();
+    SDNode* Element = Queue.front();
     Queue.pop_front();
     // If not leaf, simply add its children without further processing
     if (Element->NumOperands != 0) {
@@ -450,16 +411,22 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
       continue;
     // If leaf and not dummy, check the name and, if this name can
     // be found in the LLVM DAG string, change the LLVM node to its type
+    // only if it is of register type (TypeName should be empty, otherwise).
+    // In case TypeName is empty, do the reverse substitution.
     assert(Element->OpName != NULL && "Leaf SDNode type must have a name");
-    assert(Element->TypeName != NULL && 
-	   "Non-dummy leaf SDNode must have a type");
     std::string::size_type idx = Result.find(*Element->OpName);
     if (idx == std::string::npos)
-      continue;
+	continue;
     std::string::size_type idx2 = Result.rfind(" ", idx);
     assert(idx2 != 0 && idx2 != std::string::npos && 
 	   "Malformed LLVM DAG String");    
-    Result.replace(idx2+1, idx-3-idx2, *(Element->TypeName));
+    if (Element->TypeName.size() > 0) {
+	Result.replace(idx2+1, idx-3-idx2, Element->TypeName);
+	continue;
+    } 
+    // Element is not a register operand. So we define its typename
+    // with the string of the LLVM DAG.
+    Element->TypeName = Result.substr(idx2+1, idx-3-idx2);    
   }
   return Result;
 }

@@ -3,10 +3,15 @@
 //------------------------------------------------------------------------------
 // Support classes and templates
 //------------------------------------------------------------------------------
+#ifndef SUPPORT_H
+#define SUPPORT_H
 
+#include "InsnSelector/Semantic.h"
 #include <list>
 #include <climits>
 #include <cstdlib>
+#include <cassert>
+#include <sstream>
 
 namespace backendgen {
 
@@ -76,11 +81,67 @@ inline unsigned ExtractOperandNumber(const std::string& OpName) {
 // TODO: Provide a more formal way of assigning operands to the 
 // assembly writer, rather than "guessing" based on the presence of
 // numbers in the operand's name.
+inline bool HasOperandNumber(const expression::Operand* Op) {
+  if (Op->isSpecificReference())
+    return false;
+
+  const std::string& OpName = Op->getOperandName();
+  std::string::size_type idx;
+  idx = OpName.find_first_of("0123456789");
+  return (idx != std::string::npos);  
+}
+
 inline bool HasOperandNumber(const std::string& OpName) {
   std::string::size_type idx;
   idx = OpName.find_first_of("0123456789");
-  return (idx != std::string::npos);
+  return (idx != std::string::npos);  
+}
+
+
+// Auxiliary functions used to transform an internal representation datatype
+// into LLVM datatype
+
+inline std::string InferValueType(const expression::RegisterClass *RC) {
+  if (RC->getOperandType().DataType == expression::IntType) {
+    std::stringstream SS;
+    SS << "i" << RC->getOperandType().Size;
+    return SS.str();
+  }
+
+  // Should not reach here!
+  assert(0 && "Unknown data type!");
+
+  return std::string("**UNKNOWN**");
+}
+
+inline std::string InferValueType(const expression::Operand *O) {
+  if (O->getDataType() == expression::IntType) {
+    std::stringstream SS;
+    SS << "i" << O->getSize();
+    return SS.str();
+  }
+
+  // Should not reach here!
+  assert(0 && "Unknown data type!");
+
+  return std::string("**UNKNOWN**");
+}
+
+inline std::string InferValueType(const expression::OperandType *O) {
+  if (O->DataType == expression::IntType) {
+    std::stringstream SS;
+    SS << "i" << O->Size;
+    return SS.str();
+  }
+
+  // Should not reach here!
+  assert(0 && "Unknown data type!");
+
+  return std::string("**UNKNOWN**");
 }
 
 
 }
+
+
+#endif

@@ -27,7 +27,7 @@ def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_CallSeqStart,
                            [SDNPHasChain, SDNPOutFlag]>;
 def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
                            [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
-def Call : SDNode<"`'__arch__`'ISD::CALL",SDT_Call, [SDNPHasChain,
+def call : SDNode<"`'__arch_in_caps__`'ISD::CALL",SDT_Call, [SDNPHasChain,
                          SDNPOutFlag]>;
 // This operand is used in our MachineDAG to represent literals to be coded
 // in the target assembly language. It corresponds to "IsLiteral" flag
@@ -54,10 +54,10 @@ class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt),
                                "!ADJCALLSTACKDOWN $amt",
-                               []>;
+                               [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                             "!ADJCALLSTACKUP $amt1",
-                            []>;
+                            [(callseq_end timm:$amt1, timm:$amt2)]>;
 
 //===----------------------------------------------------------------------===//
 // Non-Instruction Patterns
