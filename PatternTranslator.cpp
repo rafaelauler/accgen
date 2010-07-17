@@ -99,6 +99,62 @@ public:
   }
 };
 
+void PatternTranslator::sortOperandsDefs(NameListType* OpNames, 
+					 SemanticIterator SI) {
+  std::list<const Tree*> Queue;
+  std::vector<unsigned> OperandsIndexes;
+  OperandsIndexes.reserve(OpNames->size());
+  // Put into queue the top level operator of this semantic.
+  Queue.push_back(SI->SemanticExpression);
+  while(Queue.size() > 0) {
+    const Tree* Element = Queue.front();
+    Queue.pop_front();
+    const Operand* Op = dynamic_cast<const Operand*>(Element);
+    // If operand
+    if (Op != NULL) {
+      if (HasOperandNumber(Op)) 
+	OperandsIndexes.push_back
+	  (ExtractOperandNumber(Op->getOperandName())); 		
+      continue;
+    }      
+    // Otherwise we have an operator
+    const Operator* O = dynamic_cast<const Operator*>(Element);
+    assert (O != NULL && "Unexpected tree node type");
+    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Element);
+    if (AO != NULL && AO->getPredicate() != NULL) {
+      Queue.push_back(AO->getPredicate()->getLHS());
+      Queue.push_back(AO->getPredicate()->getRHS());
+    }
+    for (int I = 0, E = O->getArity(); I != E; ++I) {
+      Queue.push_back((*O)[I]);
+    }
+  }
+  // bubble sort
+  bool swapped;
+  unsigned E = OperandsIndexes.size();
+  assert(E == OpNames->size() && "OperandsDefs inconsistency");
+  do {
+    swapped = false;    
+    NameListType::iterator NI = OpNames->begin();
+    for (unsigned I = 0; I < E - 1; ++I) {
+      if (OperandsIndexes[I] > OperandsIndexes[I+1]) {
+	unsigned uTemp = OperandsIndexes[I];
+	std::string sTemp(*NI);
+	OperandsIndexes[I] = OperandsIndexes[I+1];
+	OperandsIndexes[I+1] = uTemp;
+	NameListType::iterator Next = NI;
+	++Next;
+	*NI = *Next;
+	++NI;
+	*NI = sTemp;	
+	swapped = true;
+      } else {
+	++NI;
+      }
+    }    
+  } while (swapped);
+}
+
 // Translate a SearchResult with a pattern implementation to DAG-like
 // syntax used when defining a "Pattern" object in XXXInstrInfo.td
 // This DAG is connected by uses relations and nodes contain only "ins"
@@ -118,6 +174,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
     BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
     NameListType* OpNames = *(OI++);
+    sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     // Building DAG Node for this instruction
@@ -127,7 +184,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
     // If this instruction does not define any register, then we may need
     // to put it as the root of the DAG.
     // FIXME: If we have two of such instructions, then we always use the last
-    // one found as the root.
+    // one found as the root. Maybe issue an warning?
     if (Outs->size() == 0) {
       assert (NoDefNode == NULL && 
 	"Can't support two instructions without Outs operands in a pattern");
@@ -145,7 +202,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	// This is the defined operand
 	Defs.push_back(std::make_pair(*NI, N));
 	++NI;
-	++i;
+	// We don't increment 'i' because we don't want to include this operand
 	HasDef = true;
 	continue;
       }
@@ -170,7 +227,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	  continue;
 	}
 	// No bindings for this dummy
-	// TODO: ABORT? Wait for side compensation processing?
+	// TODO: ABORT? Wait for side effect compensation processing?
 	N->ops[i]->OpName = new std::string();
 	++i;
 	continue;
@@ -202,7 +259,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
       ++i;
     }
     // Correct the number of operands for actual number of operands
-    N->NumOperands = HasDef? i-1 : i;
+    N->NumOperands = i;
     LastProcessedNode = N;
   }
   // Now, we must return the last definition, i.e., the root of the DAG.

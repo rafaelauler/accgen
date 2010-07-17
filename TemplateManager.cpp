@@ -390,6 +390,12 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
 // In this member function, a LLVM DAG String (that is, a LLVM SelectionDAG
 // to be matched) is postprocessed and its node types may be changed
 // according to the target implementation found for this particular DAG.
+// Here is the reasoning: If the operand is a Register, then its type
+// is copied to the LLVM string, because the LLVM backend knows and recognizes
+// with a specific type every register class. But in other cases, the
+// opposite happens: the LLVM string defines a type that is copied to the
+// pattern implementation node types, because only the LLVM string knows
+// better the exact SDNode types used in the LLVM backend.
 std::string 
 TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
   std::string Result(S);
@@ -401,7 +407,7 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
     Queue.pop_front();
     // If not leaf, simply add its children without further processing
     if (Element->NumOperands != 0) {
-      for (unsigned I = 0, E = Element->NumOperands; I != E; ++I) {
+      for (unsigned I = 0, E = Element->NumOperands; I < E; ++I) {
 	Queue.push_back(Element->ops[I]);	
       }
       continue;

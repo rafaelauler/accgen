@@ -370,18 +370,18 @@ namespace backendgen {
 	NameListType* ChildResult = ExtractLeafsNames
 	  (AO->getPredicate()->getLHS());
 	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
+	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;
 	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS());
 	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
+	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;	       
       }
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
 	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->merge(*ChildResult);
+	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;
       }
     return Result;
@@ -498,7 +498,7 @@ namespace backendgen {
 
   // This auxiliary function is used by search routines whenever an
   // operand is matched and we need to store its name (operand definition)
-  // in the SearchResult record. As we not know yet the instruction
+  // in the SearchResult record. As we do not know yet the instruction
   // to whom this operand pertains, we may need to allocate an orphan
   // operandsdefs list (without an associated instruction). To be easily
   // located, this orphan list is necessarily the last one in the list
