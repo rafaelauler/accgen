@@ -75,6 +75,8 @@ class Instruction {
   CnstOperandsList* getOuts() const;
   CnstOperandsList* getIns() const;
   CnstOperandsList* getOperandsBySemantic() const;
+  CnstOperandsList* getDefs() const;
+  CnstOperandsList* getUses() const;
 
   void setLLVMName(std::string LLVMName) {this->LLVMName = LLVMName;}
   std::string getLLVMName() const {return LLVMName;}

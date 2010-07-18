@@ -92,7 +92,7 @@ namespace backendgen {
     return Name;
   }
 
-  // Extract all defined operands in this instructions (outs)
+  // Extract all output register operands in this instruction (outs)
   std::list<const Operand*>* Instruction::getOuts() const {
     std::list<const Operand*>* Result = new std::list<const Operand*>();
     // We extract this information from our semantics forest.
@@ -102,15 +102,19 @@ namespace backendgen {
       assert (OP != NULL && "Semantics top level node must be an operator");
       // If semantics top level operator is not a transfer, then we don't
       // have outs
-      // TODO: Check if it is OK to do not have any outs
       if (OP->getType() != AssignOp)
 	continue;
       // First operand of a transfer operator will give us the destination.
       // This destination is a instruction definition, thus must be
       // member of outs
-      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
       if (Oper != NULL) {
-	Result->push_back(Oper);
+	// Specific references are not really operands, they are more like
+	// "constants". Moreover, we are only interested in registeroperands.
+	if (!Oper->isSpecificReference() &&
+	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
+	  Result->push_back(Oper);
+	}
 	continue;
       }
       // Exceptionally, we have a memory reference and thus it is not an operand
@@ -196,17 +200,17 @@ operand or memory reference.");
       Queue.push_back(I->SemanticExpression);
       while (Queue.size() > 0) {
 	const Tree* Element = Queue.front();
-	Queue.pop_front();
+	Queue.pop_front();	
 	const Operand* Op = dynamic_cast
 	  <const RegisterOperand*>(Element);
 	// If register operand
-	if (Op != NULL) {
+	if (Op != NULL && !Op->isSpecificReference()) {
 	  Result->push_back(Op);	  
 	  continue;
 	}
 	Op = dynamic_cast<const ImmediateOperand*>(Element);
 	// If immediate operand
-	if (Op != NULL) {
+	if (Op != NULL && !Op->isSpecificReference()) {
 	  Result->push_back(Op);
 	}
 	Op = dynamic_cast<const Operand*>(Element);
@@ -268,6 +272,79 @@ operand or memory reference.");
 
     return Result;
   }
+
+  // Extract all defined registers in this instruction (defs)
+  std::list<const Operand*>* Instruction::getDefs() const {
+    std::list<const Operand*>* Result = new std::list<const Operand*>();
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
+      assert (OP != NULL && "Semantics top level node must be an operator");
+      // If semantics top level operator is not a transfer, then we don't
+      // have defs
+      if (OP->getType() != AssignOp)
+	continue;
+      // First operand of a transfer operator will give us the destination.
+      // This destination is a instruction definition, thus it maybe
+      // have a specific reference, that is, a register definition.
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
+      if (Oper != NULL) {
+	if (Oper->isSpecificReference() &&
+	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
+	  Result->push_back(Oper);
+	}
+	continue;
+      }
+    }
+    return Result;
+  }
+
+  CnstOperandsList* Instruction::getUses() const {
+    CnstOperandsList* Result = new std::list<const Operand*>();
+    CnstOperandsList* Defs = this->getDefs();
+    IsMemberOf<std::list, const Operand*> isMemberOf = 
+      IsMemberOf<std::list, const Operand*>(Defs);
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      std::list<const Tree*> Queue;
+      Queue.push_back(I->SemanticExpression);
+      while (Queue.size() > 0) {
+	const Tree* Element = Queue.front();
+	Queue.pop_front();
+	const Operand* Op = dynamic_cast
+	  <const RegisterOperand*>(Element);
+	// If register operand and specific reference, then we
+	// have a use or def case.
+	if (Op != NULL && Op->isSpecificReference() 
+	    && !isMemberOf(Op)) {
+	  Result->push_back(Op);	  
+	  continue;
+	}
+	Op = dynamic_cast<const Operand*>(Element);
+	// Other types of operands are uninteresting
+	if (Op != NULL) 
+	  continue;	
+	
+	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
+	// If we have an assignment operator, includes the operands contained
+	// in guarded statements
+	if (AO != NULL && AO->getPredicate() != NULL) {
+	  Queue.push_back(AO->getPredicate()->getLHS());
+	  Queue.push_back(AO->getPredicate()->getRHS());
+	}
+	// Otherwise we have an operator
+	const Operator* O = dynamic_cast<const Operator*>(Element);
+	assert (O != NULL && "Unexpected tree node type");
+	for (int I = 0, E = O->getArity(); I != E; ++I) {
+	  Queue.push_back((*O)[I]);
+	}
+      }
+    }
+    delete Defs;
+    return Result;
+  }
+
 
   void Instruction::emitAssembly(std::list<std::string> Operands,
 				 SemanticIterator SI, std::ostream& S) 

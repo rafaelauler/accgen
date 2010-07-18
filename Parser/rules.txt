@@ -65,6 +65,16 @@ define pattern STORE as (
   (transfer (memref addr:regs) src:regs);
 );
 
+define pattern LOAD as (
+  "(load i32:$addr)";
+  (transfer a3:regs (memref addr:regs));
+);
+
+define pattern FRAMEINDEX as (
+  "(frameindex i32:val)";
+  (transfer a3:regs imm:val:immed);
+);
+
 define pattern CALL as (
   "(call tglobaladdr:$tgt)";
   (call imm:tgt:immed);
@@ -129,8 +139,8 @@ define semantic fragment ImmAddrMode as (
 
 // Branch instructions
 define instruction b semantic as (
-  let Op1 = "" in
-    (transfer r15:GPR imm:Op2:immed);
+//  let Op1 = "" in
+//    (transfer r15:GPR imm:Op2:immed);
 ) cost 1;
 define instruction b semantic as (
   let Op1 = "" in
@@ -254,6 +264,13 @@ define instruction str1 semantic as (
   let Op1 = "" in
     (transfer (memref Op2:GPR) Op3:GPR);
 ) cost 1;
+
+//====-- LDR --====//
+define instruction ldr1 semantic as (
+  let Op1 = "" in
+    (transfer Op3:GPR (memref Op2:GPR));
+) cost 1;
+
 
 //translate (transfer a3:regs (+ a1:immed a2:immed));
 

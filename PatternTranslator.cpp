@@ -261,6 +261,9 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
     // Correct the number of operands for actual number of operands
     N->NumOperands = i;
     LastProcessedNode = N;
+    // Housekeeping
+    delete AllOps;
+    delete Outs;
   }
   // Now, we must return the last definition, i.e., the root of the DAG.
   if (NoDefNode != NULL)

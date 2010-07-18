@@ -234,12 +234,42 @@ std::string TemplateManager::generateInstructionsDefs() {
       std::string LLVMName = SStmp.str();
       (*I)->setLLVMName(LLVMName);
     }
+    // Here we print defs and uses for this instruction
+    CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
+    if (Defs->size() > 0 || Uses->size() > 0) {
+      SS << "let ";
+      if (Defs->size() > 0) {
+	SS << "Defs = [";
+	for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
+	       E2 = Defs->end(); I2 != E2; ++I2) {
+	  if (I2 != Defs->begin())
+	    SS << ",";	  
+	  SS << (*I2)->getOperandName();      
+	}
+	SS << "]";
+	if (Uses->size() > 0) SS << ", ";
+      }
+      if (Uses->size() > 0) {
+	SS << "Uses = [";
+	for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
+	       E2 = Uses->end(); I2 != E2; ++I2) {
+	  if (I2 != Uses->begin())
+	    SS << ",";	  
+	  SS << (*I2)->getOperandName();      
+	}
+	SS << "]";
+      }
+      SS << " in\n";
+    }
+    delete Defs;
+    delete Uses;
+    // No we begin printing the instruction definition per se.
     SS << "def " << (*I)->getLLVMName() << "\t: " << (*I)->getFormat()
       ->getName();
     SS << "<(outs ";
-    std::list<const Operand*> *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
+    CnstOperandsList *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
     // Prints all defined operands (outs)
-    for (std::list<const Operand*>::const_iterator I2 = Outs->begin(),
+    for (CnstOperandsList::const_iterator I2 = Outs->begin(),
 	   E2 = Outs->end(); I2 != E2; ++I2) {
       if (I2 != Outs->begin())
 	SS << ",";

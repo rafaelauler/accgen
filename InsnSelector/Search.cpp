@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Search.h"  
+#include "../Support.h"
 #include <climits>
 #include <cassert>
 
@@ -238,6 +239,37 @@ namespace backendgen {
     }
   }
 
+  // Our functor (unary predicate) to decide if an element is member
+  // of a VirtualToReal list
+  class IsInVRFunctor {
+    VirtualToRealMap* VR;
+  public:
+    IsInVRFunctor(VirtualToRealMap* list):
+      VR(list) {}
+    bool operator() (const Tree* A) {
+      const Operand* O = dynamic_cast<const Operand*>(A);
+      if (O != NULL) {
+	for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	     I != E; ++I) {
+	  if (O->getOperandName() == I->first)
+	    return false;	 
+	}
+      }
+      return true;
+    } 
+  };
+
+
+  // This member function checks if SearchResult has a real assignment
+  // to Expression inputs. In this case, we may be trying to enforce 
+  // restrictions on the expression that the SearchEngine user does not want. 
+  bool SearchResult::CheckVirtualToReal(const Tree *Exp) {
+    VirtualToRealMap* VR = this->VirtualToReal;
+    if (VR == NULL)
+      return true;
+    return ApplyToLeafs<const Tree*, const Operator*, IsInVRFunctor>
+      (Exp, IsInVRFunctor(VR));  
+  }
 
   void SearchResult::DumpResults(std::ostream& S) {
     S << "\n==== Search results internal dump =====\nInstructions list:\n";

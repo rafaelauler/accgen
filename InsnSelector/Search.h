@@ -53,6 +53,7 @@ namespace backendgen {
     SearchResult();
     ~SearchResult();
     void FilterAssignedNames();
+    bool CheckVirtualToReal(const Tree *Exp);
     void DumpResults(std::ostream& S);
   };
 
