@@ -24,6 +24,7 @@ SDNode::SDNode() {
   ops = NULL;
   NumOperands = 0;
   IsLiteral = false;
+  IsSpecificReg = false;
 }
 
 SDNode::~SDNode() {
@@ -101,6 +102,7 @@ public:
 
 void PatternTranslator::sortOperandsDefs(NameListType* OpNames, 
 					 SemanticIterator SI) {
+  const unsigned MARK_REMOVAL = 99999;
   std::list<const Tree*> Queue;
   std::vector<unsigned> OperandsIndexes;
   OperandsIndexes.reserve(OpNames->size());
@@ -112,9 +114,15 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
     const Operand* Op = dynamic_cast<const Operand*>(Element);
     // If operand
     if (Op != NULL) {
-      if (HasOperandNumber(Op)) 
-	OperandsIndexes.push_back
-	  (ExtractOperandNumber(Op->getOperandName())); 		
+      if (!Op->isSpecificReference()) {
+	if (HasOperandNumber(Op)) 
+	  OperandsIndexes.push_back
+	    (ExtractOperandNumber(Op->getOperandName())); 		
+      } else {
+	// Specific references are not true operands and must be
+	// removed from the list
+	OperandsIndexes.push_back(MARK_REMOVAL);
+      }
       continue;
     }      
     // Otherwise we have an operator
@@ -129,14 +137,35 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
       Queue.push_back((*O)[I]);
     }
   }
+  // Remove requested nodes
+  unsigned E = OperandsIndexes.size(), I = 0;
+  assert(E == OpNames->size() && "OperandsDefs inconsistency");
+  for (NameListType::iterator NI = OpNames->begin(), NE = OpNames->end();
+       NI != NE;) {
+    if (OperandsIndexes[I] == MARK_REMOVAL) {      
+      for (unsigned I2 = I; I2 != E - 1; ++I2) {
+	OperandsIndexes[I2] = OperandsIndexes[I2+1];
+      }
+      OperandsIndexes.pop_back();
+      E--;
+      NI = OpNames->erase(NI);
+      continue;
+    }
+    // Changing names according to VirtualToReal maps
+    //    if ((VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI))
+    //	!= SR->VirtualToReal->end()) {
+    //*NI = VI->second;
+    //}
+    ++NI;
+    ++I;    
+  }
   // bubble sort
   bool swapped;
-  unsigned E = OperandsIndexes.size();
-  assert(E == OpNames->size() && "OperandsDefs inconsistency");
+  E = OperandsIndexes.size();
   do {
     swapped = false;    
     NameListType::iterator NI = OpNames->begin();
-    for (unsigned I = 0; I < E - 1; ++I) {
+    for (I = 0; I < E - 1; ++I) {
       if (OperandsIndexes[I] > OperandsIndexes[I+1]) {
 	unsigned uTemp = OperandsIndexes[I];
 	std::string sTemp(*NI);
@@ -159,6 +188,8 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
 // syntax used when defining a "Pattern" object in XXXInstrInfo.td
 // This DAG is connected by uses relations and nodes contain only "ins"
 // operands.
+// BUG: What to do when the root of the dag assigns to a register
+// bound by VirtualToRealmap? How to handle Defs by Real registers?
 SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   DefList Defs;
   SDNode *LastProcessedNode, *NoDefNode = NULL;
@@ -191,6 +222,13 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
       NoDefNode = N;
     }
     unsigned i = 0;
+    if (Bindings != NULL) {
+      assert(OpNames->size() + Bindings->size() == AllOps->size()
+	     && "Inconsistency. Missing sufficient bindings?");
+    } else {
+      assert(OpNames->size() == AllOps->size() 
+	     && "Inconsistency. Missing sufficient bindings?");
+    }
     NameListType::const_iterator NI = OpNames->begin();
     bool HasDef = false;
     for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
@@ -268,9 +306,9 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   // Now, we must return the last definition, i.e., the root of the DAG.
   if (NoDefNode != NULL)
     return NoDefNode;
-  if (Defs.empty())
-    return LastProcessedNode;
-  return Defs.back().second;
+  //if (Defs.empty())
+  return LastProcessedNode;
+  //return Defs.back().second;
 }
 
 } // end namespace backendgen

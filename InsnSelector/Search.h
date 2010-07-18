@@ -37,6 +37,16 @@ namespace backendgen {
   // an instruction may have many semantic trees describing its behaviour).
   typedef std::list<std::pair<const Instruction*, SemanticIterator> > InstrList;
 
+  // Our functor (unary predicate) to decide if an element is member
+  // of a VirtualToReal list
+  class IsInVRFunctor {
+    VirtualToRealMap* VR;
+  public:
+    IsInVRFunctor(VirtualToRealMap* list):
+      VR(list) {}
+    bool operator() (const Tree* A);
+  };
+
   // This struct stores a result. This is a list of instructions
   // implementing the requested expression and its cost information.
   // Also, an associated list of operands definitions is available.
@@ -53,8 +63,9 @@ namespace backendgen {
     SearchResult();
     ~SearchResult();
     void FilterAssignedNames();
-    bool CheckVirtualToReal(const Tree *Exp);
-    void DumpResults(std::ostream& S);
+    bool CheckVirtualToReal(const Tree *Exp) const;
+    VirtualToRealMap::const_iterator VRLookupName(std::string S) const;
+    void DumpResults(std::ostream& S) const;
   };
 
   // This class speeds up search algorithm by hashing expressions

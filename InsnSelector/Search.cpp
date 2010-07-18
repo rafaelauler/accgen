@@ -196,6 +196,19 @@ namespace backendgen {
     return false;
   }
 
+  // IsInVRFunctor member functions
+
+  bool IsInVRFunctor::operator() (const Tree* A) {
+    const Operand* O = dynamic_cast<const Operand*>(A);
+    if (O != NULL) {
+      for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	   I != E; ++I) {
+	if (O->getOperandName() == I->first)
+	  return false;	 
+      }
+    }
+    return true;
+  } 
   
   // SearchResult member functions
 
@@ -239,31 +252,10 @@ namespace backendgen {
     }
   }
 
-  // Our functor (unary predicate) to decide if an element is member
-  // of a VirtualToReal list
-  class IsInVRFunctor {
-    VirtualToRealMap* VR;
-  public:
-    IsInVRFunctor(VirtualToRealMap* list):
-      VR(list) {}
-    bool operator() (const Tree* A) {
-      const Operand* O = dynamic_cast<const Operand*>(A);
-      if (O != NULL) {
-	for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
-	     I != E; ++I) {
-	  if (O->getOperandName() == I->first)
-	    return false;	 
-	}
-      }
-      return true;
-    } 
-  };
-
-
   // This member function checks if SearchResult has a real assignment
   // to Expression inputs. In this case, we may be trying to enforce 
   // restrictions on the expression that the SearchEngine user does not want. 
-  bool SearchResult::CheckVirtualToReal(const Tree *Exp) {
+  bool SearchResult::CheckVirtualToReal(const Tree *Exp) const {
     VirtualToRealMap* VR = this->VirtualToReal;
     if (VR == NULL)
       return true;
@@ -271,7 +263,18 @@ namespace backendgen {
       (Exp, IsInVRFunctor(VR));  
   }
 
-  void SearchResult::DumpResults(std::ostream& S) {
+  VirtualToRealMap::const_iterator 
+  SearchResult::VRLookupName(std::string S) const {
+    VirtualToRealMap* VR = this->VirtualToReal;
+    for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	 I != E; ++I) {
+      if (I->first == S)
+	return I;
+    }
+    return VR->end();
+  } 
+
+  void SearchResult::DumpResults(std::ostream& S) const {
     S << "\n==== Search results internal dump =====\nInstructions list:\n";
     for (InstrList::iterator I = Instructions->begin(), E = Instructions->end();
 	 I != E; ++I) {

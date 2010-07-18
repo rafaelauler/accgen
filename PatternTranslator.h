@@ -36,7 +36,10 @@ namespace backendgen {
     // In case this node represents a leaf operand and is a literal value 
     // (i.e. in a "dummy" operand, defined by "let" clauses). In this case,
     // we need to write it using the LLVM Assembly Writter.
-    bool IsLiteral;              
+    bool IsLiteral; 
+    // If specific register, we need to print it differently, as LLVM will
+    // already known this name and recognize as a register.
+    bool IsSpecificReg;
                                  
     unsigned NumOperands;
     SDNode** ops;

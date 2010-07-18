@@ -412,7 +412,7 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
     return NULL;
   }
   // Refining output
-  R->FilterAssignedNames();
+  //R->FilterAssignedNames();
   
   return R;                 
 }

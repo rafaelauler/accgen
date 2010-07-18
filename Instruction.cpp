@@ -303,8 +303,7 @@ operand or memory reference.");
   CnstOperandsList* Instruction::getUses() const {
     CnstOperandsList* Result = new std::list<const Operand*>();
     CnstOperandsList* Defs = this->getDefs();
-    IsMemberOf<std::list, const Operand*> isMemberOf = 
-      IsMemberOf<std::list, const Operand*>(Defs);
+    IsMemberOf<std::list, const Operand*> isMemberOf(Defs);
     for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
 	 I != E; ++I) {
       std::list<const Tree*> Queue;
