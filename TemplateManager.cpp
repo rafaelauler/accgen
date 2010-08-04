@@ -411,8 +411,6 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
     delete R;
     return NULL;
   }
-  // Refining output
-  //R->FilterAssignedNames();
   
   return R;                 
 }

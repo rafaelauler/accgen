@@ -151,11 +151,6 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
       NI = OpNames->erase(NI);
       continue;
     }
-    // Changing names according to VirtualToReal maps
-    //    if ((VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI))
-    //	!= SR->VirtualToReal->end()) {
-    //*NI = VI->second;
-    //}
     ++NI;
     ++I;    
   }
@@ -306,9 +301,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   // Now, we must return the last definition, i.e., the root of the DAG.
   if (NoDefNode != NULL)
     return NoDefNode;
-  //if (Defs.empty())
   return LastProcessedNode;
-  //return Defs.back().second;
 }
 
 } // end namespace backendgen

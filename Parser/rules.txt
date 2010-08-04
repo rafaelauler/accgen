@@ -71,7 +71,7 @@ define pattern LOAD as (
 );
 
 define pattern FRAMEINDEX as (
-  "(frameindex i32:val)";
+  "(frameindex)";
   (transfer a3:regs imm:val:immed);
 );
 
