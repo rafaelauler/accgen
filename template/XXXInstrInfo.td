@@ -39,6 +39,9 @@ def tgliteral : Operand<i32> {
   let MIOperandInfo = (ops i32imm); // No operands
 }
 
+// Complex pattern "FrameIndex" used to extract the frameindex number
+def CPFI : ComplexPattern<i32, 1, "SelectCPFI", [], []>;
+
 //===----------------------------------------------------------------------===//
 // __arch__ instruction definitions
 //===----------------------------------------------------------------------===//

@@ -44,6 +44,8 @@ public:
   virtual bool SelectInlineAsmMemoryOperand(const SDValue &Op,
                                             char ConstraintCode,
                                             std::vector<SDValue> &OutOps);
+					    
+  bool SelectADDRri(SDValue Op, SDValue N, SDValue &Base);
 
   /// InstructionSelect - This callback is invoked by
   /// SelectionDAGISel when it has created a SelectionDAG for us to codegen.
@@ -76,6 +78,7 @@ void __arch__`'DAGToDAGISel::InstructionSelect() {
     case ISD::STORE: {
       break;
     }
+    __patterns_switch__
   }
   
   if (N->isMachineOpcode())
@@ -84,6 +87,14 @@ void __arch__`'DAGToDAGISel::InstructionSelect() {
   return SelectCode(Op);
 }
 
+// Select and extract frameindex constants
+bool __arch__`'DAGToDAGISel::SelectCPFI(SDValue Op, SDValue Addr, SDValue &Base) {
+  if (FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);    
+    return true;
+  }
+  return false;
+}
 
 /// SelectInlineAsmMemoryOperand - Implement addressing mode selection for
 /// inline asm expressions.

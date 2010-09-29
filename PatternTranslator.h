@@ -70,6 +70,7 @@ namespace backendgen {
     }
     void sortOperandsDefs(NameListType* OpNames, SemanticIterator SI);
     SDNode *generateInsnsDAG(SearchResult *SR);
+    std::string generateEmitCode(SearchResult *SR, unsigned num);
   };
 
 }

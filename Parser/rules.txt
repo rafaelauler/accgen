@@ -60,6 +60,11 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 //=========================-- LLVM Patterns --================================//
 
+define pattern STOREFI as (
+  "(store i32:$src, CPFI:$val)";
+  (transfer (memref imm:val:immed) src:regs);
+);
+
 define pattern STORE as (
   "(store i32:$src, i32:$addr)";
   (transfer (memref addr:regs) src:regs);
@@ -70,10 +75,10 @@ define pattern LOAD as (
   (transfer a3:regs (memref addr:regs));
 );
 
-define pattern FRAMEINDEX as (
-  "(frameindex)";
-  (transfer a3:regs imm:val:immed);
-);
+//define pattern FRAMEINDEX as (
+//  "(frameindex)";
+//  (transfer a3:regs imm:val:immed);
+//);
 
 define pattern CALL as (
   "(call tglobaladdr:$tgt)";

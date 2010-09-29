@@ -304,4 +304,39 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   return LastProcessedNode;
 }
 
+
+// This function translates a SearchResult record to C++ code to emit
+// the instructions indicated by SearchResults in the LLVM backend, helping
+// to build the Code Generator.
+
+// The num parameter is used to compose the name of the C++ function that
+// will be generated.
+
+std::string PatternTranslator::generateEmitCode(SearchResult *SR, 
+						unsigned num) {
+  std::stringstream SS;
+  SDNode *RootNode = generateInsnsDAG(SR);
+  
+  // Start by returning the correct transformed node
+  SS << "return CurDAG->SelectNodeTo(";
+  
+  // Now we need to traverse the DAG and translate it into C++ code to
+  // reproduce it into the LLVM machine level IR.
+  std::list<SDNode*> Queue;
+  Queue.push_back(RootNode);
+  while (Queue.size() > 0) {
+    SDNode* Element = Queue.front();
+    Queue.pop_front();
+        
+    if (Element->NumOperands != 0) {
+      for (unsigned i = 0; i < Element->NumOperands; ++i) {
+	Queue.push_back(Element->ops[i]);
+      }
+      
+    }
+  }
+  
+  return SS.str();
+}
+
 } // end namespace backendgen
