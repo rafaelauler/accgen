@@ -13,9 +13,11 @@
 #include "PatternTranslator.h"
 #include "Support.h"
 #include <algorithm>
+#include <locale>
 #include <cassert>
+#include <cctype>
 
-namespace backendgen {
+using namespace backendgen;
 
 // ==================== SDNode class members ==============================
 SDNode::SDNode() {
@@ -266,8 +268,8 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
 	continue;
       }
       // Is this operand already defined?
-      DefList::iterator DI = find_if(Defs.begin(), Defs.end(), 
-				     DefineName(*NI));
+      DefList::iterator DI = std::find_if(Defs.begin(), Defs.end(), 
+					  DefineName(*NI));
       if (DI != Defs.end()) {
 	N->ops[i] = DI->second;
 	++NI;
@@ -304,6 +306,82 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   return LastProcessedNode;
 }
 
+SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S) {
+  unsigned dummy = 0;
+  return parseLLVMDAGString(S, &dummy);
+}
+
+// Converts an LLVM DAG string (extracted from the rules file, when specifying
+// an LLVM pattern) to an internal memory representation. 
+// Recursive function.
+SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
+					      unsigned *pos) { 
+  using std::isalnum;
+  using std::string;
+  unsigned i = *pos;
+  for (; i != S.size(); ++i) if (isalnum(S[i]) || S[i] == '(') break;  
+  if (i == S.size())    
+    return NULL;
+  // If we reached here, we need to create a new node
+  bool hasChildren = false;
+  if (S[i] == '(') {
+    hasChildren = true;
+    ++i;
+    for (; i != S.size(); ++i) if (!isspace(S[i])) break;
+  }
+  const unsigned begin = i;
+  for (; i != S.size(); ++i) if (!isalnum(S[i])) break;  
+  
+  // Premature end of string
+  if (i == S.size())
+    throw new PTParseErrorException();  
+  SDNode* N = new SDNode();
+  // Determine if we have type specification (':')
+  if (S[i] != ':') {    
+    N->OpName = new string(S.substr(begin, i-begin));
+  } else {
+    N->TypeName = S.substr(begin, i-begin);    
+    ++i; // Eat ':'
+    if (S[i] != '$') {
+      delete N;
+      throw new PTParseErrorException();
+    }
+    ++i; // Eat '$'
+    const unsigned namebegin = i;
+    for (; i != S.size(); ++i) if (!isalnum(S[i])) break;  
+    N->OpName = new string(S.substr(namebegin, i-namebegin));
+  }
+  if (!hasChildren) {
+    for (; i != S.size(); ++i) if (!isspace(S[i])) break;
+    if (S[i] == ',') i++;
+    *pos = i;
+    return N;
+  }
+  // Parse children
+  std::list<SDNode*> children;
+  while (SDNode* child = parseLLVMDAGString(S, &i)) {
+    children.push_back(child);
+  }
+  // All children parsed, Now eat the closing parenthesis
+  for (; i != S.size(); ++i) if (S[i] == ')') break;  
+  // Mismatched parenthesis
+  if (i == S.size()) {
+    for (std::list<SDNode*>::const_iterator I = children.begin(),
+	  E = children.end(); I != E; ++I) {
+      delete *I;
+    }
+    throw new PTParseErrorException();
+  }
+  ++i; // Eat ')';
+  *pos = i;
+  N->SetOperands(children.size());
+  unsigned cur = 0;
+  for (std::list<SDNode*>::const_iterator I = children.begin(),
+	E = children.end(); I != E; ++I) {
+    N->ops[cur++] = *I;
+  }
+  return N;
+}
 
 // This function translates a SearchResult record to C++ code to emit
 // the instructions indicated by SearchResults in the LLVM backend, helping
@@ -339,4 +417,4 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
   return SS.str();
 }
 
-} // end namespace backendgen
+

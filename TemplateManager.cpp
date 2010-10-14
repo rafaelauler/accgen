@@ -27,7 +27,7 @@ void TemplateManager::CreateM4File()
   std::string FileName = WorkingDir;
   std::string ArchNameCaps;
   std::transform(ArchName.begin(), ArchName.end(), 
-		 back_inserter(ArchNameCaps), 
+		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
   FileName += "/macro.m4";
   std::ofstream O(FileName.c_str(), std::ios::out);
@@ -472,7 +472,7 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
   std::stringstream SS;
   unsigned count = 0;
   time_t start, end;
-  start = time(0);
+  start = std::time(0);
   Log << "Pattern implementation inference will start now. This may take"
       << " several\nminutes.\n\n";
   for (PatternManager::Iterator I = PatMan.begin(), E = PatMan.end();
@@ -485,16 +485,17 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
 	I->Name << "\n";
       abort();
     }
-    SDNode* DAG = PatTrans.generateInsnsDAG(SR);
+    //SDNode* DAG = PatTrans.generateInsnsDAG(SR);
+    SDNode* DAG =PatTrans.parseLLVMDAGString(I->LLVMDAG);
     SS << "def " << I->Name << " : Pat<" 
        << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
     DAG->Print(SS);
     SS << ">;\n\n";
     delete DAG;
   }
-  end = time(0);
+  end = std::time(0);
   Log << count << " pattern(s) implemented successfully in " << 
-    difftime(end,start) << " second(s).\n";
+    std::difftime(end,start) << " second(s).\n";
 
   return SS.str();
 }

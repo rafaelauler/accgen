@@ -48,6 +48,8 @@ namespace backendgen {
     void SetOperands(unsigned num);
     void Print(std::ostream &S);
   };
+  
+  struct PTParseErrorException {};
 
   // This is the class responsible for translating from our SearchResult
   // internal notation to LLVM's DAG notation, so we can write InstrInfo and
@@ -70,6 +72,8 @@ namespace backendgen {
     }
     void sortOperandsDefs(NameListType* OpNames, SemanticIterator SI);
     SDNode *generateInsnsDAG(SearchResult *SR);
+    SDNode *parseLLVMDAGString(const std::string &S);
+    SDNode *parseLLVMDAGString(const std::string &S, unsigned *pos);
     std::string generateEmitCode(SearchResult *SR, unsigned num);
   };
 
