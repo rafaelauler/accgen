@@ -85,6 +85,10 @@ void SDNode::Print(std::ostream &S) {
 
 // ================ PatternTranslator class members =======================
 
+namespace {
+  std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name);
+};
+
 // Private type definitions
 typedef std::pair<std::string, SDNode*> Def;
 typedef std::list<Def> DefList;
@@ -306,6 +310,26 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   return LastProcessedNode;
 }
 
+// This helper function will try to find a predecessor node of name "Name" 
+// and then return a list with the children nodes accessed in order to
+// find the predecessor, or NULL if it failed to find it.
+std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name) {
+  for (unsigned i = 0; i < DAG->NumOperands; ++i) {
+    std::list<unsigned>* L = NULL;
+    if (DAG->ops[i]->OpName == Name) {
+      L = new std::list<unsigned>();
+      L->push_back(i);
+      return L;
+    }
+    L = findPredecessor(DAG->ops[i], Name);
+    if (L != NULL) {
+      L->push_front(i);
+      return L;
+    }
+  }
+  return NULL;
+}
+
 SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S) {
   unsigned dummy = 0;
   return parseLLVMDAGString(S, &dummy);
@@ -391,12 +415,11 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
 // will be generated.
 
 std::string PatternTranslator::generateEmitCode(SearchResult *SR, 
+						const std::string& LLVMDAGStr,
 						unsigned num) {
   std::stringstream SS;
   SDNode *RootNode = generateInsnsDAG(SR);
-  
-  // Start by returning the correct transformed node
-  SS << "return CurDAG->SelectNodeTo(";
+  SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
   
   // Now we need to traverse the DAG and translate it into C++ code to
   // reproduce it into the LLVM machine level IR.
@@ -413,6 +436,9 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
       
     }
   }
+  
+  // Start by returning the correct transformed node
+  SS << "return CurDAG->SelectNodeTo(";
   
   return SS.str();
 }

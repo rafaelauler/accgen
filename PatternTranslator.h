@@ -74,7 +74,8 @@ namespace backendgen {
     SDNode *generateInsnsDAG(SearchResult *SR);
     SDNode *parseLLVMDAGString(const std::string &S);
     SDNode *parseLLVMDAGString(const std::string &S, unsigned *pos);
-    std::string generateEmitCode(SearchResult *SR, unsigned num);
+    std::string generateEmitCode(SearchResult *SR, const std::string& L,
+				 unsigned num);
   };
 
 }
