@@ -485,11 +485,11 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
 	I->Name << "\n";
       abort();
     }
-    //SDNode* DAG = PatTrans.generateInsnsDAG(SR);
-    SDNode* DAG =PatTrans.parseLLVMDAGString(I->LLVMDAG);
+    SDNode* DAG = PatTrans.generateInsnsDAG(SR);    
     SS << "def " << I->Name << " : Pat<" 
        << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
     DAG->Print(SS);
+    std::cerr << PatTrans.generateEmitCode(SR, I->LLVMDAG) << std::endl;
     SS << ">;\n\n";
     delete DAG;
   }

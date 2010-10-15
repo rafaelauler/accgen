@@ -85,10 +85,6 @@ void SDNode::Print(std::ostream &S) {
 
 // ================ PatternTranslator class members =======================
 
-namespace {
-  std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name);
-};
-
 // Private type definitions
 typedef std::pair<std::string, SDNode*> Def;
 typedef std::list<Def> DefList;
@@ -310,13 +306,15 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
   return LastProcessedNode;
 }
 
+namespace {
+
 // This helper function will try to find a predecessor node of name "Name" 
 // and then return a list with the children nodes accessed in order to
 // find the predecessor, or NULL if it failed to find it.
 std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name) {
   for (unsigned i = 0; i < DAG->NumOperands; ++i) {
     std::list<unsigned>* L = NULL;
-    if (DAG->ops[i]->OpName == Name) {
+    if (*DAG->ops[i]->OpName == Name) {
       L = new std::list<unsigned>();
       L->push_back(i);
       return L;
@@ -329,6 +327,8 @@ std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name) {
   }
   return NULL;
 }
+
+}; // end of anonymous namespace
 
 SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S) {
   unsigned dummy = 0;
@@ -407,6 +407,17 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
   return N;
 }
 
+std::string PatternTranslator::generateEmitCode(SearchResult *SR,
+					 const std::string& LLVMDAGStr) {
+  std::stringstream SS;
+  SDNode *RootNode = generateInsnsDAG(SR);
+  SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
+  generateEmitCode(RootNode, LLVMDAG, 0, 0, SS);
+  delete RootNode;
+  delete LLVMDAG;
+  return SS.str();
+}
+
 // This function translates a SearchResult record to C++ code to emit
 // the instructions indicated by SearchResults in the LLVM backend, helping
 // to build the Code Generator.
@@ -414,33 +425,81 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
 // The num parameter is used to compose the name of the C++ function that
 // will be generated.
 
-std::string PatternTranslator::generateEmitCode(SearchResult *SR, 
-						const std::string& LLVMDAGStr,
-						unsigned num) {
-  std::stringstream SS;
-  SDNode *RootNode = generateInsnsDAG(SR);
-  SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
-  
-  // Now we need to traverse the DAG and translate it into C++ code to
-  // reproduce it into the LLVM machine level IR.
-  std::list<SDNode*> Queue;
-  Queue.push_back(RootNode);
-  while (Queue.size() > 0) {
-    SDNode* Element = Queue.front();
-    Queue.pop_front();
-        
-    if (Element->NumOperands != 0) {
-      for (unsigned i = 0; i < Element->NumOperands; ++i) {
-	Queue.push_back(Element->ops[i]);
-      }
-      
-    }
+void PatternTranslator::generateEmitCode(SDNode* N, 
+					 SDNode* LLVMDAG,
+					 unsigned level, unsigned cur,
+					 std::ostream &S) {
+  using std::string;
+  using std::endl;
+  using std::list;    
+     
+  // Depth first
+  assert (N->RefInstr != NULL && "Must be valid instruction");    
+  if (N->NumOperands != 0) {
+    for (unsigned i = 0; i < N->NumOperands; ++i) {
+      if (N->ops[i]->RefInstr != NULL)
+	generateEmitCode(N->ops[i], LLVMDAG, level+1, i, S);	
+    }            
   }
   
-  // Start by returning the correct transformed node
-  SS << "return CurDAG->SelectNodeTo(";
+  // Declare our leaf nodes. Non-leaf nodes are already declared
+  // due to recursion.
+  for (unsigned i = 0; i < N->NumOperands; ++i) {
+    if (N->ops[i]->RefInstr != NULL)
+      continue;    
+    S << "SDValue N" << level+1 << "_" << i 
+      << " = ";
+    if (N->ops[i]->IsLiteral) {
+      //TODO: Generate an index for a string table, included in
+      //SelectionDAG class, and use it as target constant.
+      S << "CurDAG->getTargetConstant(0x0ULL, MVT::i32);" << endl;
+      continue;
+    }
+    // If not literal, then check if it matches some operand in LLVMDAG
+    list<unsigned>* Res = findPredecessor(LLVMDAG, *N->ops[i]->OpName);
+    if (Res == NULL) {
+      //If it does not match, then it is a temporary register.
+      continue;
+    }
+    assert (Res->size() > 0 && "List must be nonempty");    
+    S << "N";
+    for (list<unsigned>::const_iterator I = Res->begin(), E = Res->end();
+	 I != E; ++I) {
+      S << ".getOperand(" << *I << ")";
+    }
+    S << ";" << endl;
+  }  
+  // Declare our operand vector
+  if (N->NumOperands > 0) {
+    S << "SDValue Ops" << level << "_" << cur << "[] = {";
+    for (unsigned i = 0; i < N->NumOperands; ++i) {
+      S << "N" << level+1 << "_" << i;
+      if (i != N->NumOperands-1)
+	S << ", ";
+    }
+    S << "};" << endl;
+  }
   
-  return SS.str();
+  // If not level 0, declare ourselves by requesting a regular node
+  if (level != 0) {    
+    S << "SDValue N" << level << "_" << cur 
+      << " = CurDAG->getTargetNode(";
+  } else {
+    S << "return CurDAG->SelectNodeTo(N.getNode(), ";
+  }
+  
+  //TODO: Replace hardwired Sparc16!
+  S << "Sparc16::" << N->RefInstr->getLLVMName();
+  const int OutSz = N->RefInstr->getOutSize();
+  assert (OutSz != -1 && "Instruction must have output");
+  if (OutSz == 0)
+    S << ", MVT::Other";
+  else
+    S << ", MVT::i" << OutSz;
+  S << ", Ops" << level << "_" << cur << ", " << N->NumOperands
+    << ");" << endl;    
+  
+  return;
 }
 
 

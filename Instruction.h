@@ -72,6 +72,7 @@ class Instruction {
   SemanticIterator getBegin() const;
   SemanticIterator getEnd() const;
   CostType getCost() const {return Cost;}
+  int getOutSize() const;
   CnstOperandsList* getOuts() const;
   CnstOperandsList* getIns() const;
   CnstOperandsList* getOperandsBySemantic() const;

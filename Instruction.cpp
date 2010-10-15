@@ -91,6 +91,40 @@ namespace backendgen {
   std::string Instruction::getName() const {
     return Name;
   }
+  
+  int Instruction::getOutSize() const {    
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
+      assert (OP != NULL && "Semantics top level node must be an operator");
+      // If semantics top level operator is not a transfer, then we don't
+      // have outs
+      if (OP->getType() != AssignOp)
+	continue;
+      // First operand of a transfer operator will give us the destination.
+      // This destination is a instruction definition, thus must be
+      // member of outs
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
+      if (Oper != NULL) {
+	// Specific references are not really operands, they are more like
+	// "constants". Moreover, we are only interested in registeroperands.
+	if (!Oper->isSpecificReference() &&
+	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
+	  return Oper->getSize();
+	}
+	continue;
+      }
+      // Exceptionally, we have a memory reference and thus it is not an operand
+      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
+      assert (O != NULL && "Must be either operand or operator");
+      assert (O->getType() == MemRefOp && "Transfer first child must be \
+operand or memory reference.");     
+      //Result->push_back(&MemRefOperand);
+      return 0;      
+    }
+    return -1;
+  }
 
   // Extract all output register operands in this instruction (outs)
   std::list<const Operand*>* Instruction::getOuts() const {
