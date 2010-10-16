@@ -38,6 +38,9 @@ public:
   }
 
   SDNode *Select(SDValue Op);
+  
+  /// Find an adequate register class to classify a virtual register
+  const TargetRegisterClass* findSuitableRegClass(MVT vt);
 
   /// SelectInlineAsmMemoryOperand - Implement addressing mode selection for
   /// inline asm expressions.
@@ -59,6 +62,21 @@ public:
 `#include "'__arch__`GenDAGISel.inc"'
 };
 }  // end anonymous namespace
+
+const TargetRegisterClass*  __arch__`'DAGToDAGISel::findSuitableRegClass(MVT vt) {
+  const TargetRegisterClass* BestFit = 0;
+  unsigned NumRegs = 0;
+  TargetRegisterInfo &RI = CurDAG->getTarget().getRegisterInfo();
+  for (TargetRegisterInfo::regclass_iterator I = RI.regclass_begin(),
+    E = RI.regclass_end(); I != E; ++I) {
+    if ((*I)->hasType(vt) &&
+        (!BestFit || (*I)->getNumRegs() > NumRegs)) {      
+      BestFit = *I;
+      NumRegs = (*I)->getNumRegs();
+    }
+  }
+  return BestFit;
+}
 
 /// InstructionSelect - This callback is invoked by
 /// SelectionDAGISel when it has created a SelectionDAG for us to codegen.

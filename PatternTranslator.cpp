@@ -430,8 +430,11 @@ void PatternTranslator::generateEmitCode(SDNode* N,
 					 unsigned level, unsigned cur,
 					 std::ostream &S) {
   using std::string;
+  using std::stringstream;
   using std::endl;
   using std::list;    
+  using std::map;
+  map<string, string> TempToVirtual;
      
   // Depth first
   assert (N->RefInstr != NULL && "Must be valid instruction");    
@@ -446,10 +449,10 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   // due to recursion.
   for (unsigned i = 0; i < N->NumOperands; ++i) {
     if (N->ops[i]->RefInstr != NULL)
-      continue;    
-    S << "SDValue N" << level+1 << "_" << i 
-      << " = ";
+      continue;        
     if (N->ops[i]->IsLiteral) {
+      S << "SDValue N" << level+1 << "_" << i 
+      << " = ";
       //TODO: Generate an index for a string table, included in
       //SelectionDAG class, and use it as target constant.
       S << "CurDAG->getTargetConstant(0x0ULL, MVT::i32);" << endl;
@@ -458,9 +461,30 @@ void PatternTranslator::generateEmitCode(SDNode* N,
     // If not literal, then check if it matches some operand in LLVMDAG
     list<unsigned>* Res = findPredecessor(LLVMDAG, *N->ops[i]->OpName);
     if (Res == NULL) {
-      //If it does not match, then it is a temporary register.
+      // If it does not match, then it is a temporary register.      
+      // We need to check if this temporary has already been alloc'd
+      if (TempToVirtual.find(*N->ops[i]->OpName) == TempToVirtual.end()) {
+	stringstream SS;
+	SS << "N" << level+1 << "_" << i;
+	TempToVirtual[*N->ops[i]->OpName] = SS.str();
+	S << "const TargetRegisterClass* TRC" << level+1 << "_" << i
+	//TODO: Find the correct type (not just i32)
+	  << " = findSuitableRegClass(MVT::i32);" << endl;
+	S << "assert (TRC" << level+1 << "_" << i << " != 0 &&"
+	  << "\"Could not find a suitable regclass for virtual\");" << endl;      
+	S << "SDValue N" << level+1 << "_" << i 
+	  << " = ";
+	S << "CurDAG->getRegister(CurDAG->getMachineFunction().getRegInfo()"
+	  << ".createVirtualRegister(TRC" << level+1 << "_" << i << "), "
+	  << "MVT::i32);" << endl; //TODO:change this	
+      } else {
+	S << "SDValue N" << level+1 << "_" << i << " = " 
+	  << TempToVirtual[*N->ops[i]->OpName] << ";" << endl;
+      }
       continue;
     }
+    S << "SDValue N" << level+1 << "_" << i 
+      << " = ";
     assert (Res->size() > 0 && "List must be nonempty");    
     S << "N";
     for (list<unsigned>::const_iterator I = Res->begin(), E = Res->end();
