@@ -1,0 +1,49 @@
+//===- LLVMDAGInfo.h - --------------------------------------*- C++ -*-----===//
+//
+//              The ArchC Project - Compiler Backend Generation
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains all LLVM's SelectionDAG information necessary to generate
+// the matcher code. For example, we need to know what is the ISD enumeration
+// name of a specific node. In the future, this information ought to be parsed
+// from tablegen files in order to the backend generator be more flexible when
+// the LLVM target independent code generator gets updated.
+//
+//===----------------------------------------------------------------------===//
+#include <string>
+#include <map>
+
+namespace LLVMDAGInfo {
+  
+  using std::string;
+  using std::map;    
+  
+  struct LLVMNodeInfo {
+    bool HasChain;
+    const string& EnumName;
+    const string& NodeName;
+    
+    LLVMNodeInfo(const string& E, const string& N): EnumName(E), NodeName(N) {
+      HasChain = false;
+    }
+  };
+  
+  struct NameNotFoundException {};
+  
+  class LLVMNodeInfoMan {
+    static LLVMNodeInfoMan* ref;
+    // Private constructor and destructor
+    LLVMNodeInfoMan();
+    ~LLVMNodeInfoMan();
+    
+    LLVMNodeInfo *Nodes;
+    map<string, const LLVMNodeInfo*> Map;
+    
+  public:
+    static LLVMNodeInfoMan* getReference();
+    static void dispose();
+    const LLVMNodeInfo * getInfo(string &Name) const;
+  };
+  
+};

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PatternTranslator.h"
+#include "LLVMDAGInfo.h"
 #include "Support.h"
 #include <algorithm>
 #include <locale>
@@ -23,6 +24,7 @@ using std::stringstream;
 using std::endl;
 using std::list;    
 using std::map;
+using std::vector;
 
 // ==================== SDNode class members ==============================
 SDNode::SDNode() {
@@ -467,11 +469,14 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
 } // end of anonymous namespace
 
 std::string PatternTranslator::generateEmitCode(SearchResult *SR,
-					 const std::string& LLVMDAGStr) {
+						const std::string& LLVMDAGStr,
+						unsigned FuncID) {
   std::stringstream SS;
   SDNode *RootNode = generateInsnsDAG(SR);
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
+  SS << "SDNode* EmitFunc" << FuncID << "(SDValue& N) {" << endl;
   generateEmitCode(RootNode, LLVMDAG, 0, 0, SS);
+  SS << "}" << endl << endl;
   delete RootNode;
   delete LLVMDAG;
   return SS.str();
@@ -551,4 +556,64 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   return;
 }
 
+inline void AddressOperand(std::ostream &S, vector<unsigned>& Parents,
+			   vector<unsigned>& ChildNo, int i) {  
+  int p = Parents[i], prev = i;
+  while (p != 0) {
+    S << "->getOperand(" << ChildNo[prev] << ")";
+    prev = p;
+    p = Parents[p];
+  }
+}
+
+/// Generates the C++ code for the LLVM DAGISel to decide if the current
+/// node is the desired pattern, and then call the appropriate emit
+/// code function.
+void PatternTranslator::generateMatcher(SDNode *LLVMDAG, std::ostream &S,
+					const string &EmitFuncName) {
+  using LLVMDAGInfo::LLVMNodeInfoMan;
+  using LLVMDAGInfo::LLVMNodeInfo;
+  list<SDNode *> Queue;
+  vector<unsigned> Parents; 
+  vector<unsigned> ChildNo;
+  SDNode * Root = LLVMDAG;
+  LLVMNodeInfoMan *InfoMan = LLVMNodeInfoMan::getReference();
+  
+  // Generate switch case statement
+  S << "case " << InfoMan->getInfo(*Root->OpName)->EnumName << ":" << endl;
+  
+  if (Root->NumOperands > 0) {
+    S << "if (";
+  }
+  for (unsigned i = 0; i < Root->NumOperands; ++i) {
+    Queue.push_back(Root->ops[i]);
+    Parents.push_back(0);
+    ChildNo.push_back(i);
+  }
+  int i = -1;
+  while (Queue.size() > 0) {
+    i++;
+    SDNode *N = Queue.front();
+    Queue.pop_front();
+    
+    // First condition must not have "&&" as prefix
+    if (i != 0)
+      S << " && ";
+    // check if leaf
+    if (N->NumOperands == 0) {
+      S << "N";
+      AddressOperand(S, Parents, ChildNo, i);
+      S << ".getNode()->getValueType(0).getSimpleVT() == " << N->TypeName;
+      continue;
+    }
+    // not leaf
+    S << "N";
+    AddressOperand(S, Parents, ChildNo, i);
+    S << ".getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
+  }
+  if (Root->NumOperands > 0) {
+    S << ")";
+  }
+  S << "return " << EmitFuncName << "(N);" << endl;
+}
 

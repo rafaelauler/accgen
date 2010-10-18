@@ -465,7 +465,6 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
   return Result;
 }
 
-
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
 std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
@@ -489,7 +488,7 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
     SS << "def " << I->Name << " : Pat<" 
        << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
     DAG->Print(SS);
-    std::cerr << PatTrans.generateEmitCode(SR, I->LLVMDAG) << std::endl;
+    std::cerr << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << std::endl;
     SS << ">;\n\n";
     delete DAG;
   }
