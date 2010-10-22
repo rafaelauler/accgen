@@ -49,7 +49,22 @@ namespace backendgen {
     void Print(std::ostream &S);
   };
   
-  struct PTParseErrorException {};
+  class MatcherCode {
+    std::string Prolog;
+    std::string Code;
+    std::string Epilog;    
+  public:
+    std::string getProlog() { return Prolog; }
+    std::string getCode() {return Code; }
+    std::string getEpilog() { return Epilog; }
+    void setProlog(const std::string& S) { Prolog = S; }
+    void setCode(const std::string& S) { Code = S; }
+    void setEpilog(const std::string& S) { Epilog = S; }
+    void Print(std::ostream& S);
+    void inline AppendCode(const std::string& S);
+  };
+  
+  struct PTParseErrorException {};  
 
   // This is the class responsible for translating from our SearchResult
   // internal notation to LLVM's DAG notation, so we can write InstrInfo and
@@ -78,7 +93,7 @@ namespace backendgen {
 			         unsigned FuncID);
     void generateEmitCode(SDNode* N, SDNode* LLVMDAG, unsigned level,
 			  unsigned cur, std::ostream &S);
-    void generateMatcher(const std::string &LLVMDAG, std::ostream &S,
+    void generateMatcher(const std::string &LLVMDAG, std::map<std::string, MatcherCode> &Map,
 			 const std::string &EmitFuncName);
   };
 

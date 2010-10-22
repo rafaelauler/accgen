@@ -13,24 +13,29 @@
 //===----------------------------------------------------------------------===//
 
 #include "LLVMDAGInfo.h"
+#include <iostream>
 
 using namespace LLVMDAGInfo;
 using std::string;
 using std::map;
 
 namespace {
-  const unsigned NodeNamesSz = 4;
+  const unsigned NodeNamesSz = 6;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
-			       "call"
+			       "call",
+			       "frameindex",
+			       "tglobaladdr"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
 			       "ISD::STORE",
 			       "ISD::ADD",
-			       "ISD::CALL"
+			       "ISD::CALL",
+			       "ISD::FRAMEINDEX",
+			       "ISD::TargetGlobalAddress"
   };
   
   //const string * NodeToEnumName[] = { NodeNames, EnumNames };
@@ -71,7 +76,9 @@ LLVMNodeInfoMan::~LLVMNodeInfoMan() {
 /// Access information about node "Name". If it does not exist, throws
 /// NameNotFoundException
 const LLVMNodeInfo * LLVMNodeInfoMan::getInfo (const string & Name) const {
-  if (Map.find(Name) == Map.end())
+  if (Map.find(Name) == Map.end()) {
+    std::cerr << "\"" << Name << "\"" << std::endl;
     throw new NameNotFoundException();
+  }
   return Map.find(Name)->second;
 }

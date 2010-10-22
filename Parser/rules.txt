@@ -61,7 +61,7 @@ const:int:0 => (xor Reg:regs Reg:regs);
 //=========================-- LLVM Patterns --================================//
 
 define pattern STOREFI as (
-  "(store i32:$src, CPFI:$val)";
+  "(store i32:$src, (frameindex i32:$val))";
   (transfer (memref imm:val:immed) src:regs);
 );
 

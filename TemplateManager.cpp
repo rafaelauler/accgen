@@ -16,6 +16,12 @@
 
 using namespace backendgen;
 using namespace backendgen::expression;
+using std::map;
+using std::list;
+using std::set;
+using std::string;
+using std::stringstream;
+using std::endl;
 
 // Creates the M4 file that defines macros expansions to be
 // performed in template files. These expansions are defines as
@@ -24,9 +30,9 @@ using namespace backendgen::expression;
 void TemplateManager::CreateM4File()
 {
   //  std::locale loc;
-  std::string FileName = WorkingDir;
-  std::string ArchNameCaps;
-  std::string *Funcs, *Switch;
+  string FileName = WorkingDir;
+  string ArchNameCaps;
+  string *Funcs, *Switch;
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
@@ -73,13 +79,13 @@ void TemplateManager::CreateM4File()
 
 // Inline helper procedure to write a register definition into tablegen
 // register file (XXXRegisterInfo.td)
-inline void DefineRegister(std::stringstream &SS, Register *R,
+inline void DefineRegister(stringstream &SS, Register *R,
 			   unsigned Counter) {
   SS << "  def " << R->getName() << " : AReg<" << Counter;
   SS << ", \"" << R->getName() << "\", [], [";
   // Has subregisters
   if (R->getSubsBegin() != R->getSubsEnd()) {
-    for (std::list<Register*>::const_iterator I = R->getSubsBegin(),
+    for (list<Register*>::const_iterator I = R->getSubsBegin(),
 	   E = R->getSubsEnd(); I != E; ++I) {
       if (I != R->getSubsBegin())
 	SS << ",";
@@ -90,16 +96,16 @@ inline void DefineRegister(std::stringstream &SS, Register *R,
 }
 
 // Generates the XXXRegisterInfo.td registers definitions
-std::string TemplateManager::generateRegistersDefinitions() {  
-  std::stringstream SS;
+string TemplateManager::generateRegistersDefinitions() {  
+  stringstream SS;
   unsigned Counter = 0;
-  std::set<Register*> DefinedRegisters;
+  set<Register*> DefinedRegisters;
 
-  for (std::set<Register*>::const_iterator 
+  for (set<Register*>::const_iterator 
 	 I = RegisterClassManager.getRegsBegin(), 
 	 E = RegisterClassManager.getRegsEnd(); I != E; ++I) {
     // For each subregister , define it first if it is not defined already
-    for (std::list<Register*>::const_iterator
+    for (list<Register*>::const_iterator
 	   I2 = (*I)->getSubsBegin(), E2 = (*I)->getSubsEnd();
 	   I2 != E2; ++I2) {
       if (DefinedRegisters.find(*I2) == DefinedRegisters.end()) {
@@ -118,8 +124,8 @@ std::string TemplateManager::generateRegistersDefinitions() {
 
 // This procedure build the LLVM data layout string used to initialize
 // a DataLayout class living inside TargetMachine.
-std::string TemplateManager::buildDataLayoutString() {
-  std::stringstream SS;
+string TemplateManager::buildDataLayoutString() {
+  stringstream SS;
 
   // Endianess
   if (IsBigEndian)
@@ -134,12 +140,12 @@ std::string TemplateManager::buildDataLayoutString() {
 }
 
 // Generates the list used in XXXRegisterInfo.cpp
-std::string TemplateManager::generateCalleeSaveList() {
-  std::stringstream SS;
+string TemplateManager::generateCalleeSaveList() {
+  stringstream SS;
 
   SS << "static const unsigned CalleeSavedRegs[] = {";
 
-  for (std::set<Register*>::const_iterator 
+  for (set<Register*>::const_iterator 
 	 I = RegisterClassManager.getCalleeSBegin(),
 	 E = RegisterClassManager.getCalleeSEnd(); I != E; ++I) {
     SS << ArchName << "::" << (*I)->getName() << ", ";
@@ -149,19 +155,19 @@ std::string TemplateManager::generateCalleeSaveList() {
 }
 
 // Helper function for generateCalleeSaveRegClasses()
-inline std::string TemplateManager::getRegisterClass(Register* Reg) {
+inline string TemplateManager::getRegisterClass(Register* Reg) {
   RegisterClass* RC = RegisterClassManager.getRegRegClass(Reg);
   assert (RC != NULL && "Register has no associated Register Class");
   return RC->getName();
 }
 
 // Generates list used in XXXRegisterInfo.cpp
-std::string TemplateManager::generateCalleeSaveRegClasses() {
-  std::stringstream SS;
+string TemplateManager::generateCalleeSaveRegClasses() {
+  stringstream SS;
 
   SS << "static const TargetRegisterClass * const CalleeSavedRC[] = {";
 
-  for (std::set<Register*>::const_iterator 
+  for (set<Register*>::const_iterator 
 	 I = RegisterClassManager.getCalleeSBegin(),
 	 E = RegisterClassManager.getCalleeSEnd(); I != E; ++I) {
     SS << "&" << ArchName << "::" << getRegisterClass(*I) << "RegClass" << ",";
@@ -171,10 +177,10 @@ std::string TemplateManager::generateCalleeSaveRegClasses() {
 }
 
 // Generates a reserved regs list code used in XXXRegisterInfo.cpp
-std::string TemplateManager::generateReservedRegsList() {
-  std::stringstream SS;
+string TemplateManager::generateReservedRegsList() {
+  stringstream SS;
 
-  for (std::set<Register*>::const_iterator
+  for (set<Register*>::const_iterator
 	 I = RegisterClassManager.getReservedBegin(),
 	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {
     SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");\n";
@@ -183,10 +189,10 @@ std::string TemplateManager::generateReservedRegsList() {
 }
 
 // Generates the register classes set up in ISelLowering.cpp
-std::string TemplateManager::generateRegisterClassesSetup() {
-  std::stringstream SS;
+string TemplateManager::generateRegisterClassesSetup() {
+  stringstream SS;
 
-  for (std::set<RegisterClass*>::const_iterator
+  for (set<RegisterClass*>::const_iterator
 	 I = RegisterClassManager.getBegin(),
 	 E = RegisterClassManager.getEnd(); I != E; ++I) {
     SS << "  addRegisterClass(MVT::" << InferValueType(*I) << ", "
@@ -197,17 +203,17 @@ std::string TemplateManager::generateRegisterClassesSetup() {
 }
 
 // Generates the XXXRegisterInfo.td register classes
-std::string TemplateManager::generateRegisterClassesDefinitions() {
-  std::stringstream SS;
+string TemplateManager::generateRegisterClassesDefinitions() {
+  stringstream SS;
 
-  for (std::set<RegisterClass*>::const_iterator
+  for (set<RegisterClass*>::const_iterator
 	 I = RegisterClassManager.getBegin(),
 	 E = RegisterClassManager.getEnd(); I != E; ++I) {
     SS << "def " << (*I)->getName() << ": RegisterClass<\"" << ArchName;
     // XXX: Support different alignments! (Hardcoded as 32)
     SS << "\", [" << InferValueType(*I) << "], 32, [";
     // Iterates through all registers in this class
-    for (std::set<Register*>::const_iterator R = (*I)->getBegin(),
+    for (set<Register*>::const_iterator R = (*I)->getBegin(),
 	   E2 = (*I)->getEnd(); R != E2; ++R) {
       if (R != (*I)->getBegin())
 	SS << ",";
@@ -224,8 +230,8 @@ std::string TemplateManager::generateRegisterClassesDefinitions() {
 }
 
 // Generate tablegen instructions definitions for XXXInstrInfo.td
-std::string TemplateManager::generateInstructionsDefs() {
-  std::stringstream SS;
+string TemplateManager::generateInstructionsDefs() {
+  stringstream SS;
 
   unsigned CurInsVersion = 0;
   for (InstrIterator I = InstructionManager.getBegin(), 
@@ -236,9 +242,9 @@ std::string TemplateManager::generateInstructionsDefs() {
     // Define the instruction's LLVM name, a string tag used whenever we
     // reference this instruction in LLVM generated code.
     {
-      std::stringstream SStmp;
+      stringstream SStmp;
       SStmp << (*I)->getName() << "_" << ++CurInsVersion;
-      std::string LLVMName = SStmp.str();
+      string LLVMName = SStmp.str();
       (*I)->setLLVMName(LLVMName);
     }
     // Here we print defs and uses for this instruction
@@ -292,7 +298,7 @@ std::string TemplateManager::generateInstructionsDefs() {
     SS << "), (ins ";
     // Prints all used operands (ins)
     int DummyIndex = 1;
-    for (std::list<const Operand*>::const_iterator I2 = Ins->begin(),
+    for (list<const Operand*>::const_iterator I2 = Ins->begin(),
 	   E2 = Ins->end(); I2 != E2; ++I2) {
       if (I2 != Ins->begin())
 	SS << ",";
@@ -322,13 +328,13 @@ std::string TemplateManager::generateInstructionsDefs() {
   return SS.str();
 }
 
-std::string TemplateManager::generateCallingConventions() {
-  std::stringstream SS;
+string TemplateManager::generateCallingConventions() {
+  stringstream SS;
   
   // First generate all return conventions
   SS << "def RetCC_" << ArchName << ": CallingConv <[\n";
   bool First = true;
-  for (std::list<CallingConvention*>::const_iterator 
+  for (list<CallingConvention*>::const_iterator 
 	 I = RegisterClassManager.getCCBegin(), 
 	 E = RegisterClassManager.getCCEnd(); I != E; ++I) {
     CallingConvention* CC = *I;
@@ -344,7 +350,7 @@ std::string TemplateManager::generateCallingConventions() {
       SS << "CCAssignToStack<" << CC->StackSize << "," << CC->StackAlign << ">";
     else {
       SS << "CCAssignToReg<[";
-      for (std::list<const Register*>::const_iterator I2 = CC->getBegin(),
+      for (list<const Register*>::const_iterator I2 = CC->getBegin(),
 	     E2 = CC->getEnd(); I2 != E2; ++I2) {
 	if (I2 != CC->getBegin())
 	  SS << ",";
@@ -361,7 +367,7 @@ std::string TemplateManager::generateCallingConventions() {
   // Now generate all calling conventions
   First = true;
   SS << "def CC_" << ArchName << ": CallingConv <[\n";
-  for (std::list<CallingConvention*>::const_iterator 
+  for (list<CallingConvention*>::const_iterator 
 	 I = RegisterClassManager.getCCBegin(), 
 	 E = RegisterClassManager.getCCEnd(); I != E; ++I) {
     CallingConvention* CC = *I;
@@ -377,7 +383,7 @@ std::string TemplateManager::generateCallingConventions() {
       SS << "CCAssignToStack<" << CC->StackSize << "," << CC->StackAlign << ">";
     else {
       SS << "CCAssignToReg<[";
-      for (std::list<const Register*>::const_iterator I2 = CC->getBegin(),
+      for (list<const Register*>::const_iterator I2 = CC->getBegin(),
 	     E2 = CC->getEnd(); I2 != E2; ++I2) {
 	if (I2 != CC->getBegin())
 	  SS << ",";
@@ -431,11 +437,11 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
 // opposite happens: the LLVM string defines a type that is copied to the
 // pattern implementation node types, because only the LLVM string knows
 // better the exact SDNode types used in the LLVM backend.
-std::string 
-TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
-  std::string Result(S);
+string 
+TemplateManager::PostprocessLLVMDAGString(const string &S, SDNode *DAG) {
+  string Result(S);
   // Traverse 
-  std::list<SDNode*> Queue;
+  list<SDNode*> Queue;
   Queue.push_back(DAG);
   while (Queue.size() > 0) {
     SDNode* Element = Queue.front();
@@ -455,11 +461,11 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
     // only if it is of register type (TypeName should be empty, otherwise).
     // In case TypeName is empty, do the reverse substitution.
     assert(Element->OpName != NULL && "Leaf SDNode type must have a name");
-    std::string::size_type idx = Result.find(*Element->OpName);
+    string::size_type idx = Result.find(*Element->OpName);
     if (idx == std::string::npos)
 	continue;
-    std::string::size_type idx2 = Result.rfind(" ", idx);
-    assert(idx2 != 0 && idx2 != std::string::npos && 
+    string::size_type idx2 = Result.rfind(" ", idx);
+    assert(idx2 != 0 && idx2 != string::npos && 
 	   "Malformed LLVM DAG String");    
     if (Element->TypeName.size() > 0) {
 	Result.replace(idx2+1, idx-3-idx2, Element->TypeName);
@@ -474,9 +480,10 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
 
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
-void TemplateManager::generateSimplePatterns(std::ostream &Log, 
-  std::string **EmitFunctions, std::string **SwitchCode) {
-  std::stringstream SSfunc, SSswitch;
+void TemplateManager::generateSimplePatterns(std::ostream &Log, 					     
+			  string **EmitFunctions, string **SwitchCode) {  
+  stringstream SSfunc;
+  map<string, MatcherCode> Map;
   unsigned count = 0;
   std::time_t start, end;
   start = std::time(0);
@@ -491,28 +498,25 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       std::cerr << "Failed: Could not find implementation for pattern " <<
 	I->Name << "\n";
       abort();
-    }
-    //SDNode* DAG = PatTrans.generateInsnsDAG(SR);    
-    //SS << "def " << I->Name << " : Pat<" 
-    //   << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
-    //DAG->Print(SS);
-    SSfunc << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << std::endl;
-    std::stringstream temp;
+    }    
+    SSfunc << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << endl;
+    stringstream temp;
     temp << "EmitFunc" << count;
-    PatTrans.generateMatcher(I->LLVMDAG, SSswitch, temp.str());
-    std::cerr << SSfunc.str();
-    std::cerr << SSswitch.str();
-    //SS << ">;\n\n";
-    //delete DAG;
+    PatTrans.generateMatcher(I->LLVMDAG, Map, temp.str());
+    std::cerr << SSfunc.str();        
+  }
+  stringstream SSswitch;
+  for (map<string, MatcherCode>::iterator I = Map.begin(), E = Map.end();
+       I != E; ++I) {
+    I->second.Print(SSswitch);;
   }
   end = std::time(0);
   Log << count << " pattern(s) implemented successfully in " << 
     std::difftime(end,start) << " second(s).\n";
     
+  //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
-  *SwitchCode = new std::string(SSswitch.str());
-
-  //return SS.str();
+  *SwitchCode = new std::string(SSswitch.str());  
 }
 
 // Creates LLVM backend files based on template files feeded with

@@ -90,6 +90,20 @@ void SDNode::Print(std::ostream &S) {
   }
 }
 
+// =================== MatcherCoder class members =========================
+	    
+void
+MatcherCode::Print (std::ostream & S)
+{
+  S << Prolog;
+  S << Code;
+  S << Epilog;
+}
+
+void MatcherCode::AppendCode (const std::string& S) {
+  Code.append(S);
+}
+
 // ================ PatternTranslator class members =======================
 
 // Private type definitions
@@ -556,38 +570,43 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   return;
 }
 
-inline void AddressOperand(std::ostream &S, vector<unsigned>& Parents,
-			   vector<unsigned>& ChildNo, int i) {  
+inline void AddressOperand(std::ostream &S, vector<int>& Parents,
+			   vector<int>& ChildNo, int i) {  
+  list<int> Q;
   int p = Parents[i], prev = i;
-  while (p != 0) {
-    S << "->getOperand(" << ChildNo[prev] << ")";
+  while (prev != -1) {
+    Q.push_back(prev);    
     prev = p;
     p = Parents[p];
+  }
+  while (!Q.empty()) {
+    const int index = Q.back();
+    Q.pop_back();
+    S << "->getOperand(" << ChildNo[index] << ")";
   }
 }
 
 /// Generates the C++ code for the LLVM DAGISel to decide if the current
 /// node is the desired pattern, and then call the appropriate emit
 /// code function.
-void PatternTranslator::generateMatcher(const std::string &LLVMDAG, std::ostream &S,
+void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, MatcherCode> &Map,
 					const string &EmitFuncName) {
   using LLVMDAGInfo::LLVMNodeInfoMan;
   using LLVMDAGInfo::LLVMNodeInfo;
   list<SDNode *> Queue;
-  vector<unsigned> Parents; 
-  vector<unsigned> ChildNo;
+  vector<int> Parents; 
+  vector<int> ChildNo;
   SDNode * Root = parseLLVMDAGString(LLVMDAG);
-  LLVMNodeInfoMan *InfoMan = LLVMNodeInfoMan::getReference();
-  
-  // Generate switch case statement
-  S << "case " << InfoMan->getInfo(*Root->OpName)->EnumName << ":" << endl;
+  LLVMNodeInfoMan *InfoMan = LLVMNodeInfoMan::getReference();  
+  string RootName = InfoMan->getInfo(*Root->OpName)->EnumName;
+  stringstream S;
   
   if (Root->NumOperands > 0) {
     S << "if (";
   }
-  for (unsigned i = 0; i < Root->NumOperands; ++i) {
+  for (int i = 0; static_cast<unsigned>(i) < Root->NumOperands; ++i) {
     Queue.push_back(Root->ops[i]);
-    Parents.push_back(0);
+    Parents.push_back(-1);
     ChildNo.push_back(i);
   }
   int i = -1;
@@ -610,11 +629,30 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, std::ostream
     S << "N";
     AddressOperand(S, Parents, ChildNo, i);
     S << ".getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
+    
+    for (unsigned j = 0; j < N->NumOperands; ++j) {      
+      Queue.push_back(N->ops[j]);
+      Parents.push_back(i);
+      ChildNo.push_back(j);
+    }
   }
   if (Root->NumOperands > 0) {
     S << ")" << endl;
   }
   S << "  return " << EmitFuncName << "(N);" << endl;
-  S << "  break;" << endl;
+  
+  if (Map.find(RootName) == Map.end()) {
+    stringstream Prolog, Epilog;
+    MatcherCode MC;
+    Prolog << "case " << InfoMan->getInfo(*Root->OpName)->EnumName << ":" << endl;
+    Epilog << "  break;" << endl;
+    MC.setCode(S.str());
+    MC.setProlog(Prolog.str());
+    MC.setEpilog(Epilog.str());
+    Map[RootName] = MC;
+    return;
+  }
+  Map[RootName].AppendCode(S.str());
+  return;
 }
 
