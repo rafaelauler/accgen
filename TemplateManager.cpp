@@ -26,6 +26,7 @@ void TemplateManager::CreateM4File()
   //  std::locale loc;
   std::string FileName = WorkingDir;
   std::string ArchNameCaps;
+  std::string *Funcs, *Switch;
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
@@ -59,8 +60,14 @@ void TemplateManager::CreateM4File()
   O << buildDataLayoutString() << "')m4_dnl\n";
   O << "m4_define(`__set_up_register_classes__',`";
   O << generateRegisterClassesSetup() << "')m4_dnl\n";
-  O << "m4_define(`__simple_patterns__',`";
-  O << generateSimplePatterns(std::cout) << "')m4_dnl\n";
+  generateSimplePatterns(std::cout, &Funcs, &Switch);
+  O << "m4_define(`__simple_patterns__',`";  
+  O << *Funcs << "')m4_dnl\n";
+  O << "m4_define(`__patterns_switch__',`";  
+  O << *Switch << "')m4_dnl\n";
+  
+  delete Funcs;
+  delete Switch;
 
 }
 
@@ -467,10 +474,11 @@ TemplateManager::PostprocessLLVMDAGString(const std::string &S, SDNode *DAG) {
 
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
-std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
-  std::stringstream SS;
+void TemplateManager::generateSimplePatterns(std::ostream &Log, 
+  std::string **EmitFunctions, std::string **SwitchCode) {
+  std::stringstream SSfunc, SSswitch;
   unsigned count = 0;
-  time_t start, end;
+  std::time_t start, end;
   start = std::time(0);
   Log << "Pattern implementation inference will start now. This may take"
       << " several\nminutes.\n\n";
@@ -484,19 +492,27 @@ std::string TemplateManager::generateSimplePatterns(std::ostream &Log) {
 	I->Name << "\n";
       abort();
     }
-    SDNode* DAG = PatTrans.generateInsnsDAG(SR);    
-    SS << "def " << I->Name << " : Pat<" 
-       << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
-    DAG->Print(SS);
-    std::cerr << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << std::endl;
-    SS << ">;\n\n";
-    delete DAG;
+    //SDNode* DAG = PatTrans.generateInsnsDAG(SR);    
+    //SS << "def " << I->Name << " : Pat<" 
+    //   << PostprocessLLVMDAGString(I->LLVMDAG, DAG) << ",\n";
+    //DAG->Print(SS);
+    SSfunc << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << std::endl;
+    std::stringstream temp;
+    temp << "EmitFunc" << count;
+    PatTrans.generateMatcher(I->LLVMDAG, SSswitch, temp.str());
+    std::cerr << SSfunc.str();
+    std::cerr << SSswitch.str();
+    //SS << ">;\n\n";
+    //delete DAG;
   }
   end = std::time(0);
   Log << count << " pattern(s) implemented successfully in " << 
     std::difftime(end,start) << " second(s).\n";
+    
+  *EmitFunctions = new std::string(SSfunc.str());
+  *SwitchCode = new std::string(SSswitch.str());
 
-  return SS.str();
+  //return SS.str();
 }
 
 // Creates LLVM backend files based on template files feeded with

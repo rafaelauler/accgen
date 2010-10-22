@@ -78,6 +78,8 @@ const TargetRegisterClass*  __arch__`'DAGToDAGISel::findSuitableRegClass(MVT vt)
   return BestFit;
 }
 
+__simple_patterns__
+
 /// InstructionSelect - This callback is invoked by
 /// SelectionDAGISel when it has created a SelectionDAG for us to codegen.
 void __arch__`'DAGToDAGISel::InstructionSelect() {

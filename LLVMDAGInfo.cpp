@@ -19,19 +19,21 @@ using std::string;
 using std::map;
 
 namespace {
-  const unsigned NodeNamesSz = 3;
+  const unsigned NodeNamesSz = 4;
   
   const string NodeNames[] = { "load", 
 			       "store",
-			       "add"
+			       "add",
+			       "call"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
 			       "ISD::STORE",
-			       "ISD::ADD"
+			       "ISD::ADD",
+			       "ISD::CALL"
   };
   
-  const string * NodeToEnumName[] = { NodeNames, EnumNames };
+  //const string * NodeToEnumName[] = { NodeNames, EnumNames };
   
 }; // end anonymous namespace
 
@@ -53,29 +55,23 @@ void LLVMNodeInfoMan::dispose () {
 
 ///Private constructor
 LLVMNodeInfoMan::LLVMNodeInfoMan() {
-  Nodes = new LLVMNodeInfo [NodeNamesSz];
+  Nodes.reserve(NodeNamesSz);
   
   for (unsigned i = 0; i < NodeNamesSz; ++i) {
-    Nodes[i] = LLVMNodeInfo(EnumNames[i], NodeNames[i]);
+    Nodes.push_back(LLVMNodeInfo(EnumNames[i], NodeNames[i]));
     Map[NodeNames[i]] = &Nodes[i];
   }
 }
 
 ///Private destructor
 LLVMNodeInfoMan::~LLVMNodeInfoMan() {
-  delete [] Nodes;
-}
-
-///Private destructor
-LLVMNodeInfoMan::~LLVMNodeInfoMan ()
-{
-  delete[]Nodes;
+  //delete [] Nodes;
 }
 
 /// Access information about node "Name". If it does not exist, throws
 /// NameNotFoundException
-const LLVMNodeInfo * LLVMNodeInfoMan::getInfo (string & Name) const {
+const LLVMNodeInfo * LLVMNodeInfoMan::getInfo (const string & Name) const {
   if (Map.find(Name) == Map.end())
     throw new NameNotFoundException();
-  return Map[Name];
+  return Map.find(Name)->second;
 }

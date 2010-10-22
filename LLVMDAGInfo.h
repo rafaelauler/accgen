@@ -11,18 +11,24 @@
 // the LLVM target independent code generator gets updated.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef LLVMDAGINFO_H
+#define LLVMDAGINFO_H
+
 #include <string>
 #include <map>
+#include <vector>
 
 namespace LLVMDAGInfo {
   
   using std::string;
   using std::map;    
+  using std::vector;
   
   struct LLVMNodeInfo {
     bool HasChain;
-    const string& EnumName;
-    const string& NodeName;
+    string EnumName;
+    string NodeName;
     
     LLVMNodeInfo(const string& E, const string& N): EnumName(E), NodeName(N) {
       HasChain = false;
@@ -37,13 +43,16 @@ namespace LLVMDAGInfo {
     LLVMNodeInfoMan();
     ~LLVMNodeInfoMan();
     
-    LLVMNodeInfo *Nodes;
+    vector<LLVMNodeInfo> Nodes;
     map<string, const LLVMNodeInfo*> Map;
     
   public:
     static LLVMNodeInfoMan* getReference();
     static void dispose();
-    const LLVMNodeInfo * getInfo(string &Name) const;
+    const LLVMNodeInfo * getInfo(const string &Name) const;
   };
   
 };
+
+#endif
+

@@ -78,7 +78,7 @@ namespace backendgen {
 			         unsigned FuncID);
     void generateEmitCode(SDNode* N, SDNode* LLVMDAG, unsigned level,
 			  unsigned cur, std::ostream &S);
-    void generateMatcher(SDNode *LLVMDAG, std::ostream &S,
+    void generateMatcher(const std::string &LLVMDAG, std::ostream &S,
 			 const std::string &EmitFuncName);
   };
 

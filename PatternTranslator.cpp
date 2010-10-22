@@ -421,7 +421,7 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   if (N->RefInstr != NULL)
    return;        
   if (N->IsLiteral) {
-    S << "SDValue N" << level << "_" << cur
+    S << "  SDValue N" << level << "_" << cur
       << " = ";
     //TODO: Generate an index for a string table, included in
     //SelectionDAG class, and use it as target constant.
@@ -437,24 +437,24 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
       stringstream SS;
       SS << "N" << level << "_" << cur;
       (*TempToVirtual)[*N->OpName] = SS.str();
-      S << "const TargetRegisterClass* TRC" << level << "_" << cur
+      S << "  const TargetRegisterClass* TRC" << level << "_" << cur
       //TODO: Find the correct type (not just i32)
 	<< " = findSuitableRegClass(MVT::i32);" << endl;
       S << "assert (TRC" << level << "_" << cur << " != 0 &&"
 	<< "\"Could not find a suitable regclass for virtual\");" << endl;      
-      S << "SDValue N" << level << "_" << cur 
+      S << "  SDValue N" << level << "_" << cur 
 	<< " = ";
       S << "CurDAG->getRegister(CurDAG->getMachineFunction().getRegInfo()"
 	<< ".createVirtualRegister(TRC" << level << "_" << cur << "), "
 	<< "MVT::i32);" << endl; //TODO:change this	
     } else {
-      S << "SDValue N" << level << "_" << cur << " = " 
+      S << "  SDValue N" << level << "_" << cur << " = " 
 	<< (*TempToVirtual)[*N->OpName] << ";" << endl;
     }
     return;
   }
   // It matches a LLVMDAG operand...
-  S << "SDValue N" << level << "_" << cur 
+  S << "  SDValue N" << level << "_" << cur 
     << " = ";
   assert (Res->size() > 0 && "List must be nonempty");    
   S << "N";
@@ -513,7 +513,7 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   const int OutSz = N->RefInstr->getOutSize();  
   // Declare our operand vector
   if (N->NumOperands > 0) {
-    S << "SDValue Ops" << level << "_" << cur << "[] = {";
+    S << "  SDValue Ops" << level << "_" << cur << "[] = {";
     for (unsigned i = 0; i < N->NumOperands; ++i) {
       S << "N" << level+1 << "_" << i;
       if (i != N->NumOperands-1)
@@ -525,16 +525,16 @@ void PatternTranslator::generateEmitCode(SDNode* N,
     S << "};" << endl;
   } else if (OutSz <= 0) {
     // HasChain? If yes, we must receive it as the last operand
-    S << "SDValue Ops" << level << "_" << cur << "[] = {"
+    S << "  SDValue Ops" << level << "_" << cur << "[] = {"
       << "N.getOperand(" << LLVMDAG->NumOperands << ") };" << endl;
   }
   
   // If not level 0, declare ourselves by requesting a regular node
   if (level != 0) {    
-    S << "SDValue N" << level << "_" << cur 
+    S << "  SDValue N" << level << "_" << cur 
       << " = CurDAG->getTargetNode(";
   } else {
-    S << "return CurDAG->SelectNodeTo(N.getNode(), ";
+    S << "  return CurDAG->SelectNodeTo(N.getNode(), ";
   }
   
   //TODO: Replace hardwired Sparc16!
@@ -569,14 +569,14 @@ inline void AddressOperand(std::ostream &S, vector<unsigned>& Parents,
 /// Generates the C++ code for the LLVM DAGISel to decide if the current
 /// node is the desired pattern, and then call the appropriate emit
 /// code function.
-void PatternTranslator::generateMatcher(SDNode *LLVMDAG, std::ostream &S,
+void PatternTranslator::generateMatcher(const std::string &LLVMDAG, std::ostream &S,
 					const string &EmitFuncName) {
   using LLVMDAGInfo::LLVMNodeInfoMan;
   using LLVMDAGInfo::LLVMNodeInfo;
   list<SDNode *> Queue;
   vector<unsigned> Parents; 
   vector<unsigned> ChildNo;
-  SDNode * Root = LLVMDAG;
+  SDNode * Root = parseLLVMDAGString(LLVMDAG);
   LLVMNodeInfoMan *InfoMan = LLVMNodeInfoMan::getReference();
   
   // Generate switch case statement
@@ -612,8 +612,9 @@ void PatternTranslator::generateMatcher(SDNode *LLVMDAG, std::ostream &S,
     S << ".getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
   }
   if (Root->NumOperands > 0) {
-    S << ")";
+    S << ")" << endl;
   }
-  S << "return " << EmitFuncName << "(N);" << endl;
+  S << "  return " << EmitFuncName << "(N);" << endl;
+  S << "  break;" << endl;
 }
 
