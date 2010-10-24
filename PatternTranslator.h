@@ -89,6 +89,7 @@ namespace backendgen {
     SDNode *generateInsnsDAG(SearchResult *SR);
     SDNode *parseLLVMDAGString(const std::string &S);
     SDNode *parseLLVMDAGString(const std::string &S, unsigned *pos);
+    std::string generateEmitHeader(unsigned FuncID);
     std::string generateEmitCode(SearchResult *SR, const std::string& L,
 			         unsigned FuncID);
     void generateEmitCode(SDNode* N, SDNode* LLVMDAG, unsigned level,

@@ -454,7 +454,7 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
       S << "  const TargetRegisterClass* TRC" << level << "_" << cur
       //TODO: Find the correct type (not just i32)
 	<< " = findSuitableRegClass(MVT::i32);" << endl;
-      S << "assert (TRC" << level << "_" << cur << " != 0 &&"
+      S << "  assert (TRC" << level << "_" << cur << " != 0 &&"
 	<< "\"Could not find a suitable regclass for virtual\");" << endl;      
       S << "  SDValue N" << level << "_" << cur 
 	<< " = ";
@@ -482,13 +482,20 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
 
 } // end of anonymous namespace
 
+std::string PatternTranslator::generateEmitHeader(unsigned FuncID) {
+  stringstream SS;
+  SS << "SDNode* EmitFunc" << FuncID << "(SDValue& N);" << endl;
+  return SS.str();
+}
+
 std::string PatternTranslator::generateEmitCode(SearchResult *SR,
 						const std::string& LLVMDAGStr,
 						unsigned FuncID) {
   std::stringstream SS;
   SDNode *RootNode = generateInsnsDAG(SR);
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
-  SS << "SDNode* EmitFunc" << FuncID << "(SDValue& N) {" << endl;
+  SS << "SDNode* __arch__`'DAGToDAGISel::EmitFunc" << FuncID 
+     << "(SDValue& N) {" << endl;
   generateEmitCode(RootNode, LLVMDAG, 0, 0, SS);
   SS << "}" << endl << endl;
   delete RootNode;
@@ -546,7 +553,7 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   // If not level 0, declare ourselves by requesting a regular node
   if (level != 0) {    
     S << "  SDValue N" << level << "_" << cur 
-      << " = CurDAG->getTargetNode(";
+      << " = SDValue(CurDAG->getTargetNode(";
   } else {
     S << "  return CurDAG->SelectNodeTo(N.getNode(), ";
   }
@@ -565,7 +572,11 @@ void PatternTranslator::generateEmitCode(SDNode* N,
     else
       S << N->NumOperands;
   }
-  S << ");" << endl;    
+  
+  if (level != 0)
+    S << "), 0);" << endl;
+  else
+    S << ");" << endl;    
   
   return;
 }
@@ -582,7 +593,7 @@ inline void AddressOperand(std::ostream &S, vector<int>& Parents,
   while (!Q.empty()) {
     const int index = Q.back();
     Q.pop_back();
-    S << "->getOperand(" << ChildNo[index] << ")";
+    S << "->getOperand(" << ChildNo[index] << ").getNode()";
   }
 }
 
@@ -622,13 +633,13 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, 
     if (N->NumOperands == 0) {
       S << "N";
       AddressOperand(S, Parents, ChildNo, i);
-      S << ".getNode()->getValueType(0).getSimpleVT() == " << N->TypeName;
+      S << "->getValueType(0).getSimpleVT() == MVT::" << N->TypeName;
       continue;
     }
     // not leaf
     S << "N";
     AddressOperand(S, Parents, ChildNo, i);
-    S << ".getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
+    S << "->getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
     
     for (unsigned j = 0; j < N->NumOperands; ++j) {      
       Queue.push_back(N->ops[j]);
@@ -639,7 +650,7 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, 
   if (Root->NumOperands > 0) {
     S << ")" << endl;
   }
-  S << "  return " << EmitFuncName << "(N);" << endl;
+  S << "  return " << EmitFuncName << "(Op);" << endl;
   
   if (Map.find(RootName) == Map.end()) {
     stringstream Prolog, Epilog;

@@ -32,7 +32,7 @@ void TemplateManager::CreateM4File()
   //  std::locale loc;
   string FileName = WorkingDir;
   string ArchNameCaps;
-  string *Funcs, *Switch;
+  string *Funcs, *Switch, *Headers;
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
@@ -66,14 +66,17 @@ void TemplateManager::CreateM4File()
   O << buildDataLayoutString() << "')m4_dnl\n";
   O << "m4_define(`__set_up_register_classes__',`";
   O << generateRegisterClassesSetup() << "')m4_dnl\n";
-  generateSimplePatterns(std::cout, &Funcs, &Switch);
+  generateSimplePatterns(std::cout, &Funcs, &Switch, &Headers);
   O << "m4_define(`__simple_patterns__',`";  
   O << *Funcs << "')m4_dnl\n";
   O << "m4_define(`__patterns_switch__',`";  
   O << *Switch << "')m4_dnl\n";
+  O << "m4_define(`__patterns_headers__',`";  
+  O << *Headers << "')m4_dnl\n";
   
   delete Funcs;
   delete Switch;
+  delete Headers;
 
 }
 
@@ -481,8 +484,9 @@ TemplateManager::PostprocessLLVMDAGString(const string &S, SDNode *DAG) {
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
 void TemplateManager::generateSimplePatterns(std::ostream &Log, 					     
-			  string **EmitFunctions, string **SwitchCode) {  
-  stringstream SSfunc;
+			  string **EmitFunctions, string **SwitchCode,
+			  string **EmitHeaders) {  
+  stringstream SSfunc, SSheaders;
   map<string, MatcherCode> Map;
   unsigned count = 0;
   std::time_t start, end;
@@ -500,6 +504,7 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       abort();
     }    
     SSfunc << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << endl;
+    SSheaders << PatTrans.generateEmitHeader(count);
     stringstream temp;
     temp << "EmitFunc" << count;
     PatTrans.generateMatcher(I->LLVMDAG, Map, temp.str());
@@ -517,6 +522,7 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  
+  *EmitHeaders = new std::string(SSheaders.str());
 }
 
 // Creates LLVM backend files based on template files feeded with

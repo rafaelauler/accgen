@@ -34,7 +34,7 @@ namespace {
 			       "ISD::STORE",
 			       "ISD::ADD",
 			       "ISD::CALL",
-			       "ISD::FRAMEINDEX",
+			       "ISD::FrameIndex",
 			       "ISD::TargetGlobalAddress"
   };
   

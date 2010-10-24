@@ -49,7 +49,8 @@ class TemplateManager {
 				   std::ostream &Log);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
   void generateSimplePatterns(std::ostream &Log, std::string **EmitFunctions,
-			      std::string **SwitchCode);
+			      std::string **SwitchCode, 
+			      std::string **EmitHeaders);
   std::string buildDataLayoutString();
 
   // Private helper functions

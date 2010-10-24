@@ -81,7 +81,7 @@ define pattern LOAD as (
 //);
 
 define pattern CALL as (
-  "(call tglobaladdr:$tgt)";
+  "(call (tglobaladdr i32:$tgt))";
   (call imm:tgt:immed);
 );
 
