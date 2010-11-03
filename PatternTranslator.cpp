@@ -19,6 +19,8 @@
 #include <cctype>
 
 using namespace backendgen;
+using LLVMDAGInfo::LLVMNodeInfoMan;
+using LLVMDAGInfo::LLVMNodeInfo;
 using std::string;
 using std::stringstream;
 using std::endl;
@@ -332,17 +334,42 @@ namespace {
 /// This helper function will try to find a predecessor node of name "Name" 
 /// and then return a list with the children nodes accessed in order to
 /// find the predecessor, or NULL if it failed to find it.
-std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name) {
+/// If the node was found, but has a responsible node (parent) that
+/// responds for it, the responsible node is returned in Resp and
+/// the list addresses this specific node.
+std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name, 
+				     SDNode** Resp) {
+  bool HasChain = false;
+  try {
+    const LLVMNodeInfo *Info = LLVMNodeInfoMan::getReference()
+      ->getInfo(*DAG->OpName);
+    if (Info->HasChain) {
+      HasChain = true;
+    }
+  } catch (LLVMDAGInfo::NameNotFoundException&) {}          
+    
   for (unsigned i = 0; i < DAG->NumOperands; ++i) {
-    std::list<unsigned>* L = NULL;
+    const unsigned index = HasChain? i+1 : i;
+    std::list<unsigned>* L = NULL;        
     if (*DAG->ops[i]->OpName == Name) {
-      L = new std::list<unsigned>();
-      L->push_back(i);
+      L = new std::list<unsigned>();      
+      L->push_back(index);
       return L;
     }
-    L = findPredecessor(DAG->ops[i], Name);
+    L = findPredecessor(DAG->ops[i], Name, Resp);
     if (L != NULL) {
-      L->push_front(i);
+      try {
+	  const LLVMNodeInfo *Info = LLVMNodeInfoMan::getReference()
+	    ->getInfo(*DAG->ops[i]->OpName);
+	  if (!Info->MatchChildren) {
+	    *Resp = DAG->ops[i];
+	    delete L;
+	    L = new std::list<unsigned>();
+	    L->push_back(index);
+	    return L;
+	  }
+      } catch (LLVMDAGInfo::NameNotFoundException&) {}
+      L->push_front(index);
       return L;
     }
   }
@@ -443,7 +470,8 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
     return;
   }
   // If not literal, then check if it matches some operand in LLVMDAG
-  list<unsigned>* Res = findPredecessor(LLVMDAG, *N->OpName);
+  SDNode *Resp = NULL;
+  list<unsigned>* Res = findPredecessor(LLVMDAG, *N->OpName, &Resp);
   if (Res == NULL) {
     // If it does not match, then it is a temporary register.      
     // We need to check if this temporary has already been alloc'd
@@ -471,12 +499,21 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   S << "  SDValue N" << level << "_" << cur 
     << " = ";
   assert (Res->size() > 0 && "List must be nonempty");    
-  S << "N";
+  const LLVMNodeInfo *Info = (Resp != NULL) ? LLVMNodeInfoMan::getReference()
+			       ->getInfo(*Resp->OpName) : NULL;
+  stringstream SS;
+  SS << "N";
   for (list<unsigned>::const_iterator I = Res->begin(), E = Res->end();
        I != E; ++I) {
-    S << ".getOperand(" << *I << ")";
+    SS << ".getOperand(" << *I << ")";
   }
-  S << ";" << endl;
+  // Check if this kind of node has its own get-filter function
+  if (Info != NULL && Info->GetNode != NULL) 
+    S << Info->GetNode(SS.str());
+  else {
+    S << SS.str();
+    S << ";" << endl;
+  }
   return;
 }
 
@@ -515,39 +552,56 @@ void PatternTranslator::generateEmitCode(SDNode* N,
 					 unsigned level, unsigned cur,
 					 std::ostream &S) {  
   map<string, string> TempToVirtual;
+  const LLVMNodeInfo *Info = NULL;
+  
+  if (level == 0) 
+    Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
      
   // Depth first
   assert (N->RefInstr != NULL && "Must be valid instruction");    
   if (N->NumOperands != 0) {
     for (unsigned i = 0; i < N->NumOperands; ++i) {
-      if (N->ops[i]->RefInstr != NULL)
-	generateEmitCode(N->ops[i], LLVMDAG, level+1, i, S);	
+      if (N->ops[i]->RefInstr != NULL) {
+	if (level == 0 && Info->HasChain) // Correct indexes if chain
+	  generateEmitCode(N->ops[i], LLVMDAG, level+1, i+1, S);
+	else
+	  generateEmitCode(N->ops[i], LLVMDAG, level+1, i, S);
+      }
     }            
   }
   
   // Declare our leaf nodes. Non-leaf nodes are already declared
   // due to recursion.
   for (unsigned i = 0; i < N->NumOperands; ++i) {
-    emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, level+1, i);
+    if (level == 0 && Info->HasChain) // Correct indexes if chain
+      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, level+1, i+1);
+    else
+      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, level+1, i); 
   }  
   
   const int OutSz = N->RefInstr->getOutSize();  
+  const bool HasChain = (level == 0 && Info->HasChain) || OutSz <= 0;
   // Declare our operand vector
   if (N->NumOperands > 0) {
-    S << "  SDValue Ops" << level << "_" << cur << "[] = {";
+    S << "  SDValue Ops" << level << "_" << cur << "[] = {";    
+    if (HasChain) {
+      S << "N.getOperand(0), ";
+    }
     for (unsigned i = 0; i < N->NumOperands; ++i) {
-      S << "N" << level+1 << "_" << i;
+      // Correct indexes if has chain
+      if (HasChain) {
+	S << "N" << level+1 << "_" << i+1;		
+      } else {
+	S << "N" << level+1 << "_" << i;
+      }
       if (i != N->NumOperands-1)
 	S << ", ";
-    }
-    // HasChain? If yes, we must receive it as the last operand
-    if (OutSz <= 0)
-      S << ", N.getOperand(" << LLVMDAG->NumOperands << ")";
+    }    
     S << "};" << endl;
-  } else if (OutSz <= 0) {
+  } else if (HasChain) {
     // HasChain? If yes, we must receive it as the last operand
     S << "  SDValue Ops" << level << "_" << cur << "[] = {"
-      << "N.getOperand(" << LLVMDAG->NumOperands << ") };" << endl;
+      << "N.getOperand(0) };" << endl;
   }
   
   // If not level 0, declare ourselves by requesting a regular node
@@ -562,8 +616,11 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   S << "Sparc16::" << N->RefInstr->getLLVMName();  
   if (OutSz <= 0)
     S << ", MVT::Other";
-  else
+  else {    
     S << ", MVT::i" << OutSz;
+    if (HasChain)
+      S << ", MVT::Other";
+  }
   
   if (N->NumOperands > 0 || OutSz <= 0) {
     S << ", Ops" << level << "_" << cur << ", ";
@@ -601,9 +658,7 @@ inline void AddressOperand(std::ostream &S, vector<int>& Parents,
 /// node is the desired pattern, and then call the appropriate emit
 /// code function.
 void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, MatcherCode> &Map,
-					const string &EmitFuncName) {
-  using LLVMDAGInfo::LLVMNodeInfoMan;
-  using LLVMDAGInfo::LLVMNodeInfo;
+					const string &EmitFuncName) {  
   list<SDNode *> Queue;
   vector<int> Parents; 
   vector<int> ChildNo;
@@ -615,10 +670,14 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, 
   if (Root->NumOperands > 0) {
     S << "if (";
   }
+  bool RootHasChain = InfoMan->getInfo(*Root->OpName)->HasChain;
   for (int i = 0; static_cast<unsigned>(i) < Root->NumOperands; ++i) {
     Queue.push_back(Root->ops[i]);
     Parents.push_back(-1);
-    ChildNo.push_back(i);
+    if (RootHasChain)
+      ChildNo.push_back(i+1);
+    else
+      ChildNo.push_back(i);
   }
   int i = -1;
   while (Queue.size() > 0) {
@@ -637,14 +696,19 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, 
       continue;
     }
     // not leaf
+    const LLVMNodeInfo *Info = InfoMan->getInfo(*N->OpName);
     S << "N";
     AddressOperand(S, Parents, ChildNo, i);
-    S << "->getOpcode() == " << InfoMan->getInfo(*N->OpName)->EnumName;
-    
-    for (unsigned j = 0; j < N->NumOperands; ++j) {      
-      Queue.push_back(N->ops[j]);
-      Parents.push_back(i);
-      ChildNo.push_back(j);
+    S << "->getOpcode() == " << Info->EnumName;
+    if (Info->MatchChildren) {      
+      for (unsigned j = 0; j < N->NumOperands; ++j) {      	
+	Queue.push_back(N->ops[j]);
+	Parents.push_back(i);
+	if (Info->HasChain)
+	  ChildNo.push_back(j+1);
+	else
+	  ChildNo.push_back(j);
+      }
     }
   }
   if (Root->NumOperands > 0) {

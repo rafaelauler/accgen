@@ -25,14 +25,22 @@ namespace LLVMDAGInfo {
   using std::map;    
   using std::vector;
   
+  typedef string (*GetNodeFunc)(const string&);
+  
   struct LLVMNodeInfo {
     bool HasChain;
+    bool MatchChildren;
     string EnumName;
     string NodeName;
+    GetNodeFunc GetNode;
     
-    LLVMNodeInfo(const string& E, const string& N): EnumName(E), NodeName(N) {
-      HasChain = false;
-    }
+    LLVMNodeInfo(const string& E, const string& N, bool M,
+		 bool C,
+		 GetNodeFunc GetF): HasChain(C),
+				    MatchChildren(M),
+				    EnumName(E),
+				    NodeName(N),
+				    GetNode(GetF) {}
   };
   
   struct NameNotFoundException {};

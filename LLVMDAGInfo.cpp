@@ -14,12 +14,25 @@
 
 #include "LLVMDAGInfo.h"
 #include <iostream>
+#include <sstream>
 
 using namespace LLVMDAGInfo;
+using std::stringstream;
 using std::string;
+using std::endl;
 using std::map;
 
 namespace {
+  
+  string GetFrameIndex(const string &N) {
+    stringstream SS;
+    SS << "CurDAG->getTargetConstant(dyn_cast<FrameIndexSDNode>(" 
+       << N
+       << ")->getIndex(), MVT::i32);"
+       << endl;    
+    return SS.str();
+  }
+  
   const unsigned NodeNamesSz = 6;
   
   const string NodeNames[] = { "load", 
@@ -33,9 +46,33 @@ namespace {
   const string EnumNames[] = { "ISD::LOAD", 
 			       "ISD::STORE",
 			       "ISD::ADD",
-			       "ISD::CALL",
+			       "SPISD::CALL", // BUG: Hardwired!
 			       "ISD::FrameIndex",
 			       "ISD::TargetGlobalAddress"
+  };
+  
+  GetNodeFunc FuncNames[] = { NULL,
+			      NULL,
+			      NULL,
+			      NULL,
+			      GetFrameIndex,
+			      NULL
+  };
+
+  bool MatchChildrenVals[] = { true,
+			       true,
+			       true,
+			       true,
+			       false,
+			       false
+  };
+  
+  bool HasChainVals[] = { true,
+			  true,
+			  false,
+			  true,
+			  false,
+			  false
   };
   
   //const string * NodeToEnumName[] = { NodeNames, EnumNames };
@@ -63,7 +100,9 @@ LLVMNodeInfoMan::LLVMNodeInfoMan() {
   Nodes.reserve(NodeNamesSz);
   
   for (unsigned i = 0; i < NodeNamesSz; ++i) {
-    Nodes.push_back(LLVMNodeInfo(EnumNames[i], NodeNames[i]));
+    Nodes.push_back(LLVMNodeInfo(EnumNames[i], NodeNames[i], 
+				 MatchChildrenVals[i], HasChainVals[i],
+				 FuncNames[i]));
     Map[NodeNames[i]] = &Nodes[i];
   }
 }
@@ -78,7 +117,7 @@ LLVMNodeInfoMan::~LLVMNodeInfoMan() {
 const LLVMNodeInfo * LLVMNodeInfoMan::getInfo (const string & Name) const {
   if (Map.find(Name) == Map.end()) {
     std::cerr << "\"" << Name << "\"" << std::endl;
-    throw new NameNotFoundException();
+    throw NameNotFoundException();
   }
   return Map.find(Name)->second;
 }
