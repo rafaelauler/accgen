@@ -48,6 +48,7 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__arch__',`" << ArchName << "')m4_dnl\n"; 
   O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
+  O << "m4_define(`__wordsize__',`" << WordSize << "')m4_dnl\n"; 
   O << "m4_define(`__registers_definitions__',`";
   O << generateRegistersDefinitions() << "')m4_dnl\n";
   O << "m4_define(`__register_classes__',`";
@@ -410,7 +411,7 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   // Increasing search depth loop - first try with low depth to speed up
   // easy matches
   while (R == NULL || R->Instructions->size() == 0) {
-    if (SearchDepth == 10)
+    if (SearchDepth == 15)
       break;
     Log << "  Trying search with depth " << SearchDepth << "\n";
     S.setMaxDepth(SearchDepth++);

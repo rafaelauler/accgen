@@ -591,6 +591,16 @@ namespace backendgen {
 				    const Tree* TargetImpl) {      
       PatList.push_back(PatternElement(Name, LLVMDAG, TargetImpl));
     }
+    
+    /*
+    const Tree* PatternManager::GenerateMoveConstPattern(OperatorTableManager& Man) {
+      OperandType NewType;
+      NewType.Type = 0;
+      NewType.Size = 0;
+      NewType.DataType = 0;         
+      Tree* LHS = new Operand(NewType, "");
+      Tree* Root = new AssignOperator(Man, LHS, RHS, NULL);
+    }*/
 
     PatternManager::Iterator PatternManager::begin() {
       return PatList.begin();

@@ -212,6 +212,24 @@ __arch__`'TargetLowering::LowerArguments(Function &F, SelectionDAG &DAG,
 }
 
 
+/// LowerGlobalAddress - just convert it to TargetConstant
+SDValue __arch__`'TargetLowering::
+LowerGLOBALADDRESS(SDValue Op, SelectionDAG &DAG)
+{
+  GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
+  return DAG.getTargetGlobalAddress(GV, `MVT::i'__wordsize__`');
+}
+
+/// LowerGlobalAddress - just convert it to TargetConstant
+SDValue __arch__`'TargetLowering::
+LowerCONSTANTPOOL(SDValue Op, SelectionDAG &DAG)
+{
+  ConstantPoolSDNode *N = cast<ConstantPoolSDNode>(Op);
+  Constant *C = N->getConstVal();
+  return DAG.getTargetConstantPool(C, `MVT::i'__wordsize__`', N->getAlignment());
+}
+
+
 
 //===----------------------------------------------------------------------===//
 // TargetLowering Implementation
@@ -225,23 +243,27 @@ __arch__`'TargetLowering::`'__arch__`'TargetLowering(TargetMachine &TM)
 __set_up_register_classes__
 
   computeRegisterProperties();
+  
+  setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
+  setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
+  setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);
 }
 
 `const char *'__arch__`'TargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
   default: return 0;
-  case __arch_in_caps__`'ISD::CMPICC:     return "SPISD::CMPICC";
-  case __arch_in_caps__`'ISD::CMPFCC:     return "SPISD::CMPFCC";
-  case __arch_in_caps__`'ISD::BRICC:      return "SPISD::BRICC";
-  case __arch_in_caps__`'ISD::BRFCC:      return "SPISD::BRFCC";
-  case __arch_in_caps__`'ISD::SELECT_ICC: return "SPISD::SELECT_ICC";
-  case __arch_in_caps__`'ISD::SELECT_FCC: return "SPISD::SELECT_FCC";
-  case __arch_in_caps__`'ISD::Hi:         return "SPISD::Hi";
-  case __arch_in_caps__`'ISD::Lo:         return "SPISD::Lo";
-  case __arch_in_caps__`'ISD::FTOI:       return "SPISD::FTOI";
-  case __arch_in_caps__`'ISD::ITOF:       return "SPISD::ITOF";
-  case __arch_in_caps__`'ISD::CALL:       return "SPISD::CALL";
-  case __arch_in_caps__`'ISD::RET_FLAG:   return "SPISD::RET_FLAG";
+  case __arch_in_caps__`'ISD::CMPICC:     return `"'__arch_in_caps__`'ISD::CMPICC";
+  case __arch_in_caps__`'ISD::CMPFCC:     return `"'__arch_in_caps__`'ISD::CMPFCC";
+  case __arch_in_caps__`'ISD::BRICC:      return `"'__arch_in_caps__`'ISD::BRICC";
+  case __arch_in_caps__`'ISD::BRFCC:      return `"'__arch_in_caps__`'ISD::BRFCC";
+  case __arch_in_caps__`'ISD::SELECT_ICC: return `"'__arch_in_caps__`'ISD::SELECT_ICC";
+  case __arch_in_caps__`'ISD::SELECT_FCC: return `"'__arch_in_caps__`'ISD::SELECT_FCC";
+  case __arch_in_caps__`'ISD::Hi:         return `"'__arch_in_caps__`'ISD::Hi";
+  case __arch_in_caps__`'ISD::Lo:         return `"'__arch_in_caps__`'ISD::Lo";
+  case __arch_in_caps__`'ISD::FTOI:       return `"'__arch_in_caps__`'ISD::FTOI";
+  case __arch_in_caps__`'ISD::ITOF:       return `"'__arch_in_caps__`'ISD::ITOF";
+  case __arch_in_caps__`'ISD::CALL:       return `"'__arch_in_caps__`'ISD::CALL";
+  case __arch_in_caps__`'ISD::RET_FLAG:   return `"'__arch_in_caps__`'ISD::RET_FLAG";
   }
 }
 
@@ -264,7 +286,12 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
 
   switch(Op.getOpcode()) {
   default: assert(0 && "Should not custom lower this!");
-  case ISD::CALL:               return LowerCALL(Op, DAG);
+  case ISD::CALL:            
+    return LowerCALL(Op, DAG);
+  case ISD::GlobalTLSAddress:
+    assert(0 && "TLS not implemented.");
+  case ISD::GlobalAddress:      return LowerGLOBALADDRESS(Op, DAG);
+  case ISD::ConstantPool:       return LowerCONSTANTPOOL(Op, DAG);  
   }
 
 }

@@ -33,21 +33,32 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 6;
+  string GetConstant(const string &N) {
+    stringstream SS;    
+    SS << "CurDAG->getTargetConstant(((unsigned) cast<ConstantSDNode>(" 
+       << N
+       << ")->getZExtValue()), MVT::i32);"
+       << endl;    
+    return SS.str();
+  }
+  
+  const unsigned NodeNamesSz = 7;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
 			       "call",
 			       "frameindex",
+			       "imm",
 			       "tglobaladdr"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
 			       "ISD::STORE",
 			       "ISD::ADD",
-			       "SPISD::CALL", // BUG: Hardwired!
+			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "ISD::FrameIndex",
+			       "ISD::Constant",
 			       "ISD::TargetGlobalAddress"
   };
   
@@ -56,6 +67,7 @@ namespace {
 			      NULL,
 			      NULL,
 			      GetFrameIndex,
+			      GetConstant,
 			      NULL
   };
 
@@ -64,6 +76,7 @@ namespace {
 			       true,
 			       true,
 			       false,
+			       false,
 			       false
   };
   
@@ -71,6 +84,7 @@ namespace {
 			  true,
 			  false,
 			  true,
+			  false,
 			  false,
 			  false
   };

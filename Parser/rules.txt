@@ -65,6 +65,11 @@ define pattern STOREFI as (
   (transfer (memref imm:val:immed) src:regs);
 );
 
+define pattern STOREFICONST as (
+  "(store (imm i32:$src), (frameindex i32:$val))";
+  (transfer (memref imm:val:immed) imm:src:immed);
+);
+
 define pattern STORE as (
   "(store i32:$src, i32:$addr)";
   (transfer (memref addr:regs) src:regs);
