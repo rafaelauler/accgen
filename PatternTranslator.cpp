@@ -389,7 +389,10 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S) {
 SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
 					      unsigned *pos) { 
   unsigned i = *pos;
-  for (; i != S.size(); ++i) if (isalnum(S[i]) || S[i] == '(') break;  
+  for (; i != S.size(); ++i) if (isalnum(S[i]) || S[i] == '(' 
+                                 || S[i] == ')') break;
+  if (S[i] == ')')
+    return NULL;
   if (i == S.size())    
     return NULL;
   // If we reached here, we need to create a new node
