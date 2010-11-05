@@ -95,6 +95,11 @@ define pattern ADD as (
   (transfer a3:regs (+ a1:regs a2:regs));
 );
 
+define pattern ADDCONST as (
+  "(add i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (+ a1:regs imm:a2:immed));
+);
+
 //====================-- Machine specific rules --============================//
 
 //=====================-- Registers definitions --============================//
