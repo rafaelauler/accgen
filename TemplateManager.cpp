@@ -504,11 +504,11 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	I->Name << "\n";
       abort();
     }    
-    SSfunc << PatTrans.generateEmitCode(SR, I->LLVMDAG, count) << endl;
-    SSheaders << PatTrans.generateEmitHeader(count);
+    SSfunc << PatTrans.genEmitSDNode(SR, I->LLVMDAG, count) << endl;
+    SSheaders << PatTrans.genEmitSDNodeHeader(count);
     stringstream temp;
     temp << "EmitFunc" << count;
-    PatTrans.generateMatcher(I->LLVMDAG, Map, temp.str());
+    PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());
     std::cerr << SSfunc.str();        
   }
   stringstream SSswitch;

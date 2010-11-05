@@ -15,6 +15,7 @@
 #include "Support.h"
 #include <algorithm>
 #include <locale>
+#include <set>
 #include <cassert>
 #include <cctype>
 
@@ -26,6 +27,7 @@ using std::stringstream;
 using std::endl;
 using std::list;    
 using std::map;
+using std::set;
 using std::vector;
 
 // ==================== SDNode class members ==============================
@@ -533,13 +535,17 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
 
 } // end of anonymous namespace
 
-std::string PatternTranslator::generateEmitHeader(unsigned FuncID) {
+//              *********************************
+//              ** Instruction Selection Phase **
+//              *********************************
+
+std::string PatternTranslator::genEmitSDNodeHeader(unsigned FuncID) {
   stringstream SS;
   SS << "SDNode* EmitFunc" << FuncID << "(SDValue& N);" << endl;
   return SS.str();
 }
 
-std::string PatternTranslator::generateEmitCode(SearchResult *SR,
+std::string PatternTranslator::genEmitSDNode(SearchResult *SR,
 						const std::string& LLVMDAGStr,
 						unsigned FuncID) {
   std::stringstream SS;
@@ -548,7 +554,7 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
   SS << "SDNode* __arch__`'DAGToDAGISel::EmitFunc" << FuncID 
      << "(SDValue& N) {" << endl;
-  generateEmitCode(RootNode, LLVMDAG, pathToNode, SS);
+  genEmitSDNode(RootNode, LLVMDAG, pathToNode, SS);
   SS << "}" << endl << endl;
   delete RootNode;
   delete LLVMDAG;
@@ -562,7 +568,7 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
 /// The num parameter is used to compose the name of the C++ function that
 /// will be generated.
 
-void PatternTranslator::generateEmitCode(SDNode* N, 
+void PatternTranslator::genEmitSDNode(SDNode* N, 
 					 SDNode* LLVMDAG,
 					 const list<unsigned>& pathToNode,
 					 std::ostream &S) {  
@@ -580,10 +586,10 @@ void PatternTranslator::generateEmitCode(SDNode* N,
 	list<unsigned> childpath = pathToNode;	
 	if (pathToNode.empty() && Info->HasChain) { // Correct indexes if chain
 	  childpath.push_back(i+1);
-	  generateEmitCode(N->ops[i], LLVMDAG, childpath, S);
+	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);
 	} else {
 	  childpath.push_back(i);
-	  generateEmitCode(N->ops[i], LLVMDAG, childpath, S);
+	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);
 	}
       }
     }            
@@ -609,10 +615,7 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   const bool HasOutFlag = (pathToNode.empty() && Info->HasOutFlag);
   // Declare our operand vector
   if (N->NumOperands > 0) {
-    S << "  SDValue Ops" << NodeName << "[] = {";    
-    if (HasChain) {
-      S << "N.getOperand(0), ";
-    }
+    S << "  SDValue Ops" << NodeName << "[] = {";        
     for (unsigned i = 0; i < N->NumOperands; ++i) {
       list<unsigned> childpath = pathToNode;
        // Correct indexes if has chain
@@ -625,6 +628,9 @@ void PatternTranslator::generateEmitCode(SDNode* N,
       if (i != N->NumOperands-1)
 	S << ", ";
     }    
+    if (HasChain) {
+      S << ", N.getOperand(0)";
+    }
     // HasFlag? If yes, we must receive it as the last operand 
     if (HasInFlag && HasChain) 
       S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")"; 
@@ -684,6 +690,8 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   return;
 }
 
+// MATCHER
+
 inline void AddressOperand(std::ostream &S, vector<int>& Parents,
 			   vector<int>& ChildNo, int i) {  
   list<int> Q;
@@ -703,7 +711,7 @@ inline void AddressOperand(std::ostream &S, vector<int>& Parents,
 /// Generates the C++ code for the LLVM DAGISel to decide if the current
 /// node is the desired pattern, and then call the appropriate emit
 /// code function.
-void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, MatcherCode> &Map,
+void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string, MatcherCode> &Map,
 					const string &EmitFuncName) {  
   list<SDNode *> Queue;
   vector<int> Parents; 
@@ -776,4 +784,125 @@ void PatternTranslator::generateMatcher(const std::string &LLVMDAG, map<string, 
   Map[RootName].AppendCode(S.str());
   return;
 }
+
+
+//              *********************************
+//              ** Instruction Scheduler Phase **
+//              *********************************
+
+/// This function translates a SearchResult record to C++
+
+/// generateEmitCode is used for building patterns in Instruction Selection
+/// phase, while generateMachineCode is used for building patterns in
+/// Instruction Scheduling phase.
+
+/// In LLVM terminology, the former builds SDNodes, while the latter
+/// builds MIs
+
+// This translation from our internal notation to LLVM's MachineInstructions
+// should be much more natural, because it uses quadruples and not DAGs, thus
+// corresponding better to our internal notation. For example, we don't need
+// to convert our internal notation to a DAG as an intermediary step for 
+// translation.
+
+std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs) {
+  std::stringstream SS, DeclarationsStream;
+  set<string> DeclaredVirtuals;
+  OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
+  for (InstrList::const_iterator I = SR->Instructions->begin(),
+	 E = SR->Instructions->end(); I != E; ++I) {
+    CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
+    CnstOperandsList* Outs = I->first->getOuts();
+    BindingsList* Bindings = I->second->OperandsBindings;
+    assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
+    NameListType* OpNames = *(OI++);
+    sortOperandsDefs(OpNames, I->second);
+    assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
+    // Building DAG Node for this instruction
+    SS << "BuildMI(MBB, I, get(";
+    //TODO: Replace hardwired Sparc16!
+    SS << "Sparc16::" << I->first->getLLVMName();  
+    SS << "))";
+            
+    if (Bindings != NULL) {
+      assert(OpNames->size() + Bindings->size() == AllOps->size()
+	     && "Inconsistency. Missing sufficient bindings?");
+    } else {
+      assert(OpNames->size() == AllOps->size() 
+	     && "Inconsistency. Missing sufficient bindings?");
+    }
+    unsigned i = 0;
+    NameListType::const_iterator NI = OpNames->begin();
+    for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+	   E2 = AllOps->end(); I2 != E2; ++I2) {
+      const Operand *Element = *I2;     
+      // DUMMY
+      if (Element->getType() == 0) {		
+	// See if bindings list has a definition for it
+	if (Bindings != NULL) {
+	  for (BindingsList::const_iterator I = Bindings->begin(),
+		 E = Bindings->end(); I != E; ++I) {
+	    if (HasOperandNumber(I->first)) {
+	      if(ExtractOperandNumber(I->first) == i + 1) {
+		SS << ".addImm(" << I->second << ")";		
+		break;
+	      }
+	    }
+	  }
+	  ++i;
+	  continue;
+	}
+	// No bindings for this dummy
+	// TODO: ABORT? Wait for side effect compensation processing?
+	SS << ".addImm(0)";		
+	++i;
+	continue;
+      }
+      // NOT DUMMY
+      assert(NI != OpNames->end() && 
+	     "BUG: OperandsDefs lacks required definition");
+      // Is this operand already defined?
+            
+      if (Defs.find(*NI) != Defs.end()) {	
+	StringMap::const_iterator CI = Defs.find(*NI);
+	SS << ".add" << CI->second << "(" << *NI << ")";	
+	++NI;
+	++i;
+	continue;
+      }
+      // This operand type is not defined, so it must be a scratch
+      // register            
+      // Test to see if this is a RegisterOperand
+      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
+      if (RO != NULL) {
+	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
+	  DeclaredVirtuals.insert(*NI);
+	  DeclarationsStream << "  const TargetRegisterClass* TRC" << *NI
+	  //TODO: Find the correct type (not just i32)
+	    << " = findSuitableRegClass(MVT::i32);" << endl;
+	  DeclarationsStream << "  assert (TRC" << *NI << " != 0 &&"
+	    << "\"Could not find a suitable regclass for virtual\");" << endl;      
+	  DeclarationsStream << "  unsigned " << *NI << " = ";
+	  DeclarationsStream << "CurDAG->getMachineFunction().getRegInfo()"
+	    << ".createVirtualRegister(TRC" << *NI << "); " <<  endl;
+	}
+	SS << ".addReg(" << *NI << ")";	
+	++NI;
+	++i;
+	continue;
+      } 
+      // Not a scratch register operand... 
+      assert (0 && "Non-scratch operands must be defined in DefList");
+    }    
+    SS << ";" << endl;
+    // Housekeeping
+    delete AllOps;
+    delete Outs;
+  }
+  
+  // Organizing code
+  DeclarationsStream << SS.str();
+  return DeclarationsStream.str();
+}
+
 

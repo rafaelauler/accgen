@@ -17,6 +17,7 @@
 #include "InsnSelector/Search.h"
 #include "InsnSelector/Semantic.h"
 #include "Instruction.h"
+#include <map>
 
 //===-- Class prototypes ---===//
 namespace backendgen {
@@ -66,6 +67,7 @@ namespace backendgen {
   
   struct PTParseErrorException {};  
 
+  typedef std::map<std::string, std::string> StringMap;
   // This is the class responsible for translating from our SearchResult
   // internal notation to LLVM's DAG notation, so we can write InstrInfo and
   // ISelDAGToDAG backend files.
@@ -80,24 +82,33 @@ namespace backendgen {
   // methods to convert from quadruples do DAG.
   class PatternTranslator {
     OperandTableManager &OperandTable;
-  public:
-    PatternTranslator(OperandTableManager &OM): 
-      OperandTable(OM) {
-      //OM.printAll(std::cout);
-    }
     void sortOperandsDefs(NameListType* OpNames, SemanticIterator SI);
     SDNode *generateInsnsDAG(SearchResult *SR);
     SDNode *parseLLVMDAGString(const std::string &S);
     SDNode *parseLLVMDAGString(const std::string &S, unsigned *pos);
-    std::string generateEmitHeader(unsigned FuncID);
-    std::string generateEmitCode(SearchResult *SR, const std::string& L,
+  public:
+    // Constructor
+    PatternTranslator(OperandTableManager &OM): 
+      OperandTable(OM) {
+      //OM.printAll(std::cout);
+    }    
+    
+    // * Translating patterns to LLVM's instruction selection phase *
+    // Header
+    std::string genEmitSDNodeHeader(unsigned FuncID);
+    // Code
+    std::string genEmitSDNode(SearchResult *SR, const std::string& L,
 			         unsigned FuncID);
-    void generateEmitCode(SDNode* N, SDNode* LLVMDAG, 
+    void genEmitSDNode(SDNode* N, SDNode* LLVMDAG, 
 			  const std::list<unsigned>& pathToNode,
 			  std::ostream &S);
-    void generateMatcher(const std::string &LLVMDAG, 
+    // Matcher
+    void genSDNodeMatcher(const std::string &LLVMDAG, 
 			 std::map<std::string, MatcherCode> &Map,
 			 const std::string &EmitFuncName);
+			 
+    // * Translating patterns to LLVM's instruction scheduling phase *
+    std::string genEmitMI(SearchResult *SR, const StringMap& Defs);
   };
 
 }
