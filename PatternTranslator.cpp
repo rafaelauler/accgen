@@ -605,6 +605,8 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   const string NodeName = buildNodeName(pathToNode);
   const int OutSz = N->RefInstr->getOutSize();  
   const bool HasChain = (pathToNode.empty() && Info->HasChain) || OutSz <= 0;
+  const bool HasInFlag = (pathToNode.empty() && Info->HasInFlag);
+  const bool HasOutFlag = (pathToNode.empty() && Info->HasOutFlag);
   // Declare our operand vector
   if (N->NumOperands > 0) {
     S << "  SDValue Ops" << NodeName << "[] = {";    
@@ -623,11 +625,25 @@ void PatternTranslator::generateEmitCode(SDNode* N,
       if (i != N->NumOperands-1)
 	S << ", ";
     }    
+    // HasFlag? If yes, we must receive it as the last operand 
+    if (HasInFlag && HasChain) 
+      S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")"; 
+    else if (HasInFlag) 
+      S << ", N.getOperand(" << LLVMDAG->NumOperands << ")"; 
     S << "};" << endl;
-  } else if (HasChain) {
-    // HasChain? If yes, we must receive it as the last operand
-    S << "  SDValue Ops" << NodeName << "[] = {"
-      << "N.getOperand(0) };" << endl;
+  } else {
+    if (HasChain || HasInFlag)
+      S << "  SDValue Ops" << NodeName << "[] = {";
+    // HasChain? If yes, we must receive it as the first operand
+    if (HasChain)      
+      S << "N.getOperand(0)";
+    // HasFlag? If yes, we must receive it as the last operand 
+    if (HasInFlag && HasChain) 
+      S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")";
+    else if (HasInFlag && !HasChain)
+      S << "N.getOperand(" << LLVMDAG->NumOperands << ")";
+    if (HasChain || HasInFlag)
+      S << "};" << endl;
   }
   
   // If not level 0, declare ourselves by requesting a regular node
@@ -647,13 +663,17 @@ void PatternTranslator::generateEmitCode(SDNode* N,
     if (HasChain)
       S << ", MVT::Other";
   }
+  if (HasOutFlag)
+    S << ", MVT::Flag";
   
   if (N->NumOperands > 0 || HasChain) {
     S << ", Ops" << NodeName << ", ";
+    int NumOperands = N->NumOperands;
     if (HasChain)
-      S << (N->NumOperands+1);
-    else
-      S << N->NumOperands;
+      ++NumOperands;
+    if (HasInFlag)
+      ++NumOperands;            
+    S << NumOperands;
   }
   
   if (!pathToNode.empty())

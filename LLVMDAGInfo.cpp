@@ -89,6 +89,24 @@ namespace {
 			  false
   };
   
+  bool HasInFlagVals[] = {  false,
+			    false,
+			    false,
+			    false,
+			    false,
+			    false,
+			    false
+  };
+  
+  bool HasOutFlagVals[] = { false,
+			    false,
+			    false,
+			    true,
+			    false,
+			    false,
+			    false
+  };
+  
   //const string * NodeToEnumName[] = { NodeNames, EnumNames };
   
 }; // end anonymous namespace
@@ -116,6 +134,7 @@ LLVMNodeInfoMan::LLVMNodeInfoMan() {
   for (unsigned i = 0; i < NodeNamesSz; ++i) {
     Nodes.push_back(LLVMNodeInfo(EnumNames[i], NodeNames[i], 
 				 MatchChildrenVals[i], HasChainVals[i],
+				 HasInFlagVals[i], HasOutFlagVals[i],
 				 FuncNames[i]));
     Map[NodeNames[i]] = &Nodes[i];
   }

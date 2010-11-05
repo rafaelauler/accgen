@@ -29,14 +29,18 @@ namespace LLVMDAGInfo {
   
   struct LLVMNodeInfo {
     bool HasChain;
+    bool HasInFlag;
+    bool HasOutFlag;
     bool MatchChildren;
     string EnumName;
     string NodeName;
     GetNodeFunc GetNode;
     
     LLVMNodeInfo(const string& E, const string& N, bool M,
-		 bool C,
+		 bool C, bool InF, bool OutF,
 		 GetNodeFunc GetF): HasChain(C),
+				    HasInFlag(InF),
+				    HasOutFlag(OutF),
 				    MatchChildren(M),
 				    EnumName(E),
 				    NodeName(N),
