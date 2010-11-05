@@ -60,19 +60,26 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 //=========================-- LLVM Patterns --================================//
 
-define pattern STOREFI as (
-  "(store i32:$src, (frameindex i32:$val))";
-  (transfer (memref imm:val:immed) src:regs);
-);
+// It is important to order similar patterns, most restrictive first.
 
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
   (transfer (memref imm:val:immed) imm:src:immed);
 );
 
+define pattern STOREFI as (
+  "(store i32:$src, (frameindex i32:$val))";
+  (transfer (memref imm:val:immed) src:regs);
+);
+
 define pattern STORE as (
   "(store i32:$src, i32:$addr)";
   (transfer (memref addr:regs) src:regs);
+);
+
+define pattern LOADFI as (
+  "(load (frameindex i32:$addr))";
+  (transfer a3:regs (memref imm:addr:immed));
 );
 
 define pattern LOAD as (
@@ -90,14 +97,14 @@ define pattern CALL as (
   (call imm:tgt:immed);
 );
 
-define pattern ADD as (
-  "(add i32:$a1, i32:$a2)";
-  (transfer a3:regs (+ a1:regs a2:regs));
-);
-
 define pattern ADDCONST as (
   "(add i32:$a1, (imm i32:$a2))";
   (transfer a3:regs (+ a1:regs imm:a2:immed));
+);
+
+define pattern ADD as (
+  "(add i32:$a1, i32:$a2)";
+  (transfer a3:regs (+ a1:regs a2:regs));
 );
 
 //====================-- Machine specific rules --============================//

@@ -648,9 +648,9 @@ void PatternTranslator::generateEmitCode(SDNode* N,
       S << ", MVT::Other";
   }
   
-  if (N->NumOperands > 0 || OutSz <= 0) {
+  if (N->NumOperands > 0 || HasChain) {
     S << ", Ops" << NodeName << ", ";
-    if (OutSz == 0)
+    if (HasChain)
       S << (N->NumOperands+1);
     else
       S << N->NumOperands;
