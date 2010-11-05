@@ -92,9 +92,11 @@ namespace backendgen {
     std::string generateEmitHeader(unsigned FuncID);
     std::string generateEmitCode(SearchResult *SR, const std::string& L,
 			         unsigned FuncID);
-    void generateEmitCode(SDNode* N, SDNode* LLVMDAG, unsigned level,
-			  unsigned cur, std::ostream &S);
-    void generateMatcher(const std::string &LLVMDAG, std::map<std::string, MatcherCode> &Map,
+    void generateEmitCode(SDNode* N, SDNode* LLVMDAG, 
+			  const std::list<unsigned>& pathToNode,
+			  std::ostream &S);
+    void generateMatcher(const std::string &LLVMDAG, 
+			 std::map<std::string, MatcherCode> &Map,
 			 const std::string &EmitFuncName);
   };
 

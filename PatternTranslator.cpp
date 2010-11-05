@@ -457,50 +457,61 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
 }
 
 namespace {
+
+/// Helper function used to build a string containing the name
+/// of a specific node. All this function needs to know is a
+/// list of children indexes used to address the current node,
+/// starting from the root node of the DAG.
+string buildNodeName(const list<unsigned>& pathToNode) {
+  stringstream SS;
+  SS << "N";
+  for (list<unsigned>::const_iterator I = pathToNode.begin(),
+    E = pathToNode.end(); I != E; ++I) {
+    SS << *I;
+  }
+  return SS.str();
+}
+
 /// Helper function used to declare leaf nodes when generating
 /// emit code LLVM function.
 void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S, 
-			 map<string, string> *TempToVirtual, unsigned level,
-			 unsigned cur) {
+			 map<string, string> *TempToVirtual,
+			 const list<unsigned>& pathToNode) {
   if (N->RefInstr != NULL)
    return;        
+  const string NodeName = buildNodeName(pathToNode);
   if (N->IsLiteral) {
-    S << "  SDValue N" << level << "_" << cur
-      << " = ";
+    S << "  SDValue " << NodeName << " = ";
     //TODO: Generate an index for a string table, included in
     //SelectionDAG class, and use it as target constant.
     S << "CurDAG->getTargetConstant(0x0ULL, MVT::i32);" << endl;
     return;
   }
   // If not literal, then check if it matches some operand in LLVMDAG
-  SDNode *Resp = NULL;
+  SDNode *Resp = NULL;  
   list<unsigned>* Res = findPredecessor(LLVMDAG, *N->OpName, &Resp);
   if (Res == NULL) {
     // If it does not match, then it is a temporary register.      
     // We need to check if this temporary has already been alloc'd
-    if (TempToVirtual->find(*N->OpName) == TempToVirtual->end()) {
-      stringstream SS;
-      SS << "N" << level << "_" << cur;
-      (*TempToVirtual)[*N->OpName] = SS.str();
-      S << "  const TargetRegisterClass* TRC" << level << "_" << cur
+    if (TempToVirtual->find(*N->OpName) == TempToVirtual->end()) {      
+      (*TempToVirtual)[*N->OpName] = NodeName;
+      S << "  const TargetRegisterClass* TRC" << NodeName
       //TODO: Find the correct type (not just i32)
 	<< " = findSuitableRegClass(MVT::i32);" << endl;
-      S << "  assert (TRC" << level << "_" << cur << " != 0 &&"
+      S << "  assert (TRC" << NodeName << " != 0 &&"
 	<< "\"Could not find a suitable regclass for virtual\");" << endl;      
-      S << "  SDValue N" << level << "_" << cur 
-	<< " = ";
+      S << "  SDValue " << NodeName << " = ";
       S << "CurDAG->getRegister(CurDAG->getMachineFunction().getRegInfo()"
-	<< ".createVirtualRegister(TRC" << level << "_" << cur << "), "
+	<< ".createVirtualRegister(TRC" << NodeName << "), "
 	<< "MVT::i32);" << endl; //TODO:change this	
     } else {
-      S << "  SDValue N" << level << "_" << cur << " = " 
+      S << "  SDValue " << NodeName << " = " 
 	<< (*TempToVirtual)[*N->OpName] << ";" << endl;
     }
     return;
   }
   // It matches a LLVMDAG operand...
-  S << "  SDValue N" << level << "_" << cur 
-    << " = ";
+  S << "  SDValue " << NodeName << " = ";
   assert (Res->size() > 0 && "List must be nonempty");    
   const LLVMNodeInfo *Info = (Resp != NULL) ? LLVMNodeInfoMan::getReference()
 			       ->getInfo(*Resp->OpName) : NULL;
@@ -532,11 +543,12 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
 						const std::string& LLVMDAGStr,
 						unsigned FuncID) {
   std::stringstream SS;
+  list<unsigned> pathToNode;
   SDNode *RootNode = generateInsnsDAG(SR);
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
   SS << "SDNode* __arch__`'DAGToDAGISel::EmitFunc" << FuncID 
      << "(SDValue& N) {" << endl;
-  generateEmitCode(RootNode, LLVMDAG, 0, 0, SS);
+  generateEmitCode(RootNode, LLVMDAG, pathToNode, SS);
   SS << "}" << endl << endl;
   delete RootNode;
   delete LLVMDAG;
@@ -552,12 +564,12 @@ std::string PatternTranslator::generateEmitCode(SearchResult *SR,
 
 void PatternTranslator::generateEmitCode(SDNode* N, 
 					 SDNode* LLVMDAG,
-					 unsigned level, unsigned cur,
+					 const list<unsigned>& pathToNode,
 					 std::ostream &S) {  
   map<string, string> TempToVirtual;
   const LLVMNodeInfo *Info = NULL;
   
-  if (level == 0) 
+  if (pathToNode.empty()) 
     Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
      
   // Depth first
@@ -565,10 +577,14 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   if (N->NumOperands != 0) {
     for (unsigned i = 0; i < N->NumOperands; ++i) {
       if (N->ops[i]->RefInstr != NULL) {
-	if (level == 0 && Info->HasChain) // Correct indexes if chain
-	  generateEmitCode(N->ops[i], LLVMDAG, level+1, i+1, S);
-	else
-	  generateEmitCode(N->ops[i], LLVMDAG, level+1, i, S);
+	list<unsigned> childpath = pathToNode;	
+	if (pathToNode.empty() && Info->HasChain) { // Correct indexes if chain
+	  childpath.push_back(i+1);
+	  generateEmitCode(N->ops[i], LLVMDAG, childpath, S);
+	} else {
+	  childpath.push_back(i);
+	  generateEmitCode(N->ops[i], LLVMDAG, childpath, S);
+	}
       }
     }            
   }
@@ -576,40 +592,47 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   // Declare our leaf nodes. Non-leaf nodes are already declared
   // due to recursion.
   for (unsigned i = 0; i < N->NumOperands; ++i) {
-    if (level == 0 && Info->HasChain) // Correct indexes if chain
-      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, level+1, i+1);
-    else
-      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, level+1, i); 
+    list<unsigned> childpath = pathToNode;	
+    if (pathToNode.empty() && Info->HasChain) { // Correct indexes if chain
+      childpath.push_back(i+1);
+      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath);
+    } else {
+      childpath.push_back(i);
+      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath); 
+    }
   }  
   
+  const string NodeName = buildNodeName(pathToNode);
   const int OutSz = N->RefInstr->getOutSize();  
-  const bool HasChain = (level == 0 && Info->HasChain) || OutSz <= 0;
+  const bool HasChain = (pathToNode.empty() && Info->HasChain) || OutSz <= 0;
   // Declare our operand vector
   if (N->NumOperands > 0) {
-    S << "  SDValue Ops" << level << "_" << cur << "[] = {";    
+    S << "  SDValue Ops" << NodeName << "[] = {";    
     if (HasChain) {
       S << "N.getOperand(0), ";
     }
     for (unsigned i = 0; i < N->NumOperands; ++i) {
-      // Correct indexes if has chain
+      list<unsigned> childpath = pathToNode;
+       // Correct indexes if has chain
       if (HasChain) {
-	S << "N" << level+1 << "_" << i+1;		
-      } else {
-	S << "N" << level+1 << "_" << i;
+	childpath.push_back(i+1);
+      } else { 
+	childpath.push_back(i);
       }
+      S << buildNodeName(childpath);      
       if (i != N->NumOperands-1)
 	S << ", ";
     }    
     S << "};" << endl;
   } else if (HasChain) {
     // HasChain? If yes, we must receive it as the last operand
-    S << "  SDValue Ops" << level << "_" << cur << "[] = {"
+    S << "  SDValue Ops" << NodeName << "[] = {"
       << "N.getOperand(0) };" << endl;
   }
   
   // If not level 0, declare ourselves by requesting a regular node
-  if (level != 0) {    
-    S << "  SDValue N" << level << "_" << cur 
+  if (!pathToNode.empty()) {    
+    S << "  SDValue " << NodeName 
       << " = SDValue(CurDAG->getTargetNode(";
   } else {
     S << "  return CurDAG->SelectNodeTo(N.getNode(), ";
@@ -626,14 +649,14 @@ void PatternTranslator::generateEmitCode(SDNode* N,
   }
   
   if (N->NumOperands > 0 || OutSz <= 0) {
-    S << ", Ops" << level << "_" << cur << ", ";
+    S << ", Ops" << NodeName << ", ";
     if (OutSz == 0)
       S << (N->NumOperands+1);
     else
       S << N->NumOperands;
   }
   
-  if (level != 0)
+  if (!pathToNode.empty())
     S << "), 0);" << endl;
   else
     S << ");" << endl;    
