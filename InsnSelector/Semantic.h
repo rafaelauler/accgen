@@ -505,6 +505,12 @@ namespace backendgen {
 		      const Tree* TargetImpl);
       Iterator begin();
       Iterator end();
+      
+      // Static utils - Pattern Generation
+      static const Tree* genCopyRegToRegPat(OperatorTableManager& OpMan,
+	RegClassManager& Man,
+	const std::string& DestRC, const std::string& Dest,
+	const std::string& SrcRC, const std::string& Src);
     };
 
   } // end namespace expression

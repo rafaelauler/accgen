@@ -75,6 +75,10 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__patterns_headers__',`";  
   O << *Headers << "')m4_dnl\n";
   
+  O << "m4_define(`__copyregpats__',`";
+  O << generateCopyRegPatterns(std::cout) << "')m4_dnl\n";
+  
+  
   delete Funcs;
   delete Switch;
   delete Headers;
@@ -430,6 +434,33 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   }
   
   return R;                 
+}
+
+string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
+  stringstream SS;
+  StringMap Defs;
+  Defs["DestReg"] = "Reg";
+  Defs["SrcReg"] = "Reg";
+
+  for (set<RegisterClass*>::const_iterator
+	 I = RegisterClassManager.getBegin(),
+	 E = RegisterClassManager.getEnd(); I != E; ++I) {    
+    Log << "Now finding implementation for reg to reg copy, class "
+	<< (*I)->getName() << "\n";
+    const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
+	RegisterClassManager, (*I)->getName(), "DestReg", (*I)->getName(),
+	"SrcReg");
+    if (I != RegisterClassManager.getBegin())
+      SS << "else if";
+    else
+      SS << "if";
+    SS << " (DestRC == Sparc16::" << (*I)->getName() << "RegisterClass) {" << endl;
+    SearchResult *SR = FindImplementation(Exp, Log);
+    SS << PatTrans.genEmitMI(SR, Defs);
+    SS << "} ";
+  }
+
+  return SS.str();
 }
 
 // In this member function, a LLVM DAG String (that is, a LLVM SelectionDAG

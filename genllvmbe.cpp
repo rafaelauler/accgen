@@ -34,6 +34,7 @@ extern int yybeparse();
 // Defined in semantics parser 
 extern backendgen::InstrManager InstructionManager;
 extern backendgen::expression::OperandTableManager OperandTable;
+extern backendgen::expression::OperatorTableManager OperatorTable;
 extern backendgen::TransformationRules RuleManager;
 extern backendgen::expression::RegClassManager RegisterManager;
 extern backendgen::expression::PatternManager PatMan;
@@ -393,7 +394,7 @@ int main(int argc, char **argv) {
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
-		     OperandTable, PatMan);
+		     OperandTable, OperatorTable, PatMan);
   TM.SetArchName("sparc16");
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);

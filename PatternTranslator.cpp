@@ -844,7 +844,9 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
 	      if(ExtractOperandNumber(I->first) == i + 1) {
-		SS << ".addImm(" << I->second << ")";		
+		//TODO: Find a way to pass this information
+		// in I->second to the AssemblerWritter
+		SS << ".addImm(0)";		
 		break;
 	      }
 	    }

@@ -29,6 +29,7 @@ class TemplateManager {
   InstrManager& InstructionManager;
   RegClassManager& RegisterClassManager;
   OperandTableManager& OperandTable;
+  OperatorTableManager& OperatorTable;
   PatternManager& PatMan;
   PatternTranslator PatTrans;
   // Working directory where macro files are created and output
@@ -45,6 +46,7 @@ class TemplateManager {
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
   std::string generateCallingConventions();
+  std::string generateCopyRegPatterns(std::ostream &Log);
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
@@ -59,10 +61,11 @@ class TemplateManager {
  public:
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
 			   RegClassManager& RM, OperandTableManager &OM,
+			   OperatorTableManager &ORM,
 			   PatternManager& PM):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
-    PatMan(PM), PatTrans(OM), WorkingDir(NULL) {}
+    OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL) {}
 
   ~TemplateManager() {}
 

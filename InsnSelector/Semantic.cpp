@@ -592,15 +592,19 @@ namespace backendgen {
       PatList.push_back(PatternElement(Name, LLVMDAG, TargetImpl));
     }
     
-    /*
-    const Tree* PatternManager::GenerateMoveConstPattern(OperatorTableManager& Man) {
-      OperandType NewType;
-      NewType.Type = 0;
-      NewType.Size = 0;
-      NewType.DataType = 0;         
-      Tree* LHS = new Operand(NewType, "");
-      Tree* Root = new AssignOperator(Man, LHS, RHS, NULL);
-    }*/
+    
+    const Tree* PatternManager::genCopyRegToRegPat(OperatorTableManager& OpMan,
+							 RegClassManager& RegMan,
+							 const std::string& DestRC,
+							 const std::string& Dest,
+							 const std::string& SrcRC,
+							 const std::string& Src) {
+      RegisterClass *RegClass = RegMan.getRegClass(DestRC);
+      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      RegisterClass *RegClassSrc = RegMan.getRegClass(SrcRC);
+      RegisterOperand *RHS = new RegisterOperand(RegClassSrc, Src);
+      return new AssignOperator(OpMan, LHS, RHS, NULL);
+    }
 
     PatternManager::Iterator PatternManager::begin() {
       return PatList.begin();
