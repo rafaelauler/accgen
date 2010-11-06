@@ -30,6 +30,47 @@ using namespace llvm;
 
 `#include "'__arch__`GenCallingConv.inc"'
 
+static SDValue LowerRET(SDValue Op, SelectionDAG &DAG) {
+  // CCValAssign - represent the assignment of the return value to locations.
+  SmallVector<CCValAssign, 16> RVLocs;
+  unsigned CC = DAG.getMachineFunction().getFunction()->getCallingConv();
+  bool isVarArg = DAG.getMachineFunction().getFunction()->isVarArg();
+
+  // CCState - Info about the registers and stack slot.
+  CCState CCInfo(CC, isVarArg, DAG.getTarget(), RVLocs);
+
+  // Analize return values of ISD::RET
+  CCInfo.AnalyzeReturn(Op.getNode(), RetCC_`'__arch__`');
+
+  // If this is the first return lowered for this function, add the regs to the
+  // liveout set for the function.
+  if (DAG.getMachineFunction().getRegInfo().liveout_empty()) {
+    for (unsigned i = 0; i != RVLocs.size(); ++i)
+      if (RVLocs[i].isRegLoc())
+        DAG.getMachineFunction().getRegInfo().addLiveOut(RVLocs[i].getLocReg());
+  }
+
+  SDValue Chain = Op.getOperand(0);
+  SDValue Flag;
+
+  // Copy the result values into the output registers.
+  for (unsigned i = 0; i != RVLocs.size(); ++i) {
+    CCValAssign &VA = RVLocs[i];
+    assert(VA.isRegLoc() && "Can only return in registers!");
+
+    // ISD::RET => ret chain, (regnum1,val1), ...
+    // So i*2+1 index only the regnums.
+    Chain = DAG.getCopyToReg(Chain, VA.getLocReg(), Op.getOperand(i*2+1), Flag);
+
+    // Guarantee that all emitted copies are stuck together with flags.
+    Flag = Chain.getValue(1);
+  }
+
+  if (Flag.getNode())
+    return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain, Flag);
+  return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain);
+}
+
 //===----------------------------------------------------------------------===//
 //                  CALL Calling Convention Implementation
 //===----------------------------------------------------------------------===//
@@ -247,6 +288,9 @@ __set_up_register_classes__
   setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
   setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
   setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);
+  
+  // RET must be custom lowered, to meet ABI requirements
+  setOperationAction(ISD::RET               , MVT::Other, Custom);
 }
 
 `const char *'__arch__`'TargetLowering::getTargetNodeName(unsigned Opcode) const {
@@ -292,6 +336,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
     assert(0 && "TLS not implemented.");
   case ISD::GlobalAddress:      return LowerGLOBALADDRESS(Op, DAG);
   case ISD::ConstantPool:       return LowerCONSTANTPOOL(Op, DAG);  
+  case ISD::RET:                return LowerRET(Op, DAG);
   }
 
 }

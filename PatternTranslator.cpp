@@ -819,7 +819,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     // Building DAG Node for this instruction
-    SS << "BuildMI(MBB, I, get(";
+    SS << "    BuildMI(MBB, I, get(";
     //TODO: Replace hardwired Sparc16!
     SS << "Sparc16::" << I->first->getLLVMName();  
     SS << "))";

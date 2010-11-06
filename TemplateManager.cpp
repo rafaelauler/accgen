@@ -445,19 +445,32 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
   for (set<RegisterClass*>::const_iterator
 	 I = RegisterClassManager.getBegin(),
 	 E = RegisterClassManager.getEnd(); I != E; ++I) {    
-    Log << "Now finding implementation for reg to reg copy, class "
-	<< (*I)->getName() << "\n";
-    const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	RegisterClassManager, (*I)->getName(), "DestReg", (*I)->getName(),
-	"SrcReg");
-    if (I != RegisterClassManager.getBegin())
-      SS << "else if";
-    else
-      SS << "if";
-    SS << " (DestRC == Sparc16::" << (*I)->getName() << "RegisterClass) {" << endl;
-    SearchResult *SR = FindImplementation(Exp, Log);
-    SS << PatTrans.genEmitMI(SR, Defs);
-    SS << "} ";
+    for (set<RegisterClass*>::const_iterator
+	 I2 = RegisterClassManager.getBegin(),
+	 E2 = RegisterClassManager.getEnd(); I2 != E2; ++I2) {    
+      Log << "\nNow checking if we can copy Registers "
+	  << (*I)->getName() << " to " << (*I2)->getName() << "\n";
+      const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
+	  RegisterClassManager, (*I)->getName(), "DestReg", (*I2)->getName(),
+	  "SrcReg");
+	if (I == RegisterClassManager.getBegin() 
+	    && I2 == RegisterClassManager.getBegin())
+	  SS << "  if";
+	else
+	  SS << "else if";
+      SS << " (DestRC == Sparc16::" << (*I)->getName() << "RegisterClass"
+         << endl;
+      SS << "     && SrcRC == Sparc16::" << (*I2)->getName() 
+         << "RegisterClass) {" << endl;
+      SearchResult *SR = FindImplementation(Exp, Log);
+      if (SR == NULL) {
+	SS << "    // Could not infer code to make this transfer" << endl;
+	SS << "    return false;" << endl;
+      } else {
+	SS << PatTrans.genEmitMI(SR, Defs);
+      }
+      SS << "  } ";
+    }
   }
 
   return SS.str();

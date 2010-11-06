@@ -42,12 +42,13 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 7;
+  const unsigned NodeNamesSz = 8;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
 			       "call",
+			       "ret",
 			       "frameindex",
 			       "imm",
 			       "tglobaladdr"
@@ -57,12 +58,14 @@ namespace {
 			       "ISD::STORE",
 			       "ISD::ADD",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
+			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
 			       "ISD::TargetGlobalAddress"
   };
   
   GetNodeFunc FuncNames[] = { NULL,
+			      NULL,
 			      NULL,
 			      NULL,
 			      NULL,
@@ -75,6 +78,7 @@ namespace {
 			       true,
 			       true,
 			       true,
+			       true,
 			       false,
 			       false,
 			       false
@@ -83,6 +87,7 @@ namespace {
   bool HasChainVals[] = { true,
 			  true,
 			  false,
+			  true,
 			  true,
 			  false,
 			  false,
@@ -93,6 +98,7 @@ namespace {
 			    false,
 			    false,
 			    false,
+			    true,
 			    false,
 			    false,
 			    false
@@ -102,6 +108,7 @@ namespace {
 			    false,
 			    false,
 			    true,
+			    false,
 			    false,
 			    false,
 			    false

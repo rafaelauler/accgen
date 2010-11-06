@@ -69,12 +69,9 @@ bool `'__arch__`'InstrInfo::copyRegToReg(MachineBasicBlock &MBB,
                                      unsigned DestReg, unsigned SrcReg,
                                      const TargetRegisterClass *DestRC,
                                      const TargetRegisterClass *SrcRC) const {
-  if (DestRC != SrcRC) {
-    // Not yet supported!
-    return false;
-  }
+
   
-  __copyregpats__
+__copyregpats__
   
   return true;
 }
