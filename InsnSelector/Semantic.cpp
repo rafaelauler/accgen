@@ -258,8 +258,9 @@ namespace backendgen {
       return Registers.insert(Reg).second;
     }
 
-    bool RegisterClass::hasRegister(Register *Reg) {
-      return (Registers.find(Reg) != Registers.end());
+    bool RegisterClass::hasRegister(const Register *Reg) {
+      Register *Reg2 = const_cast<Register*>(Reg);
+      return (Registers.find(Reg2) != Registers.end());
     }
 
     bool RegisterClass::hasRegisterName(const std::string &RegName) {
@@ -296,6 +297,13 @@ namespace backendgen {
 
 
     // RegClassManager member functions
+    
+    RegClassManager::RegClassManager()
+    {
+      ProgramCounter = NULL;
+      ReturnRegister = NULL;
+    }
+
 
     RegClassManager::~RegClassManager() {
       // Deleting all registers
@@ -339,6 +347,24 @@ namespace backendgen {
     void RegClassManager::addCallingConvention(CallingConvention* Elem) {
       CallConvs.push_back(Elem);
     }
+    
+    void RegClassManager::setProgramCounter(const Register* Reg)
+    {
+      ProgramCounter = Reg;
+    }
+    
+    void RegClassManager::setReturnRegister(const Register* Reg)
+    {
+      ReturnRegister = Reg;
+    }
+    
+    const Register* RegClassManager::getProgramCounter() const {
+      return ProgramCounter;
+    }
+    
+    const Register* RegClassManager::getReturnRegister() const {
+      return ReturnRegister;
+    }
 
     // Adds one register to the list of reserved registers. Same restrictions
     // above apply.
@@ -368,7 +394,7 @@ namespace backendgen {
       return NULL;    
     }
 
-    RegisterClass *RegClassManager::getRegRegClass(Register* Reg) {
+    RegisterClass *RegClassManager::getRegRegClass(const Register* Reg) {
       for (std::set<RegisterClass*>::iterator I = RegClasses.begin(),
 	     E = RegClasses.end(); I != E; ++I)
 	{

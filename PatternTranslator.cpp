@@ -62,8 +62,11 @@ void SDNode::SetOperands(unsigned num) {
       delete ops[i];
     }
     delete [] ops;
+    ops = NULL;
   }
-  ops = new SDNode*[num];
+  if (num > 0) {
+    ops = new SDNode*[num];
+  }
   NumOperands = num;
 }
 

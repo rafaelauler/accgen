@@ -124,6 +124,16 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return REGISTERS;
 }
 
+<INITIAL>"register" {
+  yylval->num = 0;
+  return REGISTER;
+}
+
+<INITIAL>"programcounter" {
+  yylval->num = 0;
+  return PROGRAMCOUNTER;
+}
+
 <INITIAL>"imm" {
   yylval->num = 0;
   return IMM;

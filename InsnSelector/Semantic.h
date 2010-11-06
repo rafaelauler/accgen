@@ -204,7 +204,7 @@ namespace backendgen {
       RegisterClass(const std::string &ClassName);
       RegisterClass(const std::string &ClassName, const OperandType &OpType);
       bool addRegister(Register *Reg);
-      bool hasRegister(Register *Reg);
+      bool hasRegister(const Register *Reg);
       bool hasRegisterName(const std::string &RegName);
       const std::string &getName() const;
       OperandType getOperandType() const;
@@ -242,15 +242,18 @@ namespace backendgen {
     // Defines a register class manager
     class RegClassManager {
     public:
+      RegClassManager();
       ~RegClassManager();
       bool addRegClass(RegisterClass *RegClass);
       bool addRegister(Register *Reg);
       bool addCalleeSaveRegister(Register *Reg);
       bool addReservedRegister(Register *Reg);
       void addCallingConvention(CallingConvention* Elem);
+      void setProgramCounter(const Register* Reg);
+      void setReturnRegister(const Register* Reg);
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
-      RegisterClass *getRegRegClass(Register* Reg);
+      RegisterClass *getRegRegClass(const Register* Reg);      
       std::set<RegisterClass*>::const_iterator getBegin() const;
       std::set<RegisterClass*>::const_iterator getEnd() const;
       std::set<Register*>::const_iterator getRegsBegin() const;
@@ -261,12 +264,16 @@ namespace backendgen {
       std::set<Register*>::const_iterator getCalleeSEnd() const;
       std::list<CallingConvention*>::const_iterator getCCBegin() const;
       std::list<CallingConvention*>::const_iterator getCCEnd() const;
+      const Register *getProgramCounter() const;
+      const Register *getReturnRegister() const;
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;
       std::set<Register *> CalleeSaveRegisters;
       std::set<Register *> ReservedRegisters;
       std::list<CallingConvention*> CallConvs;
+      const Register* ProgramCounter;
+      const Register* ReturnRegister;
     };
 
     // This class stores and manages fragments of instruction semantic, used

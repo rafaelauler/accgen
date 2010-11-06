@@ -68,7 +68,8 @@ void yyerror(char *error);
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
-%token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN
+%token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
+%token<num> PROGRAMCOUNTER
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -360,6 +361,18 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
                CC->StackAlign = $11;
 	       RegisterManager.addCallingConvention(CC);
              }
+	     | DEFINE RETURN REGISTER AS regdef SEMICOLON
+	     {
+	       Register *Reg = RegStack.top();
+	       RegisterManager.setReturnRegister(Reg);
+	       RegStack.pop();
+	     }             
+	     | DEFINE PROGRAMCOUNTER REGISTER AS regdef SEMICOLON
+	     {
+	       Register *Reg = RegStack.top();
+	       RegisterManager.setProgramCounter(Reg);
+	       RegStack.pop();
+	     }
              ;
 
 convtype:    RETURN { $$ = 1; }

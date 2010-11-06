@@ -526,6 +526,43 @@ TemplateManager::PostprocessLLVMDAGString(const string &S, SDNode *DAG) {
   return Result;
 }
 
+// Generate the implementation for RETFLAG pattern based on calling
+// conventions
+void TemplateManager::generateReturnPattern(std::ostream &Log,
+					    map<string, MatcherCode> *Map,
+					    stringstream *SSfunc,
+					    stringstream *SSheaders) {  
+  const Register* PC = RegisterClassManager.getProgramCounter();
+  const Register* LR = RegisterClassManager.getReturnRegister();
+  const RegisterClass* PCRC = RegisterClassManager.getRegRegClass(PC);
+  const RegisterClass* LRRC = RegisterClassManager.getRegRegClass(LR);
+  
+  assert(LR != NULL && "Need to have return register defined.");
+  assert(LRRC != NULL && "Return reg must have a class.");
+  assert(PC != NULL && "Need to have program counter register defined.");
+  assert(PCRC != NULL && "Program counter must have a class.");
+  
+  Log << "Now finding implementation for RETURN based on calling conventions\n";
+  
+  const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
+	  RegisterClassManager, PCRC->getName(), PC->getName(),
+	  LRRC->getName(), LR->getName());
+  SearchResult *SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    std::cerr << "Failed: Could not find implementation for pattern. "
+      << "\n";
+    abort();
+  }    
+  //FIXME: return emit function id is fixed at 30000 magic number
+  (*SSfunc) << PatTrans.genEmitSDNode(SR, "(ret)", 30000) << endl;
+  (*SSheaders) << PatTrans.genEmitSDNodeHeader(30000);
+  stringstream temp;
+  temp << "EmitFunc30000";
+  PatTrans.genSDNodeMatcher("(ret)", *Map, temp.str());
+  std::cerr << SSfunc->str();        
+  return;    
+}
+
 // Here we must find the implementation of several simple patterns. For that
 // we use the search algorithm.
 void TemplateManager::generateSimplePatterns(std::ostream &Log, 					     
@@ -554,7 +591,8 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     temp << "EmitFunc" << count;
     PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());
     std::cerr << SSfunc.str();        
-  }
+  }  
+  generateReturnPattern(Log, &Map, &SSfunc, &SSheaders);  
   stringstream SSswitch;
   for (map<string, MatcherCode>::iterator I = Map.begin(), E = Map.end();
        I != E; ++I) {

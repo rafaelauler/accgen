@@ -126,6 +126,8 @@ define abi as (
   define reserved registers as    (r29  r30  r31);
   define calling convention for int as stack size 4 alignment 4;
   define return convention for int as (r8 r9 r10);
+  define programcounter register as r15;
+  define return register as r14;
 );
 
 //==================-- Instruction semantic fragments --======================//

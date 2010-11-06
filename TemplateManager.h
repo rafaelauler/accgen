@@ -50,6 +50,10 @@ class TemplateManager {
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
+  void generateReturnPattern(std::ostream &Log,
+			     std::map<std::string, MatcherCode> *Map,
+			     std::stringstream *SSfunc,
+			     std::stringstream *SSheaders);
   void generateSimplePatterns(std::ostream &Log, std::string **EmitFunctions,
 			      std::string **SwitchCode, 
 			      std::string **EmitHeaders);
