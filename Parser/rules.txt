@@ -280,9 +280,8 @@ define instruction mov2 semantic as (
 //  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (
- // let Op1 = "", Op2 = "" in
- //   {SR:CPSR == const:int:1} ->  	
- // 	   (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
+ let Op1 = "", Op2 = "" in 
+   (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
 ) cost 1;
 
 //====-- TEQ --====//

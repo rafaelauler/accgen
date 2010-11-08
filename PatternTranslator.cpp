@@ -821,11 +821,13 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     NameListType* OpNames = *(OI++);
     sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
+    const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     // Building DAG Node for this instruction
     SS << "    BuildMI(MBB, I, get(";
     //TODO: Replace hardwired Sparc16!
     SS << "Sparc16::" << I->first->getLLVMName();  
-    SS << "))";
+    SS << ")";
+    stringstream SSOperands;
             
     if (Bindings != NULL) {
       assert(OpNames->size() + Bindings->size() == AllOps->size()
@@ -835,10 +837,24 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	     && "Inconsistency. Missing sufficient bindings?");
     }
     unsigned i = 0;
+    bool hasDef = false;
     NameListType::const_iterator NI = OpNames->begin();
     for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
 	   E2 = AllOps->end(); I2 != E2; ++I2) {
       const Operand *Element = *I2;     
+      // Do not include outs operands in input list
+      if (reinterpret_cast<const void*>(Element) == 
+	  reinterpret_cast<const void*>(DefOperand) &&
+	  !hasDef) {
+	// This is the defined operand
+	assert (dynamic_cast<const RegisterOperand*>(Element) &&
+	  "Currently only support register operand definition");
+	SS << ", " << *NI;
+	++NI;
+	++i;
+	hasDef = true;
+	continue;
+      }
       // DUMMY
       if (Element->getType() == 0) {		
 	// See if bindings list has a definition for it
@@ -849,7 +865,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	      if(ExtractOperandNumber(I->first) == i + 1) {
 		//TODO: Find a way to pass this information
 		// in I->second to the AssemblerWritter
-		SS << ".addImm(0)";		
+		SSOperands << ".addImm(0)";		
 		break;
 	      }
 	    }
@@ -859,7 +875,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	}
 	// No bindings for this dummy
 	// TODO: ABORT? Wait for side effect compensation processing?
-	SS << ".addImm(0)";		
+	SSOperands << ".addImm(0)";		
 	++i;
 	continue;
       }
@@ -870,7 +886,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
             
       if (Defs.find(*NI) != Defs.end()) {	
 	StringMap::const_iterator CI = Defs.find(*NI);
-	SS << ".add" << CI->second << "(" << *NI << ")";	
+	SSOperands << ".add" << CI->second << "(" << *NI << ")";	
 	++NI;
 	++i;
 	continue;
@@ -891,7 +907,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	  DeclarationsStream << "CurDAG->getMachineFunction().getRegInfo()"
 	    << ".createVirtualRegister(TRC" << *NI << "); " <<  endl;
 	}
-	SS << ".addReg(" << *NI << ")";	
+	SSOperands << ".addReg(" << *NI << ")";	
 	++NI;
 	++i;
 	continue;
@@ -899,6 +915,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       // Not a scratch register operand... 
       assert (0 && "Non-scratch operands must be defined in DefList");
     }    
+    SS << ")" << SSOperands.str();
     SS << ";" << endl;
     // Housekeeping
     delete AllOps;
