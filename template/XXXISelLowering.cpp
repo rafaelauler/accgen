@@ -65,10 +65,12 @@ static SDValue LowerRET(SDValue Op, SelectionDAG &DAG) {
     // Guarantee that all emitted copies are stuck together with flags.
     Flag = Chain.getValue(1);
   }
+  
+__return_lowering__
 
-  if (Flag.getNode())
-    return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain, Flag);
-  return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain);
+  //if (Flag.getNode())
+  //  return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain, Flag);
+  //return DAG.getNode(`'__arch_in_caps__`'ISD::RET_FLAG, MVT::Other, Chain);
 }
 
 //===----------------------------------------------------------------------===//
