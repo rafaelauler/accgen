@@ -66,7 +66,7 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__data_layout_string__',`";
   O << buildDataLayoutString() << "')m4_dnl\n";
   O << "m4_define(`__return_lowering__',`";
-  O << generateReturnLowering() << "')m4_dnl\n";
+  O << generateReturnLowering() << "')m4_dnl\n";  
   O << "m4_define(`__set_up_register_classes__',`";
   O << generateRegisterClassesSetup() << "')m4_dnl\n";
   generateSimplePatterns(std::cout, &Funcs, &Switch, &Headers);
@@ -79,6 +79,11 @@ void TemplateManager::CreateM4File()
   
   O << "m4_define(`__copyregpats__',`";
   O << generateCopyRegPatterns(std::cout) << "')m4_dnl\n";
+  
+  // Print literals are only available AFTER all pattern
+  // generation inference!
+  O << "m4_define(`__print_literal__',`";
+  O << generatePrintLiteral() << "')m4_dnl\n";
   
   
   delete Funcs;
@@ -438,6 +443,19 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   return R;                 
 }
 
+string TemplateManager::generatePrintLiteral() {
+  stringstream SS;
+  
+  SS << "  unsigned index = (unsigned) MI->getOperand(opNum).getImm();\n";
+  SS << "  switch(index) {" << endl;
+  LMap.printAll(SS);
+  SS << "  default: assert (0 && \"Unknown literal index in"
+        " AssemblyWritter!\");" << endl;
+  SS << "  }" << endl;
+  
+  return SS.str();
+}
+
 string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
   stringstream SS;
   StringMap Defs;
@@ -469,7 +487,7 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
 	SS << "    // Could not infer code to make this transfer" << endl;
 	SS << "    return false;" << endl;
       } else {
-	SS << PatTrans.genEmitMI(SR, Defs);
+	SS << PatTrans.genEmitMI(SR, Defs, &LMap);
       }
       SS << "  } ";
     }
@@ -504,7 +522,7 @@ TemplateManager::PostprocessLLVMDAGString(const string &S, SDNode *DAG) {
       continue;
     }
     // If dummy
-    if (Element->IsLiteral)
+    if (Element->LiteralIndex != 0)
       continue;
     // If leaf and not dummy, check the name and, if this name can
     // be found in the LLVM DAG string, change the LLVM node to its type
@@ -577,7 +595,7 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	I->Name << "\n";
       abort();
     }    
-    SSfunc << PatTrans.genEmitSDNode(SR, I->LLVMDAG, count) << endl;
+    SSfunc << PatTrans.genEmitSDNode(SR, I->LLVMDAG, count, &LMap) << endl;
     SSheaders << PatTrans.genEmitSDNodeHeader(count);
     stringstream temp;
     temp << "EmitFunc" << count;

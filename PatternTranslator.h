@@ -37,7 +37,9 @@ namespace backendgen {
     // In case this node represents a leaf operand and is a literal value 
     // (i.e. in a "dummy" operand, defined by "let" clauses). In this case,
     // we need to write it using the LLVM Assembly Writter.
-    bool IsLiteral; 
+    // The index identifies the literal string in a map. If it is zero, then
+    // this node is not literal.
+    unsigned LiteralIndex; 
     // If specific register, we need to print it differently, as LLVM will
     // already known this name and recognize as a register.
     bool IsSpecificReg;
@@ -65,6 +67,18 @@ namespace backendgen {
     void inline AppendCode(const std::string& S);
   };
   
+  // This class stores a map of literal strings, that is, a string table
+  // to store operands with a fixed name in the code gen. This LiteralMap
+  // is later reproduced into AsmWritter backend class, so it can print
+  // the correct strings since we use only int indexes to them into IL.
+  class LiteralMap : public std::map<unsigned, std::string> {
+    unsigned CurrentIndex;
+  public:
+    LiteralMap(): std::map<unsigned, std::string>(), CurrentIndex(1) {}
+    unsigned addMember(const std::string& Name);
+    void printAll(std::ostream& O);
+  };
+  
   struct PTParseErrorException {};  
 
   typedef std::map<std::string, std::string> StringMap;
@@ -83,7 +97,7 @@ namespace backendgen {
   class PatternTranslator {
     OperandTableManager &OperandTable;
     void sortOperandsDefs(NameListType* OpNames, SemanticIterator SI);
-    SDNode *generateInsnsDAG(SearchResult *SR);
+    SDNode *generateInsnsDAG(SearchResult *SR, LiteralMap* LMap);
     SDNode *parseLLVMDAGString(const std::string &S);
     SDNode *parseLLVMDAGString(const std::string &S, unsigned *pos);
   public:
@@ -98,7 +112,7 @@ namespace backendgen {
     std::string genEmitSDNodeHeader(unsigned FuncID);
     // Code
     std::string genEmitSDNode(SearchResult *SR, const std::string& L,
-			         unsigned FuncID);
+			         unsigned FuncID, LiteralMap* LMap);
     void genEmitSDNode(SDNode* N, SDNode* LLVMDAG, 
 			  const std::list<unsigned>& pathToNode,
 			  std::ostream &S);
@@ -108,7 +122,8 @@ namespace backendgen {
 			 const std::string &EmitFuncName);
 			 
     // * Translating patterns to LLVM's instruction scheduling phase *
-    std::string genEmitMI(SearchResult *SR, const StringMap& Defs);
+    std::string genEmitMI(SearchResult *SR, const StringMap& Defs,
+			  LiteralMap *LMap);
   };
 
 }

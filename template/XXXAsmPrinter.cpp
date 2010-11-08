@@ -210,13 +210,44 @@ PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
 void __arch__`'AsmPrinter::
 printLiteral(const MachineInstr *MI, int opNum) 
 {
-
+__print_literal__
 }
 
 void __arch__`'AsmPrinter::
 printOperand(const MachineInstr *MI, int opNum) 
 {
-  
+  const MachineOperand &MO = MI->getOperand (opNum);
+  const TargetRegisterInfo &RI = *TM.getRegisterInfo();  
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    if (TargetRegisterInfo::isPhysicalRegister(MO.getReg()))
+      O << LowercaseString (RI.get(MO.getReg()).AsmName);
+    else
+      O << "%reg" << MO.getReg();
+    break;
+
+  case MachineOperand::MO_Immediate:
+    O << (int)MO.getImm();
+    break;
+  case MachineOperand::MO_MachineBasicBlock:
+    printBasicBlockLabel(MO.getMBB());
+    return;
+  case MachineOperand::MO_GlobalAddress:
+    {
+      const GlobalValue *GV = MO.getGlobal();
+      O << Mang->getValueName(GV);
+    }
+    break;
+  case MachineOperand::MO_ExternalSymbol:
+    O << MO.getSymbolName();
+    break;
+  case MachineOperand::MO_ConstantPoolIndex:
+    O << TAI->getPrivateGlobalPrefix() << "CPI" << getFunctionNumber() << "_"
+      << MO.getIndex();
+    break;
+  default:
+    O << "<unknown operand type>"; abort (); break;
+  }
 }
 
 void __arch__`'AsmPrinter::

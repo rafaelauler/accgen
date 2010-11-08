@@ -36,7 +36,7 @@ SDNode::SDNode() {
   OpName = NULL;
   ops = NULL;
   NumOperands = 0;
-  IsLiteral = false;
+  LiteralIndex = 0;
   IsSpecificReg = false;
 }
 
@@ -88,16 +88,16 @@ void SDNode::Print(std::ostream &S) {
       S << ")";
     }
   } else if (OpName != NULL) {
-    if (IsLiteral)
-      // TODO: Calculate a meaningful index and use it to inform 
+    if (LiteralIndex != 0)
+      // Calculated a meaningful index so use it to inform 
       // AssemblyWriter which string to use here.
-      S << "(i32 0)" << *OpName;
+      S << "(i32 " << LiteralIndex << ")" << *OpName;
     else
       S << TypeName << ":`$'" << *OpName;
   }
 }
 
-// =================== MatcherCoder class members =========================
+// =================== MatcherCode class members ==========================
 	    
 void
 MatcherCode::Print (std::ostream & S)
@@ -109,6 +109,36 @@ MatcherCode::Print (std::ostream & S)
 
 void MatcherCode::AppendCode (const std::string& S) {
   Code.append(S);
+}
+
+// =================== LiteralMap class members ===========================
+
+// This member function adds a new member to the string table and returns
+// its index. If the string already exists, no new member is added, but a
+// index to the already existing string is returned.
+unsigned LiteralMap::addMember(const string& Name) {
+  bool found = false;
+  LiteralMap::const_iterator I, E;
+  for (I = this->begin(), E = this->end(); I != E; ++I) {
+    if (I->second == Name) {
+      found = true;
+      break;
+    }    
+  }
+  if (found)
+    return I->first;
+  
+  (*this)[CurrentIndex] = Name;
+  return CurrentIndex++;  
+}
+
+void LiteralMap::printAll(std::ostream& O) {
+  for (LiteralMap::const_iterator I = this->begin(), E = this->end();
+       I != E; ++I) {
+    O << "  case " << I->first << ":" << endl;  
+    O << "    O << \"" << I->second << "\";" << endl;
+    O << "    break;" << endl;    
+  }
 }
 
 // ================ PatternTranslator class members =======================
@@ -215,7 +245,8 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
 // operands.
 // BUG: What to do when the root of the dag assigns to a register
 // bound by VirtualToRealmap? How to handle Defs by Real registers?
-SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
+SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR, 
+  LiteralMap* LMap) {
   DefList Defs;
   SDNode *LastProcessedNode, *NoDefNode = NULL;
   // The idea is to discover the "outs" operands of the first instructions
@@ -272,14 +303,14 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR) {
       // dummy operand?
       if (Element->getType() == 0) {	
 	N->ops[i] = new SDNode();
-	N->ops[i]->IsLiteral = true;
+	
 	// See if bindings list has a definition for it
 	if (Bindings != NULL) {
 	  for (BindingsList::const_iterator I = Bindings->begin(),
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
 	      if(ExtractOperandNumber(I->first) == i + 1) {
-		N->ops[i]->OpName = new std::string(I->second);
+		N->ops[i]->LiteralIndex = LMap->addMember(I->second);
 		// Here we leave N->TypeName empty, because a 
 		// dummy operand does not have type.
 		++i;
@@ -485,11 +516,12 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   if (N->RefInstr != NULL)
    return;        
   const string NodeName = buildNodeName(pathToNode);
-  if (N->IsLiteral) {
+  if (N->LiteralIndex != 0) {
     S << "  SDValue " << NodeName << " = ";
-    //TODO: Generate an index for a string table, included in
+    //Generated an index for a string table, included in
     //SelectionDAG class, and use it as target constant.
-    S << "CurDAG->getTargetConstant(0x0ULL, MVT::i32);" << endl;
+    S << "CurDAG->getTargetConstant("<< N->LiteralIndex 
+      << "ULL, MVT::i32);" << endl;
     return;
   }
   // If not literal, then check if it matches some operand in LLVMDAG
@@ -550,10 +582,11 @@ std::string PatternTranslator::genEmitSDNodeHeader(unsigned FuncID) {
 
 std::string PatternTranslator::genEmitSDNode(SearchResult *SR,
 						const std::string& LLVMDAGStr,
-						unsigned FuncID) {
+						unsigned FuncID, 
+					        LiteralMap* LMap) {
   std::stringstream SS;
   list<unsigned> pathToNode;
-  SDNode *RootNode = generateInsnsDAG(SR);
+  SDNode *RootNode = generateInsnsDAG(SR, LMap);
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
   SS << "SDNode* __arch__`'DAGToDAGISel::EmitFunc" << FuncID 
      << "(SDValue& N) {" << endl;
@@ -808,7 +841,8 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 // to convert our internal notation to a DAG as an intermediary step for 
 // translation.
 
-std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs) {
+std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs,
+					 LiteralMap *LMap) {
   std::stringstream SS, DeclarationsStream;
   set<string> DeclaredVirtuals;
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
@@ -863,9 +897,8 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
 	      if(ExtractOperandNumber(I->first) == i + 1) {
-		//TODO: Find a way to pass this information
-		// in I->second to the AssemblerWritter
-		SSOperands << ".addImm(0)";		
+		unsigned index = LMap->addMember(I->second);
+		SSOperands << ".addImm("<< index << ")";		
 		break;
 	      }
 	    }

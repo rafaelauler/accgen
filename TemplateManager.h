@@ -35,6 +35,7 @@ class TemplateManager {
   // Working directory where macro files are created and output
   // is stored.
   const char * WorkingDir;
+  LiteralMap LMap;
   
   // Private members
   void CreateM4File();
@@ -46,6 +47,7 @@ class TemplateManager {
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
   std::string generateCallingConventions();
+  std::string generatePrintLiteral();
   std::string generateCopyRegPatterns(std::ostream &Log);
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);
