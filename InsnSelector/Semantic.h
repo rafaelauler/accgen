@@ -251,6 +251,7 @@ namespace backendgen {
       void addCallingConvention(CallingConvention* Elem);
       void setProgramCounter(const Register* Reg);
       void setReturnRegister(const Register* Reg);
+      void setFramePointer(const Register* Reg);
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
       RegisterClass *getRegRegClass(const Register* Reg);      
@@ -266,6 +267,7 @@ namespace backendgen {
       std::list<CallingConvention*>::const_iterator getCCEnd() const;
       const Register *getProgramCounter() const;
       const Register *getReturnRegister() const;
+      const Register *getFramePointer() const;
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;
@@ -274,6 +276,7 @@ namespace backendgen {
       std::list<CallingConvention*> CallConvs;
       const Register* ProgramCounter;
       const Register* ReturnRegister;
+      const Register* FramePointer;
     };
 
     // This class stores and manages fragments of instruction semantic, used

@@ -33,6 +33,8 @@ void TemplateManager::CreateM4File()
   string FileName = WorkingDir;
   string ArchNameCaps;
   string *Funcs, *Switch, *Headers;
+  const Register* LR = RegisterClassManager.getReturnRegister();
+  const Register* FP = RegisterClassManager.getFramePointer();
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
@@ -49,6 +51,10 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
   O << "m4_define(`__wordsize__',`" << WordSize << "')m4_dnl\n"; 
+  O << "m4_define(`__ra_register__',`" << ArchName << "::"
+    << LR->getName() << "')m4_dnl\n"; 
+  O << "m4_define(`__frame_register__',`" << ArchName <<  "::"
+    << FP->getName() << "')m4_dnl\n"; 
   O << "m4_define(`__registers_definitions__',`";
   O << generateRegistersDefinitions() << "')m4_dnl\n";
   O << "m4_define(`__register_classes__',`";
@@ -194,11 +200,38 @@ string TemplateManager::generateCalleeSaveRegClasses() {
 // Generates a reserved regs list code used in XXXRegisterInfo.cpp
 string TemplateManager::generateReservedRegsList() {
   stringstream SS;
+  const Register* PC = RegisterClassManager.getProgramCounter();
+  const Register* LR = RegisterClassManager.getReturnRegister();
+  const Register* FP = RegisterClassManager.getFramePointer();
+  bool isPCReserved = false;
+  bool isLRReserved = false;
+  bool isFPReserved = false;
 
   for (set<Register*>::const_iterator
 	 I = RegisterClassManager.getReservedBegin(),
 	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {
-    SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");\n";
+    SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");"
+       << endl;
+    if (PC->getName() == (*I)->getName()) {
+      isPCReserved = true;
+    } else if (LR->getName() == (*I)->getName()) {
+      isLRReserved = true;
+    } else if (FP->getName() == (*I)->getName()) {
+      isFPReserved = true;
+    }
+  }
+  // Guarantee that these registers are always reserved
+  if (!isPCReserved) {
+    SS << "  Reserved.set(" << ArchName << "::" << PC->getName() << ");" 
+       << endl;
+  }
+  if (!isLRReserved) {
+    SS << "  Reserved.set(" << ArchName << "::" << LR->getName() << ");" 
+       << endl;
+  }
+  if (!isFPReserved) {
+    SS << "  Reserved.set(" << ArchName << "::" << FP->getName() << ");" 
+       << endl;
   }
   return SS.str();
 }
@@ -217,6 +250,19 @@ string TemplateManager::generateRegisterClassesSetup() {
   return SS.str();
 }
 
+namespace {
+inline bool isReserved(RegClassManager& RegisterClassManager, Register* reg) {
+  for (set<Register*>::const_iterator
+	 I = RegisterClassManager.getReservedBegin(),
+	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {   
+    if (reg->getName() == (*I)->getName()) {
+      return true;
+    } 
+  }
+  return false;
+}
+}
+
 // Generates the XXXRegisterInfo.td register classes
 string TemplateManager::generateRegisterClassesDefinitions() {
   stringstream SS;
@@ -227,18 +273,57 @@ string TemplateManager::generateRegisterClassesDefinitions() {
     SS << "def " << (*I)->getName() << ": RegisterClass<\"" << ArchName;
     // XXX: Support different alignments! (Hardcoded as 32)
     SS << "\", [" << InferValueType(*I) << "], 32, [";
-    // Iterates through all registers in this class
+    // Iterates through all registers in this class,
+    // leaves reserved registers at the end of the list
+    bool hasReserved = false;
+    bool hasNonReserved = false;
     for (set<Register*>::const_iterator R = (*I)->getBegin(),
 	   E2 = (*I)->getEnd(); R != E2; ++R) {
-      if (R != (*I)->getBegin())
+      if (isReserved(RegisterClassManager, *R)) {
+	hasReserved = true;
+	continue;
+      }      
+      if (hasNonReserved)
 	SS << ",";
       SS << (*R)->getName();     
+      hasNonReserved = true;
     }
-    SS << "]>;\n\n";
+    // print separator
+    if (hasNonReserved && hasReserved)
+      SS << ",";
+    // Now print reserved registers
+    unsigned numReserved = 0;
+    for (set<Register*>::const_iterator R = (*I)->getBegin(),
+	   E2 = (*I)->getEnd(); R != E2; ++R) {
+      if (!isReserved(RegisterClassManager, *R))	
+	continue;      
+      if (numReserved > 0)
+	SS << ",";
+      SS << (*R)->getName();     
+      ++numReserved;
+    }
+    SS << "]>";    
+    if (!hasReserved) {
+      SS << ";" << endl << endl;
+      continue;
+    } 
+    // hasReserved = true, so now print method to avoid allocation of reserved
+    // regs    
+    SS << "{" << endl;
+    SS << "  let MethodProtos = [{" << endl;
+    SS << "    iterator allocation_order_end(const MachineFunction &MF) const;"
+       << endl;
+    SS << "  }];" << endl;
+    SS << "  let MethodBodies = [{" << endl;
+    SS << "    " << (*I)->getName() << "Class::iterator" << endl;
+    SS << "    " << (*I)->getName() << "Class::allocation_order_end"
+      "(const MachineFunction &MF) const {" << endl;      
+    SS << "      return end()-" << numReserved <<";" << endl;
+    SS << "    }" << endl;
+    SS << "  }];" << endl;    
+    SS << "}" << endl << endl;    
     // TODO: Support for infinite copy cost class of registers (registers
-    // that shouldn't be copied
-    // TODO: Support for reserved registers types that shouldn't be
-    // used in the register allocator (see MIPS example).
+    // that shouldn't be copied    
   }
 
   return SS.str();

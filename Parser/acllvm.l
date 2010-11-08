@@ -134,6 +134,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return PROGRAMCOUNTER;
 }
 
+<INITIAL>"framepointer" {
+  yylval->num = 0;
+  return FRAMEPOINTER;
+}
+
 <INITIAL>"imm" {
   yylval->num = 0;
   return IMM;

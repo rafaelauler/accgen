@@ -24,9 +24,9 @@ __arch__`'InstrInfo::__arch__`'InstrInfo(__arch__`'Subtarget &ST)
     RI(ST, *this), Subtarget(ST) {
 }
 
-static bool isZeroImm(const MachineOperand &op) {
-  return op.isImm() && op.getImm() == 0;
-}
+//static bool isZeroImm(const MachineOperand &op) {
+//  return op.isImm() && op.getImm() == 0;
+//}
 
 /// Return true if the instruction is a register to register move and
 /// leave the source and dest operands in the passed parameters.

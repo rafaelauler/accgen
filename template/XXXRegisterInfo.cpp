@@ -155,12 +155,12 @@ processFunctionBeforeFrameFinalized(MachineFunction &MF) const {
 
 unsigned __arch__`'RegisterInfo::
 getRARegister() const {
-  return 0;
+  return __ra_register__;
 }
 
 unsigned __arch__`'RegisterInfo::
 getFrameRegister(MachineFunction &MF) const {
-  return 0;
+  return __frame_register__;
 }
 
 unsigned __arch__`'RegisterInfo::

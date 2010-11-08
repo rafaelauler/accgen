@@ -69,7 +69,7 @@ void yyerror(char *error);
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
-%token<num> PROGRAMCOUNTER
+%token<num> PROGRAMCOUNTER FRAMEPOINTER
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -364,13 +364,37 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	     | DEFINE RETURN REGISTER AS regdef SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
+	       if (RegisterManager.getReturnRegister()) {
+	         std::cerr << "Line " << LineNumber << ": Return "
+		           << "register redefinition.\n ";
+		 ClearStack();
+		 YYERROR;
+	       }
 	       RegisterManager.setReturnRegister(Reg);
 	       RegStack.pop();
 	     }             
 	     | DEFINE PROGRAMCOUNTER REGISTER AS regdef SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
+	       if (RegisterManager.getProgramCounter()) {
+	         std::cerr << "Line " << LineNumber << ": Program "
+		           << "counter redefinition.\n ";
+		 ClearStack();
+		 YYERROR;
+	       }
 	       RegisterManager.setProgramCounter(Reg);
+	       RegStack.pop();
+	     }
+	     | DEFINE FRAMEPOINTER REGISTER AS regdef SEMICOLON
+	     {
+	       Register *Reg = RegStack.top();
+	       if (RegisterManager.getFramePointer()) {
+	         std::cerr << "Line " << LineNumber << ": Frame "
+		           << "pointer redefinition.\n ";
+		 ClearStack();
+		 YYERROR;
+	       }
+	       RegisterManager.setFramePointer(Reg);
 	       RegStack.pop();
 	     }
              ;

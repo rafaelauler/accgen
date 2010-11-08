@@ -358,12 +358,21 @@ namespace backendgen {
       ReturnRegister = Reg;
     }
     
+    void RegClassManager::setFramePointer(const Register* Reg)
+    {
+      FramePointer = Reg;
+    }
+    
     const Register* RegClassManager::getProgramCounter() const {
       return ProgramCounter;
     }
     
     const Register* RegClassManager::getReturnRegister() const {
       return ReturnRegister;
+    }
+    
+    const Register* RegClassManager::getFramePointer() const {
+      return FramePointer;
     }
 
     // Adds one register to the list of reserved registers. Same restrictions
