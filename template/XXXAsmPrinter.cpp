@@ -295,9 +295,108 @@ doInitialization(Module &M)
   return false; // success
 }
 
+void __arch__`'AsmPrinter::
+printModuleLevelGV(const GlobalVariable* GVar) {
+  const TargetData *TD = TM.getTargetData();
+
+  if (!GVar->hasInitializer())
+    return;   // External global require no code
+
+  // Check to see if this is a special global used by LLVM, if so, emit it.
+  if (EmitSpecialLLVMGlobal(GVar))
+    return;
+
+  O << "\n\n";
+  std::string name = Mang->getValueName(GVar);
+  Constant *C = GVar->getInitializer();
+  const Type *CTy = C->getType();
+  unsigned Size = TD->getTypePaddedSize(CTy);
+  const ConstantArray *CVA = dyn_cast<ConstantArray>(C);
+  bool printSizeAndType = true;
+
+  // A data structure or array is aligned in memory to the largest
+  // alignment boundary required by any data type inside it (this matches
+  // the Preferred Type Alignment). For integral types, the alignment is
+  // the type size.
+  unsigned Align;
+  if (CTy->getTypeID() == Type::IntegerTyID ||
+      CTy->getTypeID() == Type::VoidTyID) {
+    assert(!(Size & (Size-1)) && "Alignment is not a power of two!");
+    Align = Log2_32(Size);
+  } else
+    Align = TD->getPreferredTypeAlignmentShift(CTy);
+
+  printVisibility(name, GVar->getVisibility());
+
+  SwitchToSection(TAI->SectionForGlobal(GVar));
+
+  if (C->isNullValue() && !GVar->hasSection()) {
+    if (!GVar->isThreadLocal() &&
+        (GVar->hasLocalLinkage() || GVar->mayBeOverridden())) {
+      if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
+
+      if (GVar->hasLocalLinkage())
+        O << "\t.local\t" << name << '\n';
+
+      O << TAI->getCOMMDirective() << name << ',' << Size;
+      if (TAI->getCOMMDirectiveTakesAlignment())
+        O << ',' << (1 << Align);
+
+      O << '\n';
+      return;
+    }
+  }
+  switch (GVar->getLinkage()) {
+   case GlobalValue::LinkOnceLinkage:
+   case GlobalValue::CommonLinkage:
+   case GlobalValue::WeakLinkage:
+    // FIXME: Verify correct for weak.
+    // Nonnull linkonce -> weak
+    O << "\t.weak " << name << '\n';
+    break;
+   case GlobalValue::AppendingLinkage:
+    // FIXME: appending linkage variables should go into a section of their name
+    // or something.  For now, just emit them as external.
+   case GlobalValue::ExternalLinkage:
+    // If external or appending, declare as a global symbol
+    O << TAI->getGlobalDirective() << name << '\n';
+    // Fall Through
+   case GlobalValue::PrivateLinkage:
+   case GlobalValue::InternalLinkage:
+    if (CVA && CVA->isCString())
+      printSizeAndType = false;
+    break;
+   case GlobalValue::GhostLinkage:
+    cerr << "Should not have any unmaterialized functions!\n";
+    abort();
+   case GlobalValue::DLLImportLinkage:
+    cerr << "DLLImport linkage is not supported by this target!\n";
+    abort();
+   case GlobalValue::DLLExportLinkage:
+    cerr << "DLLExport linkage is not supported by this target!\n";
+    abort();
+   default:
+    assert(0 && "Unknown linkage type!");
+  }
+
+  EmitAlignment(Align, GVar);
+
+  if (TAI->hasDotTypeDotSizeDirective() && printSizeAndType) {
+    O << "\t.type " << name << ",@object\n";
+    O << "\t.size " << name << ',' << Size << '\n';
+  }
+
+  O << name << ":\n";
+  EmitGlobalConstant(C);
+}
+
 bool __arch__`'AsmPrinter::
 doFinalization(Module &M)
 {
+  // Print out module-level global variables here.
+  for (Module::const_global_iterator I = M.global_begin(),
+         E = M.global_end(); I != E; ++I)
+    printModuleLevelGV(I);
   O << '\n';
 
   return AsmPrinter::doFinalization(M);
