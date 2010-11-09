@@ -302,6 +302,10 @@ namespace backendgen {
     {
       ProgramCounter = NULL;
       ReturnRegister = NULL;
+      FramePointer = NULL;
+      StackPointer = NULL;
+      GrowsUp = false;
+      Alignment = 0;
     }
 
 
@@ -358,6 +362,11 @@ namespace backendgen {
       ReturnRegister = Reg;
     }
     
+    void RegClassManager::setStackPointer(const Register* Reg)
+    {
+      StackPointer = Reg;
+    }
+    
     void RegClassManager::setFramePointer(const Register* Reg)
     {
       FramePointer = Reg;
@@ -373,6 +382,10 @@ namespace backendgen {
     
     const Register* RegClassManager::getFramePointer() const {
       return FramePointer;
+    }
+    
+    const Register* RegClassManager::getStackPointer() const {
+      return StackPointer;
     }
 
     // Adds one register to the list of reserved registers. Same restrictions
@@ -628,6 +641,8 @@ namespace backendgen {
     }
     
     
+    /// Generate semantics to find instruction to perform register to
+    /// register copy.
     const Tree* PatternManager::genCopyRegToRegPat(OperatorTableManager& OpMan,
 							 RegClassManager& RegMan,
 							 const std::string& DestRC,
@@ -640,6 +655,34 @@ namespace backendgen {
       RegisterOperand *RHS = new RegisterOperand(RegClassSrc, Src);
       return new AssignOperator(OpMan, LHS, RHS, NULL);
     }
+    
+    /// Generate semantics to find instruction to perform addition
+    /// or subtraction by an immediate
+    const Tree* 
+    PatternManager::genCopyAddSubImmPat(OperatorTableManager& OpMan,
+					OperandTableManager& OM,
+					RegClassManager& RegMan,
+					bool isAddition,
+					const std::string& DestRC,
+					const std::string& Dest,
+					const std::string& SrcRC,
+					const std::string& Src,
+					const std::string& Imm) {
+      RegisterClass *RegClass = RegMan.getRegClass(DestRC);
+      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      OperatorType Ty;
+      if (isAddition)
+	Ty = OpMan.getType(AddOpStr);
+      else
+	Ty = OpMan.getType(SubOpStr);
+      Operator* RHS = Operator::BuildOperator(OpMan, Ty);
+      RegisterClass *SrcRegClass = RegMan.getRegClass(SrcRC);
+      (*RHS)[0] = new RegisterOperand(SrcRegClass, Src);
+      // FIXME: Should "immed" be a recognized internal operand type?
+      (*RHS)[1] = new ImmediateOperand(OM.getType("immed"), Imm);
+      return new AssignOperator(OpMan, LHS, RHS, NULL);
+    }
+    
 
     PatternManager::Iterator PatternManager::begin() {
       return PatList.begin();

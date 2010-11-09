@@ -26,9 +26,9 @@ namespace {
   
   string GetFrameIndex(const string &N) {
     stringstream SS;
-    SS << "CurDAG->getTargetConstant(dyn_cast<FrameIndexSDNode>(" 
+    SS << "CurDAG->getTargetFrameIndex(dyn_cast<FrameIndexSDNode>(" 
        << N
-       << ")->getIndex(), MVT::i32);"
+       << ")->getIndex(), TLI.getPointerTy());"
        << endl;    
     return SS.str();
   }

@@ -48,6 +48,10 @@ class TemplateManager {
   std::string generateInstructionsDefs();
   std::string generateCallingConventions();
   std::string generatePrintLiteral();
+  std::string generateEliminateCallFramePseudo(std::ostream &Log,
+					       bool isPositive);
+  std::string generateEmitPrologue(std::ostream &Log);
+  std::string generateEmitEpilogue(std::ostream &Log);
   std::string generateCopyRegPatterns(std::ostream &Log);
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);

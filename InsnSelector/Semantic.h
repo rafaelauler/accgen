@@ -251,7 +251,16 @@ namespace backendgen {
       void addCallingConvention(CallingConvention* Elem);
       void setProgramCounter(const Register* Reg);
       void setReturnRegister(const Register* Reg);
+      // Stack member functions
       void setFramePointer(const Register* Reg);
+      void setStackPointer(const Register* Reg);
+      void setGrowsUp(bool B) {
+	GrowsUp = B;
+      }
+      void setAlignment(unsigned A) {
+	Alignment = A;
+      }
+      // ---
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
       RegisterClass *getRegRegClass(const Register* Reg);      
@@ -265,9 +274,14 @@ namespace backendgen {
       std::set<Register*>::const_iterator getCalleeSEnd() const;
       std::list<CallingConvention*>::const_iterator getCCBegin() const;
       std::list<CallingConvention*>::const_iterator getCCEnd() const;
+      // Stack member functions
       const Register *getProgramCounter() const;
       const Register *getReturnRegister() const;
       const Register *getFramePointer() const;
+      const Register *getStackPointer() const;
+      unsigned getAlignment() { return Alignment; }
+      bool getGrowsUp() const { return GrowsUp; }
+      // ---
     private:
       std::set<RegisterClass *> RegClasses;
       std::set<Register *> Registers;
@@ -276,7 +290,11 @@ namespace backendgen {
       std::list<CallingConvention*> CallConvs;
       const Register* ProgramCounter;
       const Register* ReturnRegister;
+      // Stack information
+      const Register* StackPointer;
       const Register* FramePointer;
+      unsigned Alignment;
+      bool GrowsUp;
     };
 
     // This class stores and manages fragments of instruction semantic, used
@@ -521,6 +539,16 @@ namespace backendgen {
 	RegClassManager& Man,
 	const std::string& DestRC, const std::string& Dest,
 	const std::string& SrcRC, const std::string& Src);
+      static const Tree* 
+      genCopyAddSubImmPat(OperatorTableManager& OpMan,
+			  OperandTableManager& OM,
+			  RegClassManager& RegMan,
+			  bool isAddition,
+			  const std::string& DestRC,
+			  const std::string& Dest,
+			  const std::string& SrcRC,
+			  const std::string& Src,
+			  const std::string& Imm);
     };
 
   } // end namespace expression

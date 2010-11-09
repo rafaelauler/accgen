@@ -842,7 +842,11 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 // translation.
 
 std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs,
-					 LiteralMap *LMap) {
+					 LiteralMap *LMap,
+					 unsigned ident,
+					 const string& MBB,
+					 const string& Itr,
+					 const string& get){
   std::stringstream SS, DeclarationsStream;
   set<string> DeclaredVirtuals;
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
@@ -857,7 +861,9 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     // Building DAG Node for this instruction
-    SS << "    BuildMI(MBB, I, get(";
+    for (unsigned i = 0; i < ident; ++i)
+      SS << " "; 
+    SS << "BuildMI(" << MBB << ", " << Itr << ", " << get << "(";
     //TODO: Replace hardwired Sparc16!
     SS << "Sparc16::" << I->first->getLLVMName();  
     SS << ")";

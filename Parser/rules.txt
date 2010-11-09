@@ -64,12 +64,12 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
-  (transfer (memref imm:val:immed) imm:src:immed);
+  (transfer (memref (+ val:regs imm:val:immed)) imm:src:immed);
 );
 
 define pattern STOREFI as (
   "(store i32:$src, (frameindex i32:$val))";
-  (transfer (memref imm:val:immed) src:regs);
+  (transfer (memref (+ val:regs imm:val:immed)) src:regs);
 );
 
 define pattern STORE as (
@@ -79,7 +79,7 @@ define pattern STORE as (
 
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
-  (transfer a3:regs (memref imm:addr:immed));
+  (transfer a3:regs (memref (+ addr:regs imm:addr:immed)));
 );
 
 define pattern LOAD as (
@@ -125,10 +125,12 @@ define abi as (
   define callee save registers as (r5   r6   r7);
   define reserved registers as    (r13 r14 r15);
   define calling convention for int as stack size 4 alignment 4;
-  define return convention for int as (r8 r9 r10);
+  define return convention for int as (r0 r1);
   define programcounter register as r15;
-  define framepointer register as r13;
+  define stackpointer register as r13;
+  define framepointer register as r11;
   define return register as r14;
+  define stack grows down alignment 8;
 );
 
 //==================-- Instruction semantic fragments --======================//
@@ -211,18 +213,23 @@ define instruction eor3 semantic as (
 
 //====-- SUB --====//
 define instruction sub1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (- Op4:GPR SimpleAddrMode:fragment));
 ) cost 1;
 define instruction sub1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (- Op4:GPR RegShiftedAddrMode:fragment));
 ) cost 1;
 define instruction sub1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (- Op4:GPR RegRotAddrMode:fragment));
 ) cost 1;
 define instruction sub2 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (- Op4:GPR RegShifted2AddrMode:fragment));
 ) cost 1;
 define instruction sub3 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (- Op4:GPR ImmAddrMode:fragment));
 ) cost 1;
 
@@ -281,8 +288,9 @@ define instruction mov2 semantic as (
 //  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (
- let Op1 = "", Op2 = "" in 
-   (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
+ let Op1 = "", Op2 = "" in
+ //   {SR:CPSR == const:int:1} ->  	
+  (transfer Op3:GPR ImmAddrMode:fragment params (Op4));
 ) cost 1;
 
 //====-- TEQ --====//
@@ -300,7 +308,7 @@ define instruction str1 semantic as (
 //====-- LDR --====//
 define instruction ldr1 semantic as (
   let Op1 = "" in
-    (transfer Op3:GPR (memref Op2:GPR));
+    (transfer Op2:GPR (memref Op3:GPR));
 ) cost 1;
 
 

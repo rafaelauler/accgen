@@ -55,6 +55,15 @@ void TemplateManager::CreateM4File()
     << LR->getName() << "')m4_dnl\n"; 
   O << "m4_define(`__frame_register__',`" << ArchName <<  "::"
     << FP->getName() << "')m4_dnl\n"; 
+  if (!RegisterClassManager.getGrowsUp()) {
+    O << "m4_define(`__stack_growth__',`TargetFrameInfo::StackGrowsDown"
+    "')m4_dnl\n"; 
+  } else {
+    O << "m4_define(`__stack_growth__',`TargetFrameInfo::StackGrowsUp"
+    "')m4_dnl\n"; 
+  }
+  O << "m4_define(`__stack_alignment__',`" 
+    << RegisterClassManager.getAlignment() << "')m4_dnl\n"; 
   O << "m4_define(`__registers_definitions__',`";
   O << generateRegistersDefinitions() << "')m4_dnl\n";
   O << "m4_define(`__register_classes__',`";
@@ -85,6 +94,14 @@ void TemplateManager::CreateM4File()
   
   O << "m4_define(`__copyregpats__',`";
   O << generateCopyRegPatterns(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__eliminate_call_frame_pseudo_positive__',`";
+  O << generateEliminateCallFramePseudo(std::cout, true) << "')m4_dnl\n";  
+  O << "m4_define(`__eliminate_call_frame_pseudo_negative__',`";
+  O << generateEliminateCallFramePseudo(std::cout, false) << "')m4_dnl\n";  
+  O << "m4_define(`__emit_prologue__',`";
+  O << generateEmitPrologue(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__emit_epilogue__',`";
+  O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
   
   // Print literals are only available AFTER all pattern
   // generation inference!
@@ -541,6 +558,111 @@ string TemplateManager::generatePrintLiteral() {
   return SS.str();
 }
 
+string TemplateManager::generateEliminateCallFramePseudo(std::ostream &Log,
+							 bool isPositive) {
+  const Register* SP = RegisterClassManager.getStackPointer();
+  const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
+  const Tree* Exp = PatternManager::genCopyAddSubImmPat(OperatorTable,
+			  OperandTable, RegisterClassManager,
+			  isPositive,
+			  RCSP->getName(),
+			  SP->getName(),
+			  RCSP->getName(),
+			  SP->getName(),
+			  "Size");
+  Log << "\nInfering how to adjust stack...\n";
+  SearchResult *SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    Log << "Stack adjustment inference failed. Could not find a instruction\n";
+    Log << "sequence to do this in target architecture.\n";
+    abort();
+  }
+  stringstream SS;
+  StringMap Defs;
+  Defs[SP->getName()] = "Reg";
+  Defs["Size"] = "Imm";
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 4, "MBB", "I", "TII.get");
+  delete SR;
+  delete Exp;
+  return SS.str();
+}
+
+string TemplateManager::generateEmitPrologue(std::ostream &Log) {
+  const Register* SP = RegisterClassManager.getStackPointer();
+  const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
+  const Register* FP = RegisterClassManager.getFramePointer();
+  const RegisterClass* RCFP = RegisterClassManager.getRegRegClass(FP);
+  
+  // Generate instruction to move stack pointer to frame pointer
+  const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
+	  RegisterClassManager, RCFP->getName(), FP->getName(),
+	  RCSP->getName(), SP->getName());	
+  Log << "\nInfering how to emit prologue...\n";
+  SearchResult *SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    Log << "Stack adjustment inference failed. Could not find a instruction\n";
+    Log << "sequence to do this in target architecture.\n";
+    abort();
+  }
+  stringstream SS;
+  StringMap Defs;
+  Defs[SP->getName()] = "Reg";
+  Defs[FP->getName()] = "Reg";
+  Defs["NumBytes"] = "Imm";
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");
+  delete SR;  
+  delete Exp;
+  Exp = NULL;
+  SR = NULL;
+  // Generate instruction to add or subtract stack pointer
+  Exp = PatternManager::genCopyAddSubImmPat(OperatorTable,
+			  OperandTable, RegisterClassManager,
+			  RegisterClassManager.getGrowsUp(),
+			  RCSP->getName(),
+			  SP->getName(),
+			  RCSP->getName(),
+			  SP->getName(),
+			  "NumBytes");
+  
+  SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    Log << "Stack adjustment inference failed. Could not find a instruction\n";
+    Log << "sequence to do this in target architecture.\n";
+    abort();
+  }  
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");  
+  delete SR;
+  delete Exp;
+  return SS.str();
+}
+
+string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
+  const Register* SP = RegisterClassManager.getStackPointer();
+  const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
+  const Register* FP = RegisterClassManager.getFramePointer();
+  const RegisterClass* RCFP = RegisterClassManager.getRegRegClass(FP);
+  
+  // Generate instruction to move stack pointer to frame pointer
+  const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
+	  RegisterClassManager, RCSP->getName(), SP->getName(),
+	  RCFP->getName(), FP->getName());	
+  Log << "\nInfering how to emit epilogue...\n";
+  SearchResult *SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    Log << "Stack adjustment inference failed. Could not find a instruction\n";
+    Log << "sequence to do this in target architecture.\n";
+    abort();
+  }
+  stringstream SS;
+  StringMap Defs;
+  Defs[SP->getName()] = "Reg";
+  Defs[FP->getName()] = "Reg";
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");
+  delete SR;
+  delete Exp;
+  return SS.str();
+}
+
 string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
   stringstream SS;
   StringMap Defs;
@@ -572,8 +694,10 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
 	SS << "    // Could not infer code to make this transfer" << endl;
 	SS << "    return false;" << endl;
       } else {
-	SS << PatTrans.genEmitMI(SR, Defs, &LMap);
+	SS << PatTrans.genEmitMI(SR, Defs, &LMap, 4);
+	delete SR;	
       }
+      delete Exp;
       SS << "  } ";
     }
   }
@@ -685,7 +809,8 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     stringstream temp;
     temp << "EmitFunc" << count;
     PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());
-    std::cerr << SSfunc.str();        
+    std::cerr << SSfunc.str();    
+    delete SR;
   }    
   stringstream SSswitch;
   for (map<string, MatcherCode>::iterator I = Map.begin(), E = Map.end();

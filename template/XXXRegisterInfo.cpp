@@ -34,6 +34,7 @@
 #include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
+using namespace __arch__`';
 
 `'__arch__`'RegisterInfo::`'__arch__`'RegisterInfo(const `'__arch__`'Subtarget &ST, 
                                    const TargetInstrInfo &tii)
@@ -84,7 +85,16 @@ hasFP(const MachineFunction &MF) const {
 void __arch__`'RegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
-  // Simply discard ADJCALLSTACKDOWN, ADJCALLSTACKUP instructions.
+  MachineInstr &MI = *I;
+  int Size = MI.getOperand(0).getImm();
+  if (MI.getOpcode() == __arch__`'::ADJCALLSTACKDOWN)
+    Size = -Size;
+  if (Size > 0) {
+__eliminate_call_frame_pseudo_positive__
+  } else if (Size < 0) {
+    Size = -Size;
+__eliminate_call_frame_pseudo_negative__
+  }
   MBB.erase(I);
 }
 
@@ -97,13 +107,28 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
 {
   MachineInstr &MI = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
+    
 
-  unsigned i = 0;
+  unsigned i = 0, j = 0;
   while (!MI.getOperand(i).isFI()) {
     ++i;
-    assert(i < MI.getNumOperands() && 
+    if (i >= MI.getNumOperands())
+      return;
+  }
+  j = i + 1;
+  while (!MI.getOperand(j).isFI()) {
+    ++j;
+    assert(j < MI.getNumOperands() && 
            "Instr doesn't have FrameIndex operand!");
   }
+  
+  if (TII.get(MI.getOpcode()).OpInfo[i].RegClass == 0) {
+    unsigned temp = i;
+    i = j;
+    j = temp;
+  }
+  // Now, i indicates the base register operand, j indicates the
+  // immediate offset operand.
 
   #ifndef NDEBUG
   DOUT << "\nFunction : " << MF.getFunction()->getName() << "\n";
@@ -131,20 +156,37 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   DOUT << "<--------->\n";
   #endif
 
-  MI.getOperand(i-1).ChangeToImmediate(Offset);
+  MI.getOperand(j).ChangeToImmediate(spOffset);
   MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);
 }
 
 void __arch__`'RegisterInfo::
 emitPrologue(MachineFunction &MF) const 
 {
+  MachineBasicBlock &MBB = MF.front();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  unsigned align = MFI->getMaxAlignment();
+
+  // Get the number of bytes to allocate from the FrameInfo
+  int NumBytes = (int) MFI->getStackSize();
+  
+  // Round up to next alignment boundary as required by the ABI.
+  if (align) {
+    NumBytes = (NumBytes + align - 1) & ~(align - 1);
+    //NumBytes = -NumBytes;
+  }
+  MachineBasicBlock::iterator I = MBB.begin();
+    
+__emit_prologue__
  
 }
 
 void __arch__`'RegisterInfo::
 emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const 
 {
- 
+  MachineBasicBlock::iterator I = prior(MBB.end());
+    
+__emit_epilogue__
 }
 
 

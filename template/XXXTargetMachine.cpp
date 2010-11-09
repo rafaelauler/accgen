@@ -37,7 +37,7 @@ static RegisterTarget<`'__arch__`'TargetMachine> X("`'__arch__`'", "`'__arch_in_
 __arch__`'TargetMachine::`'__arch__`'TargetMachine(const Module &M, const std::string &FS)
   : `DataLayout("'__data_layout_string__`"),'
     Subtarget(M, FS), TLInfo(*this), InstrInfo(Subtarget),
-    FrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0) {
+    FrameInfo(__stack_growth__, __stack_alignment__, 0) {
 }
 
 unsigned __arch__`'TargetMachine::getModuleMatchQuality(const Module &M) {

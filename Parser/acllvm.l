@@ -134,9 +134,29 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return PROGRAMCOUNTER;
 }
 
+<INITIAL>"stackpointer" {
+  yylval->num = 0;
+  return STACKPOINTER;
+}
+
 <INITIAL>"framepointer" {
   yylval->num = 0;
   return FRAMEPOINTER;
+}
+
+<INITIAL>"grows" {
+  yylval->num = 0;
+  return GROWS;
+}
+
+<INITIAL>"down" {
+  yylval->num = 0;
+  return DOWN;
+}
+
+<INITIAL>"up" {
+  yylval->num = 0;
+  return UP;
 }
 
 <INITIAL>"imm" {
