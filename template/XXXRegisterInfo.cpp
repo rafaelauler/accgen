@@ -108,12 +108,11 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   MachineInstr &MI = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
     
-
   unsigned i = 0, j = 0;
   while (!MI.getOperand(i).isFI()) {
     ++i;
-    if (i >= MI.getNumOperands())
-      return;
+    assert (i < MI.getNumOperands() 
+	    && "Instr doesn't have FrameIndex operand!");
   }
   j = i + 1;
   while (!MI.getOperand(j).isFI()) {

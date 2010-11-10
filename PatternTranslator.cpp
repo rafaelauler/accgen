@@ -378,11 +378,7 @@ std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name,
   bool HasChain = false;
   try {
     const LLVMNodeInfo *Info = LLVMNodeInfoMan::getReference()
-      ->getInfo(*DAG->OpName);
-    if (!Info->MatchChildren) {
-      *Resp = DAG;
-      return new std::list<unsigned>();
-    }
+      ->getInfo(*DAG->OpName);    
     if (Info->HasChain) {
       HasChain = true;
     }
@@ -550,11 +546,23 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
 	<< (*TempToVirtual)[*N->OpName] << ";" << endl;
     }
     return;
-  }
+  }  
   // It matches a LLVMDAG operand...
+  const LLVMNodeInfo *Info = NULL;
+  try {
+    Info = LLVMNodeInfoMan::getReference()
+	  ->getInfo(*LLVMDAG->OpName);
+    if (!Info->MatchChildren) {
+      delete Res;
+      Res = new std::list<unsigned>();
+      Resp = NULL;
+    }
+  } catch (LLVMDAGInfo::NameNotFoundException&) {}
   S << "  SDValue " << NodeName << " = ";  
-  const LLVMNodeInfo *Info = (Resp != NULL) ? LLVMNodeInfoMan::getReference()
+  if (Res->size() > 0) {
+    Info = (Resp != NULL) ? LLVMNodeInfoMan::getReference()
 			       ->getInfo(*Resp->OpName) : NULL;
+  }  
   stringstream SS;
   SS << "N";
   for (list<unsigned>::const_iterator I = Res->begin(), E = Res->end();
