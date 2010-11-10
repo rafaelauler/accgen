@@ -25,6 +25,7 @@
 
 extern "C" { 
   #include "acpp.h"
+  extern char * ac_asm_get_comment_chars() ;
 }
 
 // Some parser dependent data and code
@@ -396,6 +397,7 @@ int main(int argc, char **argv) {
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
 		     OperandTable, OperatorTable, PatMan);
   TM.SetArchName("sparc16");
+  TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);
   TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);

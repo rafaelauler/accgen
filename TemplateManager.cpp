@@ -35,6 +35,8 @@ void TemplateManager::CreateM4File()
   string *Funcs, *Switch, *Headers;
   const Register* LR = RegisterClassManager.getReturnRegister();
   const Register* FP = RegisterClassManager.getFramePointer();
+  const Register* PC = RegisterClassManager.getProgramCounter();
+  int PCOffset = RegisterClassManager.getPCOffset();
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
 		 std::ptr_fun(toupper));
@@ -51,16 +53,20 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
   O << "m4_define(`__wordsize__',`" << WordSize << "')m4_dnl\n"; 
+  O << "m4_define(`__comment_char__',`" << CommentChar << "')m4_dnl\n"; 
+  O << "m4_define(`__type_char_specifier__',`" << TypeCharSpecifier 
+    << "')m4_dnl\n"; 
   O << "m4_define(`__ra_register__',`" << ArchName << "::"
-    << LR->getName() << "')m4_dnl\n"; 
+    << LR->getName() << "')m4_dnl\n";
+  O << "m4_define(`__pc_asm__',`" << PC->getName() << "')m4_dnl\n";
   O << "m4_define(`__frame_register__',`" << ArchName <<  "::"
-    << FP->getName() << "')m4_dnl\n"; 
+    << FP->getName() << "')m4_dnl\n";
   if (!RegisterClassManager.getGrowsUp()) {
     O << "m4_define(`__stack_growth__',`TargetFrameInfo::StackGrowsDown"
-    "')m4_dnl\n"; 
+         "')m4_dnl\n"; 
   } else {
     O << "m4_define(`__stack_growth__',`TargetFrameInfo::StackGrowsUp"
-    "')m4_dnl\n"; 
+         "')m4_dnl\n";
   }
   O << "m4_define(`__stack_alignment__',`" 
     << RegisterClassManager.getAlignment() << "')m4_dnl\n"; 
@@ -76,6 +82,10 @@ void TemplateManager::CreateM4File()
   O << generateReservedRegsList() << "')m4_dnl\n";
   O << "m4_define(`__instructions_definitions__',`";
   O << generateInstructionsDefs() << "')m4_dnl\n";
+  O << "m4_define(`__size_table__',`";
+  O << generateInsnSizeTable() << "')m4_dnl\n";
+  O << "m4_define(`__pc_offset__',`";
+  O << PCOffset << "')m4_dnl\n";  
   O << "m4_define(`__calling_conventions__',`";
   O << generateCallingConventions() << "')m4_dnl\n";
   O << "m4_define(`__data_layout_string__',`";
@@ -441,6 +451,24 @@ string TemplateManager::generateInstructionsDefs() {
     delete Ins;
     SS << "), \"" << (*I)->parseOperandsFmts() << "\", []>;\n";
   }
+
+  return SS.str();
+}
+
+// Generate tablegen instructions definitions for XXXInstrInfo.td
+string TemplateManager::generateInsnSizeTable() {
+  stringstream SS;
+
+  SS << "static unsigned InsnSizeTable[] = {" << endl;
+  SS << "0,0,0,0,0,0,0,0,0,0,0,0," << endl;
+  for (InstrIterator I = InstructionManager.getBegin(), 
+	 E = InstructionManager.getEnd(), Prev = InstructionManager.getEnd();
+       I != E; Prev = I++) {
+    SS << (*I)->getFormat()->getSizeInBits();    
+    if (I != E)
+      SS << ",";
+  }
+  SS << "};" << endl;
 
   return SS.str();
 }

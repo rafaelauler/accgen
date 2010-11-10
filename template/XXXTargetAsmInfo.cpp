@@ -20,10 +20,11 @@ __arch__`'ELFTargetAsmInfo::`'__arch__`'ELFTargetAsmInfo(const TargetMachine &TM
   Data32bitsDirective = "\t.word\t";
   Data64bitsDirective = 0;  
   ZeroDirective = "\t.skip\t";
-  CommentString = "!";
+  CommentString = "`'__comment_char__`'";
   ConstantPoolSection = "\t.section \".rodata\",#alloc\n";
   COMMDirectiveTakesAlignment = true;
-  CStringSection=".rodata.str";
+  //CStringSection=".rodata.str";
+  CStringSection=".data";
 
   BSSSection_  = getNamedSection("\t.bss",
                                  SectionFlags::Writeable | SectionFlags::BSS,

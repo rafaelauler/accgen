@@ -18,6 +18,7 @@
 `#include "'__arch__`Subtarget.h"'
 `#include "'__arch__`InstrInfo.h"'
 `#include "'__arch__`TargetMachine.h"'
+`#include "'__arch__`MachineFunction.h"'
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
@@ -62,6 +63,7 @@ namespace {
                          unsigned AsmVariant, const char *ExtraCode);
     void printOperand(const MachineInstr *MI, int opNum);
     void printLiteral(const MachineInstr *MI, int opNum);
+    void printGlobalValue(const MachineInstr *MI, int opNum);
     void printUnsignedImm(const MachineInstr *MI, int opNum);
     void printMemOperand(const MachineInstr *MI, int opNum, 
                          const char *Modifier = 0);
@@ -129,12 +131,13 @@ emitFunctionStart(MachineFunction &MF)
   EmitAlignment(2, F);
 
   O << "\t.globl\t"  << CurrentFnName << '\n';
-  O << "\t.ent\t"    << CurrentFnName << '\n';
+  //O << "\t.ent\t"    << CurrentFnName << '\n';
 
   printVisibility(CurrentFnName, F->getVisibility());
 
   if ((TAI->hasDotTypeDotSizeDirective()) )
-    O << "\t.type\t"   << CurrentFnName << ", @function\n";
+    O << "\t.type\t"   << CurrentFnName << ", " <<
+    "`'__type_char_specifier__`'function\n";
 
   O << CurrentFnName << ":\n";
 
@@ -145,7 +148,9 @@ emitFunctionStart(MachineFunction &MF)
 void __arch__`'AsmPrinter::
 emitFunctionEnd(MachineFunction &MF) 
 {
-  
+  __arch__`'FunctionInfo *FI = 
+    MF.getInfo<`'__arch__`'FunctionInfo>();
+  FI->printGlobalValues(O, Mang);
 }
 
 /// runOnMachineFunction - This uses the printMachineInstruction()
@@ -213,6 +218,52 @@ printLiteral(const MachineInstr *MI, int opNum)
 __print_literal__
 }
 
+__size_table__
+
+void __arch__`'AsmPrinter::
+printGlobalValue(const MachineInstr *MI, int opNum) 
+{
+  const MachineOperand &MO = MI->getOperand (opNum);
+  const GlobalValue *GV = MO.getGlobal();
+  // Determine if we need special handling
+  unsigned num = 0;
+  for (unsigned i = 0, e= MI->getNumOperands();i != e; ++i) {
+    if (MI->getOperand(i).getType() == MachineOperand::MO_GlobalAddress)
+      num++;
+  }
+  // Normal handling
+  if (num == 1) {
+    O << Mang->getValueName(GV);
+    return;
+  }
+  // Special handling
+  if (TM.getInstrInfo()->get(MI->getOpcode()).OpInfo[opNum].RegClass != 0) {
+    O << "__pc_asm__";
+    return;
+  }
+  // Calculate the PC offset
+  const MachineFunction* MF = MI->getParent()->getParent();
+  int index = MF->getInfo<`'__arch__`'FunctionInfo>()->getIndex(GV);
+  index *= (__wordsize__ /8);
+  
+  int offset = 0;
+  bool count = false;
+  for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
+       I != E; ++ I) {
+    for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (I2->isIdenticalTo(MI)) 
+	count = true;
+      if (count) {
+	offset+= InsnSizeTable[I2->getDesc().Opcode];
+      }
+    }
+  }
+  offset = offset / 8;
+  offset = offset + index + (__pc_offset__);
+  O << offset;
+}
+
 void __arch__`'AsmPrinter::
 printOperand(const MachineInstr *MI, int opNum) 
 {
@@ -234,8 +285,7 @@ printOperand(const MachineInstr *MI, int opNum)
     return;
   case MachineOperand::MO_GlobalAddress:
     {
-      const GlobalValue *GV = MO.getGlobal();
-      O << Mang->getValueName(GV);
+      printGlobalValue(MI, opNum);
     }
     break;
   case MachineOperand::MO_ExternalSymbol:
@@ -382,7 +432,7 @@ printModuleLevelGV(const GlobalVariable* GVar) {
   EmitAlignment(Align, GVar);
 
   if (TAI->hasDotTypeDotSizeDirective() && printSizeAndType) {
-    O << "\t.type " << name << ",@object\n";
+    O << "\t.type " << name << ",`'__type_char_specifier__`'object\n";
     O << "\t.size " << name << ',' << Size << '\n';
   }
 

@@ -12,6 +12,7 @@
 
 `#include "'__arch__`ISelLowering.h"'
 `#include "'__arch__`TargetMachine.h"'
+`#include "'__arch__`MachineFunction.h"'
 #include "llvm/Intrinsics.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"

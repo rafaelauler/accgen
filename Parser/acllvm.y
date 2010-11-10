@@ -69,7 +69,7 @@ void yyerror(char *error);
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
-%token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP
+%token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -418,6 +418,10 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
              {
 	       RegisterManager.setGrowsUp(false);
                RegisterManager.setAlignment($6);
+             }
+	     | DEFINE PCOFFSET NUM SEMICOLON
+             {
+	       RegisterManager.setPCOffset($3);
              }
              ;
 

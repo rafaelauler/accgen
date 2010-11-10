@@ -25,7 +25,7 @@ extern int LineNumber;
 
 %option noyywrap
 
-DIGIT [0-9]
+DIGIT -?[0-9]
 IDENT [a-zA-Z][a-zA-Z0-9]*
 
 %%
@@ -143,6 +143,12 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   yylval->num = 0;
   return FRAMEPOINTER;
 }
+
+<INITIAL>"pcoffset" {
+  yylval->num = 0;
+  return PCOFFSET;
+}
+
 
 <INITIAL>"grows" {
   yylval->num = 0;

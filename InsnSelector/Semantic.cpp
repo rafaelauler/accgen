@@ -125,6 +125,8 @@ namespace backendgen {
 	  NewType.Type = AddOp;
 	else if (TypeName == SubOpStr)
 	  NewType.Type = SubOp;
+	else if (TypeName == NegOpStr)
+	  NewType.Type = NegOp;
 	else if (TypeName == DecompOpStr)
 	  NewType.Type = DecompOp;
 	else if (TypeName == IfOpStr)
@@ -306,6 +308,7 @@ namespace backendgen {
       StackPointer = NULL;
       GrowsUp = false;
       Alignment = 0;
+      PCOffset = 0;
     }
 
 
@@ -683,6 +686,21 @@ namespace backendgen {
       return new AssignOperator(OpMan, LHS, RHS, NULL);
     }
     
+    const Tree*
+    PatternManager::genNegRegPat(OperatorTableManager& OpMan,
+				 OperandTableManager& OM,
+				 RegClassManager& RegMan,
+				 const std::string& DestRC,
+				 const std::string& Dest,
+				 const std::string& Imm) {
+      RegisterClass *RegClass = RegMan.getRegClass(DestRC);
+      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      OperatorType Ty;      
+      Ty = OpMan.getType(NegOpStr);
+      Operator* NegOp = Operator::BuildOperator(OpMan, Ty);
+      (*NegOp)[0] = new ImmediateOperand(OM.getType("immed"), Imm);
+      return new AssignOperator(OpMan, LHS, NegOp, NULL);
+    }
 
     PatternManager::Iterator PatternManager::begin() {
       return PatList.begin();

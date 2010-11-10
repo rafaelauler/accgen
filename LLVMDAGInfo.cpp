@@ -42,7 +42,20 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 8;
+  string GetGlobalAddress(const string &N) {
+    stringstream SS;        
+    SS << "CurDAG->getTargetGlobalAddress(cast<GlobalAddressSDNode>(" 
+       << N
+       << ")->getGlobal(), MVT::i32);"
+       << endl;    
+    SS << "  CurDAG->getMachineFunction().getInfo<`'__arch__`'Function"
+          "Info>()->insertNewGlobalValue(cast<GlobalAddressSDNode>(" 
+       << N
+       << ")->getGlobal());" << endl;
+    return SS.str();
+  }
+  
+  const unsigned NodeNamesSz = 9;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -51,7 +64,8 @@ namespace {
 			       "ret",
 			       "frameindex",
 			       "imm",
-			       "tglobaladdr"
+			       "tglobaladdr",
+			       "globaladdr"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
@@ -61,7 +75,8 @@ namespace {
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
-			       "ISD::TargetGlobalAddress"
+			       "ISD::TargetGlobalAddress",
+			       "ISD::GlobalAddress"
   };
   
   GetNodeFunc FuncNames[] = { NULL,
@@ -71,7 +86,8 @@ namespace {
 			      NULL,
 			      GetFrameIndex,
 			      GetConstant,
-			      NULL
+			      NULL,
+			      GetGlobalAddress
   };
 
   bool MatchChildrenVals[] = { true,
@@ -79,6 +95,7 @@ namespace {
 			       true,
 			       true,
 			       true,
+			       false,
 			       false,
 			       false,
 			       false
@@ -91,6 +108,7 @@ namespace {
 			  true,
 			  false,
 			  false,
+			  false,
 			  false
   };
   
@@ -101,6 +119,7 @@ namespace {
 			    true,
 			    false,
 			    false,
+			    false,
 			    false
   };
   
@@ -108,6 +127,7 @@ namespace {
 			    false,
 			    false,
 			    true,
+			    false,
 			    false,
 			    false,
 			    false,

@@ -379,6 +379,10 @@ std::list<unsigned>* findPredecessor(SDNode* DAG, const std::string &Name,
   try {
     const LLVMNodeInfo *Info = LLVMNodeInfoMan::getReference()
       ->getInfo(*DAG->OpName);
+    if (!Info->MatchChildren) {
+      *Resp = DAG;
+      return new std::list<unsigned>();
+    }
     if (Info->HasChain) {
       HasChain = true;
     }
@@ -548,8 +552,7 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
     return;
   }
   // It matches a LLVMDAG operand...
-  S << "  SDValue " << NodeName << " = ";
-  assert (Res->size() > 0 && "List must be nonempty");    
+  S << "  SDValue " << NodeName << " = ";  
   const LLVMNodeInfo *Info = (Resp != NULL) ? LLVMNodeInfoMan::getReference()
 			       ->getInfo(*Resp->OpName) : NULL;
   stringstream SS;
@@ -757,6 +760,7 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
   string RootName = InfoMan->getInfo(*Root->OpName)->EnumName;
   stringstream S;
   
+  if (InfoMan->getInfo(*Root->OpName)->MatchChildren) {    
   if (Root->NumOperands > 0) {
     S << "if (";
   }
@@ -804,6 +808,8 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
   if (Root->NumOperands > 0) {
     S << ")" << endl;
   }
+  }
+    
   S << "  return " << EmitFuncName << "(Op);" << endl;
   
   if (Map.find(RootName) == Map.end()) {

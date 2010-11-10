@@ -12,6 +12,7 @@
 
 define operator +        as arity 2;
 define operator -        as arity 2;
+define operator ~        as arity 1;
 define operator xor      as arity 2;
 define operator transfer as arity 2;
 define operator if       as arity 3;
@@ -87,6 +88,11 @@ define pattern LOAD as (
   (transfer a3:regs (memref addr:regs));
 );
 
+define pattern GLOBALADDRESS as (
+  "(globaladdr i32:$addr)";
+  (transfer a3:regs (memref (+ addr:regs imm:addr:immed)));
+);
+
 //define pattern FRAMEINDEX as (
 //  "(frameindex)";
 //  (transfer a3:regs imm:val:immed);
@@ -131,6 +137,7 @@ define abi as (
   define framepointer register as r11;
   define return register as r14;
   define stack grows down alignment 8;
+  define pcoffset -4;
 );
 
 //==================-- Instruction semantic fragments --======================//

@@ -259,8 +259,11 @@ namespace backendgen {
       }
       void setAlignment(unsigned A) {
 	Alignment = A;
-      }
+      }      
       // ---
+      void setPCOffset(int A) {
+	PCOffset = A;
+      }
       RegisterClass *getRegClass(const std::string &ClassName);
       Register *getRegister(const std::string &RegisterName);
       RegisterClass *getRegRegClass(const Register* Reg);      
@@ -279,7 +282,8 @@ namespace backendgen {
       const Register *getReturnRegister() const;
       const Register *getFramePointer() const;
       const Register *getStackPointer() const;
-      unsigned getAlignment() { return Alignment; }
+      int getPCOffset() const { return PCOffset; }
+      unsigned getAlignment() const { return Alignment; }
       bool getGrowsUp() const { return GrowsUp; }
       // ---
     private:
@@ -294,6 +298,7 @@ namespace backendgen {
       const Register* StackPointer;
       const Register* FramePointer;
       unsigned Alignment;
+      int PCOffset;
       bool GrowsUp;
     };
 
@@ -342,11 +347,12 @@ namespace backendgen {
 
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
-    enum KnownOperators {AddOp=1, SubOp, DecompOp, IfOp, AssignOp, MemRefOp,
-			 LastOp};
+    enum KnownOperators {AddOp=1, SubOp, NegOp, DecompOp, IfOp, AssignOp,
+			 MemRefOp, LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
+    const std::string NegOpStr = "~";
     const std::string DecompOpStr = "dec";        
     const std::string IfOpStr = "if";
     const std::string AssignOpStr = "transfer";
@@ -549,6 +555,13 @@ namespace backendgen {
 			  const std::string& SrcRC,
 			  const std::string& Src,
 			  const std::string& Imm);
+      static const Tree*
+      genNegRegPat(OperatorTableManager& OpMan,
+		   OperandTableManager& OM,
+		   RegClassManager& RegMan,
+		   const std::string& DestRC,
+		   const std::string& Dest,
+		   const std::string& Imm);
     };
 
   } // end namespace expression

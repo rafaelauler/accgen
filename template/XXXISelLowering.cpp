@@ -287,9 +287,9 @@ __set_up_register_classes__
 
   computeRegisterProperties();
   
-  setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
-  setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
-  setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);
+  //setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
+  //setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
+  //setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);
   
   // RET must be custom lowered, to meet ABI requirements
   setOperationAction(ISD::RET               , MVT::Other, Custom);

@@ -22,6 +22,8 @@ class TemplateManager {
   // Target specific data used when specializing templates for a 
   // given architecture
   std::string ArchName;
+  char CommentChar;
+  char TypeCharSpecifier;
   int NumRegs;
   bool IsBigEndian;
   unsigned WordSize;
@@ -46,6 +48,7 @@ class TemplateManager {
   std::string generateCalleeSaveRegClasses();
   std::string generateReservedRegsList();
   std::string generateInstructionsDefs();
+  std::string generateInsnSizeTable();
   std::string generateCallingConventions();
   std::string generatePrintLiteral();
   std::string generateEliminateCallFramePseudo(std::ostream &Log,
@@ -72,7 +75,10 @@ class TemplateManager {
 			   PatternManager& PM):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
-    OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL) {}
+    OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL) {
+      CommentChar = '#';
+      TypeCharSpecifier = '@';
+    }
 
   ~TemplateManager() {}
 
@@ -80,6 +86,14 @@ class TemplateManager {
     std::locale loc;
     ArchName = name; 
     ArchName[0] = std::toupper(ArchName[0], loc);
+  }
+  
+  void SetCommentChar (char CommentChar) {
+    this->CommentChar = CommentChar;
+    if (CommentChar == '@')
+      TypeCharSpecifier = '%';
+    else
+      TypeCharSpecifier = '@';
   }
 
   void SetNumRegs (int nregs) { NumRegs = nregs; }
