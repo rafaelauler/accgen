@@ -36,6 +36,7 @@ void TemplateManager::CreateM4File()
   const Register* LR = RegisterClassManager.getReturnRegister();
   const Register* FP = RegisterClassManager.getFramePointer();
   const Register* PC = RegisterClassManager.getProgramCounter();
+  const Register* SP = RegisterClassManager.getStackPointer();
   int PCOffset = RegisterClassManager.getPCOffset();
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
@@ -61,6 +62,8 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__pc_asm__',`" << PC->getName() << "')m4_dnl\n";
   O << "m4_define(`__frame_register__',`" << ArchName <<  "::"
     << FP->getName() << "')m4_dnl\n";
+  O << "m4_define(`__stackpointer_register__',`" << ArchName <<  "::"
+    << SP->getName() << "')m4_dnl\n";
   if (!RegisterClassManager.getGrowsUp()) {
     O << "m4_define(`__stack_growth__',`TargetFrameInfo::StackGrowsDown"
          "')m4_dnl\n"; 
@@ -376,16 +379,33 @@ string TemplateManager::generateInstructionsDefs() {
     }
     // Here we print defs and uses for this instruction
     CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
-    if (Defs->size() > 0 || Uses->size() > 0) {
+    bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn();
+    if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn) {
       SS << "let ";
-      if (Defs->size() > 0) {
+      if (isCall) {
+	SS << "isCall = 1, ";
+      } else if (isReturn) {
+	SS << "isReturn = 1, isTerminator = 1";
+	if (Defs->size() > 0 || Uses->size() > 0)
+	  SS << ", ";
+      }
+      if (Defs->size() > 0 || isCall) {
 	SS << "Defs = [";
 	for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
 	       E2 = Defs->end(); I2 != E2; ++I2) {
 	  if (I2 != Defs->begin())
 	    SS << ",";	  
 	  SS << (*I2)->getOperandName();      
+	}	
+	std::list<const Register*>* RList = 
+	  RegisterClassManager.getCallerSavedRegs();
+	for (std::list<const Register*>::const_iterator I2 =
+	  RList->begin(), E2 = RList->end(); I2 != E2; ++I2) {
+	  if (I2 != RList->begin() || Defs->size() != 0)
+	    SS << ",";	  
+	  SS << (*I2)->getName();
 	}
+	delete RList;
 	SS << "]";
 	if (Uses->size() > 0) SS << ", ";
       }

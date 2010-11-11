@@ -135,6 +135,10 @@ namespace backendgen {
 	  NewType.Type = AssignOp;
 	else if (TypeName == MemRefOpStr)
 	  NewType.Type = MemRefOp;
+	else if (TypeName == CallOpStr)
+	  NewType.Type = CallOp;
+	else if (TypeName == ReturnOpStr)
+	  NewType.Type = ReturnOp;
 	else { // User defined operator
 	  NewType.Type = hash<std::string>(TypeName, 0);
 	  if (NewType.Type < LastOp)
@@ -466,6 +470,27 @@ namespace backendgen {
     std::set<Register*>::const_iterator RegClassManager::getCalleeSEnd() 
       const {
       return CalleeSaveRegisters.end();
+    }
+    
+    std::list<const Register*>* RegClassManager::getCallerSavedRegs() const {
+      std::list<const Register*>* Res = new std::list<const Register*>();
+      for (std::set<Register*>::const_iterator I = getRegsBegin(),
+	   E = getRegsEnd(); I != E; ++I) {
+	bool isCS = false;
+	for (std::set<Register*>::const_iterator I2 = getCalleeSBegin(),
+	     E2 = getCalleeSEnd(); I2 != E2; ++I2) {
+	  if ((*I2)->getName() == (*I)->getName())
+	    isCS = true;
+	}
+	/*for (std::set<Register*>::const_iterator I2 = getReservedBegin(),
+	     E2 = getReservedEnd(); I2 != E2; ++I2) {
+	  if ((*I2)->getName() == (*I)->getName())
+	    isCS = true;
+	}*/
+	if (!isCS)
+	  Res->push_back(*I);
+      }
+      return Res;
     }
 
     std::list<CallingConvention*>::const_iterator

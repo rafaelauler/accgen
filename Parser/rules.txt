@@ -123,21 +123,22 @@ define registers GPR:regs as (
 
 // Current Program Status Register
 
-define registers CPSR:regs as ( SR );  // Status register
+//define registers CPSR:regs as ( SR );  // Status register
 
 //===========================-- ABI stuff --==================================//
 
 define abi as (
-  define callee save registers as (r5   r6   r7);
+  define callee save registers as (r14);
   define reserved registers as    (r13 r14 r15);
-  define calling convention for int as stack size 4 alignment 4;
+  //define calling convention for int as stack size 4 alignment 4;
+  define calling convention for int as (r0 r1 r2 r3);
   define return convention for int as (r0 r1);
   define programcounter register as r15;
   define stackpointer register as r13;
   define framepointer register as r11;
   define return register as r14;
   define stack grows down alignment 8;
-  define pcoffset -4;
+  define pcoffset -8;
 );
 
 //==================-- Instruction semantic fragments --======================//
@@ -301,10 +302,10 @@ define instruction mov3 semantic as (
 ) cost 1;
 
 //====-- TEQ --====//
-define instruction teq1 semantic as (
-  let Op1 = "" in
-    {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
-) cost 1;
+//define instruction teq1 semantic as (
+//  let Op1 = "" in
+//    {Op2:GPR == Op3:GPR} -> (transfer SR:CPSR const:int:1);
+//) cost 1;
 
 //====-- STR --====//
 define instruction str1 semantic as (

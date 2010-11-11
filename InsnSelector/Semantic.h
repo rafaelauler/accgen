@@ -275,6 +275,7 @@ namespace backendgen {
       std::set<Register*>::const_iterator getReservedEnd() const;
       std::set<Register*>::const_iterator getCalleeSBegin() const;
       std::set<Register*>::const_iterator getCalleeSEnd() const;
+      std::list<const Register*>* getCallerSavedRegs() const;
       std::list<CallingConvention*>::const_iterator getCCBegin() const;
       std::list<CallingConvention*>::const_iterator getCCEnd() const;
       // Stack member functions
@@ -348,7 +349,7 @@ namespace backendgen {
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
     enum KnownOperators {AddOp=1, SubOp, NegOp, DecompOp, IfOp, AssignOp,
-			 MemRefOp, LastOp};
+			 MemRefOp, CallOp, ReturnOp, LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
@@ -357,6 +358,8 @@ namespace backendgen {
     const std::string IfOpStr = "if";
     const std::string AssignOpStr = "transfer";
     const std::string MemRefOpStr = "memref";
+    const std::string CallOpStr = "call";
+    const std::string ReturnOpStr = "call";
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 

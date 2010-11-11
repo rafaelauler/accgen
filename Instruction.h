@@ -78,6 +78,10 @@ class Instruction {
   CnstOperandsList* getOperandsBySemantic() const;
   CnstOperandsList* getDefs() const;
   CnstOperandsList* getUses() const;
+  
+  bool isCall() const;
+  bool isReturn() const;
+  bool hasOperator(unsigned OperatorOpcode) const;
 
   void setLLVMName(std::string LLVMName) {this->LLVMName = LLVMName;}
   std::string getLLVMName() const {return LLVMName;}

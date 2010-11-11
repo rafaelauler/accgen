@@ -85,6 +85,7 @@ hasFP(const MachineFunction &MF) const {
 void __arch__`'RegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
+#if 0
   MachineInstr &MI = *I;
   int Size = MI.getOperand(0).getImm();
   if (MI.getOpcode() == __arch__`'::ADJCALLSTACKDOWN)
@@ -95,6 +96,7 @@ __eliminate_call_frame_pseudo_positive__
     Size = -Size;
 __eliminate_call_frame_pseudo_negative__
   }
+#endif
   MBB.erase(I);
 }
 
@@ -148,7 +150,7 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   // as explained on LowerFORMAL_ARGUMENTS, detect negative offsets 
   // and adjust SPOffsets considering the final stack size.
   int Offset = ((spOffset < 0) ? (stackSize + (-(spOffset+4))) : (spOffset));
-  Offset    += MI.getOperand(i-1).getImm();
+  //Offset    += MI.getOperand(i-1).getImm();
 
   #ifndef NDEBUG
   DOUT << "Offset     : " << Offset << "\n";
@@ -156,7 +158,10 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   #endif
 
   MI.getOperand(j).ChangeToImmediate(spOffset);
-  MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);
+  if (FrameIndex >= 0)
+    MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);
+  else
+    MI.getOperand(i).ChangeToRegister(`'__stackpointer_register__`', false);
 }
 
 void __arch__`'RegisterInfo::

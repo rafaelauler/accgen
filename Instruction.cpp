@@ -306,6 +306,52 @@ operand or memory reference.");
 
     return Result;
   }
+  
+  bool Instruction::hasOperator(unsigned OperatorOpcode) const {
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      std::list<const Tree*> Queue;
+      Queue.push_back(I->SemanticExpression);
+      while (Queue.size() > 0) {
+	const Tree* Element = Queue.front();
+	Queue.pop_front();
+	const Operator* O = dynamic_cast
+	  <const Operator*>(Element);
+	// If register operand and specific reference, then we
+	// have a use or def case.
+	if (O != NULL && O->getType() == OperatorOpcode) {
+	  return true;
+	}
+	const Operand * Op = dynamic_cast<const Operand*>(Element);
+	// Operands are uninteresting here
+	if (Op != NULL) 
+	  continue;	
+	
+	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
+	// If we have an assignment operator, includes the operands contained
+	// in guarded statements
+	if (AO != NULL && AO->getPredicate() != NULL) {
+	  Queue.push_back(AO->getPredicate()->getLHS());
+	  Queue.push_back(AO->getPredicate()->getRHS());
+	}
+	// We have an operator	
+	assert (O != NULL && "Unexpected tree node type");
+	for (int I = 0, E = O->getArity(); I != E; ++I) {
+	  Queue.push_back((*O)[I]);
+	}
+      }
+    }
+    return false;
+  }
+  
+  bool Instruction::isCall() const {
+    return hasOperator(CallOp);
+  }
+  
+  bool Instruction::isReturn() const {
+    return hasOperator(ReturnOp);
+  }
 
   // Extract all defined registers in this instruction (defs)
   std::list<const Operand*>* Instruction::getDefs() const {
