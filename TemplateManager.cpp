@@ -819,12 +819,12 @@ string TemplateManager::generateReturnLowering() {
   
   SS << "  if (Flag.getNode())" << endl;
   SS << "    return DAG.getCopyToReg(Chain, __arch__`'::" <<
-        PC->getName() << ", DAG.getRegister(`'__arch__`'::" <<
-        LR->getName() << ", MVT::i" <<  LRRC->getOperandType().Size << 
+        PC->getName() << ", DAG.getRegister(RAreg, MVT::i" 
+        <<  LRRC->getOperandType().Size << 
         "), Flag);" << endl;
   SS << "  return DAG.getCopyToReg(Chain, __arch__`'::" <<
-        PC->getName() << ", DAG.getRegister(`'__arch__`'::" <<
-        LR->getName() << ", MVT::i" <<  LRRC->getOperandType().Size << 
+        PC->getName() << ", DAG.getRegister(RAreg, MVT::i" 
+        <<  LRRC->getOperandType().Size << 
         "));" << endl;  
   
   return SS.str();

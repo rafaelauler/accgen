@@ -30,6 +30,18 @@ using namespace llvm;
 
 `#include "'__arch__`GenCallingConv.inc"'
 
+// AddLiveIn - This helper function adds the specified physical register to the
+// MachineFunction as a live in value.  It also creates a corresponding
+// virtual register for it.
+static unsigned
+AddLiveIn(MachineFunction &MF, unsigned PReg, const TargetRegisterClass *RC) 
+{
+  assert(RC->contains(PReg) && "Not the correct regclass!");
+  unsigned VReg = MF.getRegInfo().createVirtualRegister(RC);
+  MF.getRegInfo().addLiveIn(PReg, VReg);
+  return VReg;
+}
+
 static SDValue LowerRET(SDValue Op, SelectionDAG &DAG) {
   // CCValAssign - represent the assignment of the return value to locations.
   SmallVector<CCValAssign, 16> RVLocs;
@@ -65,6 +77,9 @@ static SDValue LowerRET(SDValue Op, SelectionDAG &DAG) {
     // Guarantee that all emitted copies are stuck together with flags.
     Flag = Chain.getValue(1);
   }
+  unsigned RAreg = AddLiveIn(DAG.getMachineFunction(),`'__ra_register__`',
+	    DAG.getTarget().getRegisterInfo()->getPhysicalRegisterRegClass
+	    (`'__ra_register__`', `MVT::i'__wordsize__`'));
   
 __return_lowering__
 
