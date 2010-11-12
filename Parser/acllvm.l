@@ -144,6 +144,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return FRAMEPOINTER;
 }
 
+<INITIAL>"auxiliar" {
+  yylval->num = 0;
+  return AUXILIAR;
+}
+
 <INITIAL>"pcoffset" {
   yylval->num = 0;
   return PCOFFSET;

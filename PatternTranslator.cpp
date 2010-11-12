@@ -857,12 +857,22 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 
 std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs,
 					 LiteralMap *LMap,
+					 bool alreadySorted,
+					 bool mayUseVirtualReg,
+					 list<const Register*>* auxiliarRegs,
 					 unsigned ident,
+					 const StringMap* ExtraParams,
 					 const string& MBB,
 					 const string& Itr,
 					 const string& get){
   std::stringstream SS, DeclarationsStream;
-  set<string> DeclaredVirtuals;
+  set<string> DeclaredVirtuals;  
+  assert( (mayUseVirtualReg || auxiliarRegs != NULL) &&
+         "Must provide auxiliar regs list if not mayUseVirtualReg");
+  list<const Register*>::const_iterator currentAuxReg;
+  if (auxiliarRegs != NULL) {
+    currentAuxReg = auxiliarRegs->begin();
+  }
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
   for (InstrList::const_iterator I = SR->Instructions->begin(),
 	 E = SR->Instructions->end(); I != E; ++I) {
@@ -871,7 +881,8 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
     NameListType* OpNames = *(OI++);
-    sortOperandsDefs(OpNames, I->second);
+    if (!alreadySorted)
+      sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     // Building DAG Node for this instruction
@@ -913,16 +924,19 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       if (Element->getType() == 0) {		
 	// See if bindings list has a definition for it
 	if (Bindings != NULL) {
+	  bool Found = false;
 	  for (BindingsList::const_iterator I = Bindings->begin(),
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
 	      if(ExtractOperandNumber(I->first) == i + 1) {
 		unsigned index = LMap->addMember(I->second);
-		SSOperands << ".addImm("<< index << ")";		
+		SSOperands << ".addImm("<< index << ")";
+		Found = true;
 		break;
 	      }
 	    }
 	  }
+	  assert (Found && "Missing bindings for dummy operand");
 	  ++i;
 	  continue;
 	}
@@ -939,7 +953,15 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
             
       if (Defs.find(*NI) != Defs.end()) {	
 	StringMap::const_iterator CI = Defs.find(*NI);
-	SSOperands << ".add" << CI->second << "(" << *NI << ")";	
+	SSOperands << ".add" << CI->second << "(" << *NI;
+	StringMap::const_iterator El;
+	// Check for extra parameters to be passed in order to create
+	// this specific operand.
+	if (ExtraParams != NULL && 
+	   (El = ExtraParams->find(*NI)) != ExtraParams->end()) {
+	  SSOperands << ", " << El->second;
+	}
+	SSOperands << ")";	
 	++NI;
 	++i;
 	continue;
@@ -948,23 +970,40 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       // register            
       // Test to see if this is a RegisterOperand
       const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
-      if (RO != NULL) {
+      if (RO != NULL && mayUseVirtualReg) {
 	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
 	  DeclaredVirtuals.insert(*NI);
 	  DeclarationsStream << "  const TargetRegisterClass* TRC" << *NI
 	  //TODO: Find the correct type (not just i32)
-	    << " = findSuitableRegClass(MVT::i32);" << endl;
+	    << " = findSuitableRegClass(MVT::i32, " << MBB << ");" << endl;
 	  DeclarationsStream << "  assert (TRC" << *NI << " != 0 &&"
-	    << "\"Could not find a suitable regclass for virtual\");" << endl;      
+	    << "\"Could not find a suitable regclass for virtual\");" << endl;
 	  DeclarationsStream << "  unsigned " << *NI << " = ";
-	  DeclarationsStream << "CurDAG->getMachineFunction().getRegInfo()"
+	  DeclarationsStream << MBB << ".getParent()->getRegInfo()"
 	    << ".createVirtualRegister(TRC" << *NI << "); " <<  endl;
 	}
 	SSOperands << ".addReg(" << *NI << ")";	
 	++NI;
 	++i;
 	continue;
-      } 
+      } else if (RO != NULL) {
+	// We may not use virtual registers, so we need to use a scratch
+	// register.
+	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
+	  assert (auxiliarRegs != NULL);
+	  assert (currentAuxReg != auxiliarRegs->end() && 
+	          "Not enough auxiliar registers in architecture.");
+	  DeclaredVirtuals.insert(*NI);
+	  DeclarationsStream << "  unsigned " << *NI << " = ";
+	  DeclarationsStream << "__arch__`'::" 
+	                     << (*currentAuxReg)->getName() << ";" << endl;
+	  ++currentAuxReg;
+	}
+	SSOperands << ".addReg(" << *NI << ")";	
+	++NI;
+	++i;
+	continue;
+      }
       // Not a scratch register operand... 
       assert (0 && "Non-scratch operands must be defined in DefList");
     }    

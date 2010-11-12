@@ -10,6 +10,8 @@
 
 //==========================-- Operators --===================================//
 
+// Built-in operators: +, -, ~, transfer, call, ret
+// These operands must exist
 define operator +        as arity 2;
 define operator -        as arity 2;
 define operator ~        as arity 1;
@@ -30,6 +32,8 @@ define operator alias    as sub => -;
 
 //===========================-- Operands --===================================//
 
+// Built-in operands: int
+// These operands must exist
 define operand int    as size 32;
 define operand mem    as size 32;
 define operand regs   as size 32 like int;
@@ -68,6 +72,9 @@ define pattern STOREFICONST as (
   (transfer (memref (+ val:regs imm:val:immed)) imm:src:immed);
 );
 
+// Built-in pattern: STOREFI is used to determine how the backend will spill
+// registers to stack frame. This pattern must exist, with the correct
+// operand names (src and val).
 define pattern STOREFI as (
   "(store i32:$src, (frameindex i32:$val))";
   (transfer (memref (+ val:regs imm:val:immed)) src:regs);
@@ -78,9 +85,12 @@ define pattern STORE as (
   (transfer (memref addr:regs) src:regs);
 );
 
+// Built-in pattern: LOADFI is used to determine how the backend will load
+// spilled registers from stack frame. This pattern must exist, with the
+// correct operand names (addr and dest).
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
-  (transfer a3:regs (memref (+ addr:regs imm:addr:immed)));
+  (transfer dest:regs (memref (+ addr:regs imm:addr:immed)));
 );
 
 define pattern LOAD as (
@@ -129,7 +139,8 @@ define registers GPR:regs as (
 
 define abi as (
   define callee save registers as (r14);
-  define reserved registers as    (r13 r14 r15);
+  define reserved registers as    (r9 r13 r14 r15);
+  define auxiliar registers as    (r9);
   //define calling convention for int as stack size 4 alignment 4;
   define calling convention for int as (r0 r1 r2 r3);
   define return convention for int as (r0 r1);

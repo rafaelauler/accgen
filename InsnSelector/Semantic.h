@@ -248,6 +248,7 @@ namespace backendgen {
       bool addRegister(Register *Reg);
       bool addCalleeSaveRegister(Register *Reg);
       bool addReservedRegister(Register *Reg);
+      bool addAuxiliarRegister(Register *Reg);
       void addCallingConvention(CallingConvention* Elem);
       void setProgramCounter(const Register* Reg);
       void setReturnRegister(const Register* Reg);
@@ -273,6 +274,8 @@ namespace backendgen {
       std::set<Register*>::const_iterator getRegsEnd() const;
       std::set<Register*>::const_iterator getReservedBegin() const;
       std::set<Register*>::const_iterator getReservedEnd() const;
+      std::set<Register*>::const_iterator getAuxiliarBegin() const;
+      std::set<Register*>::const_iterator getAuxiliarEnd() const;
       std::set<Register*>::const_iterator getCalleeSBegin() const;
       std::set<Register*>::const_iterator getCalleeSEnd() const;
       std::list<const Register*>* getCallerSavedRegs() const;
@@ -292,6 +295,7 @@ namespace backendgen {
       std::set<Register *> Registers;
       std::set<Register *> CalleeSaveRegisters;
       std::set<Register *> ReservedRegisters;
+      std::set<Register *> AuxiliarRegisters;
       std::list<CallingConvention*> CallConvs;
       const Register* ProgramCounter;
       const Register* ReturnRegister;

@@ -16,12 +16,31 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Target/TargetMachine.h"
 `#include "'__arch__`GenInstrInfo.inc"'
 using namespace llvm;
 
 __arch__`'InstrInfo::__arch__`'InstrInfo(__arch__`'Subtarget &ST)
   : TargetInstrInfoImpl(`'__arch__`'Insts, array_lengthof(`'__arch__`'Insts)),
     RI(ST, *this), Subtarget(ST) {
+}
+
+namespace {
+const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock &MBB) {
+  const TargetRegisterClass* BestFit = 0;
+  unsigned NumRegs = 0;
+  const TargetRegisterInfo *RI = MBB.getParent()->getTarget().getRegisterInfo();
+  for (TargetRegisterInfo::regclass_iterator I = RI->regclass_begin(),
+    E = RI->regclass_end(); I != E; ++I) {
+    if ((*I)->hasType(vt) &&
+        (!BestFit || (*I)->getNumRegs() > NumRegs)) {      
+      BestFit = *I;
+      NumRegs = (*I)->getNumRegs();
+    }
+  }
+  return BestFit;
+}
 }
 
 //static bool isZeroImm(const MachineOperand &op) {
@@ -80,6 +99,10 @@ void `'__arch__`'InstrInfo::
 storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                     unsigned SrcReg, bool isKill, int FI,
                     const TargetRegisterClass *RC) const {
+
+  unsigned src = SrcReg;
+  int val = FI;
+__store_reg_to_stack_slot__
 }
 
 void `'__arch__`'InstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
@@ -93,7 +116,9 @@ void `'__arch__`'InstrInfo::
 loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                      unsigned DestReg, int FI,
                      const TargetRegisterClass *RC) const {
- 
+  unsigned dest = DestReg;
+  int addr = FI;
+__load_reg_from_stack_slot__ 
 }
 
 void `'__arch__`'InstrInfo::loadRegFromAddr(MachineFunction &MF, unsigned DestReg,

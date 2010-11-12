@@ -115,6 +115,10 @@ void TemplateManager::CreateM4File()
   O << generateEmitPrologue(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__emit_epilogue__',`";
   O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__store_reg_to_stack_slot__',`";
+  O << generateStoreRegToStackSlot() << "')m4_dnl\n";
+  O << "m4_define(`__load_reg_from_stack_slot__',`";
+  O << generateLoadRegFromStackSlot() << "')m4_dnl\n";  
   
   // Print literals are only available AFTER all pattern
   // generation inference!
@@ -593,6 +597,10 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   return R;                 
 }
 
+// REQUIRES: All pattern inference already executed, so the literal map
+// is populated.
+// This function generates the literal map, so literals get properly printed
+// by the backend AsmWritter.
 string TemplateManager::generatePrintLiteral() {
   stringstream SS;
   
@@ -606,6 +614,50 @@ string TemplateManager::generatePrintLiteral() {
   return SS.str();
 }
 
+// REQUIRES: generateSimplePatterns() must be run before, so the pattern
+// inference results (in TemplateManager::InferenceResults) are present.
+// Assumptions: "val" and "src" are in the scope where this code will be put, 
+//    in which "val" is the frameindex and "src" is the register to be stored.
+//    "isKill" is a boolean value in scope, indicating if the src reg is a 
+//    kill.
+string TemplateManager::generateStoreRegToStackSlot() {
+  assert(InferenceResults.StoreToStackSlotSR != NULL &&
+         "generateSimplePatterns() must run before");
+  //TODO: Differentiate between different src RegisterClasses (in scope as 
+  //      const TargetRegisterClass *RC)
+  stringstream SS;
+  StringMap Defs, ExtraParams;
+  Defs["val"] = "FrameIndex";
+  Defs["src"] = "Reg";
+  ExtraParams["src"] = "false, false, isKill";
+  SS << PatTrans.genEmitMI(InferenceResults.StoreToStackSlotSR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 2, &ExtraParams);
+  return SS.str();
+}
+
+// REQUIRES: generateSimplePatterns() must be run before, so the pattern
+// inference results (in TemplateManager::InferenceResults) are present.
+// Assumptions: "val" and "src" are in the scope where this code will be put, 
+//    in which "val" is the frameindex and "src" is the register to be stored.
+//    "isKill" is a boolean value in scope, indicating if the src reg is a 
+//    kill.
+string TemplateManager::generateLoadRegFromStackSlot() {
+  assert(InferenceResults.LoadFromStackSlotSR != NULL &&
+         "generateSimplePatterns() must run before");
+  //TODO: Differentiate between different src RegisterClasses (in scope as 
+  //      const TargetRegisterClass *RC)
+  stringstream SS;
+  StringMap Defs;
+  Defs["addr"] = "FrameIndex";
+  //Defs["dest"] = "Reg";
+  
+  SS << PatTrans.genEmitMI(InferenceResults.LoadFromStackSlotSR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 2);
+  return SS.str();
+}
+
+// This function works the inference of stack adjustment for the target
+// architecture. It uses FindImplementation(genCopyAddSubImmPat()) for that.
 string TemplateManager::generateEliminateCallFramePseudo(std::ostream &Log,
 							 bool isPositive) {
   const Register* SP = RegisterClassManager.getStackPointer();
@@ -629,12 +681,18 @@ string TemplateManager::generateEliminateCallFramePseudo(std::ostream &Log,
   StringMap Defs;
   Defs[SP->getName()] = "Reg";
   Defs["Size"] = "Imm";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 4, "MBB", "I", "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4, NULL, "MBB",
+			   "I", "TII.get");
   delete SR;
   delete Exp;
   return SS.str();
 }
 
+// This function is responsible for determining the EmitPrologue function
+// of the backend.
+// Assumptions: "NumBytes" is in the scope where this code will be put, and
+//   indicates the stack size, or how much we will adjust the stack.
+//   The name of registers SP and FP are also in scope.   
 string TemplateManager::generateEmitPrologue(std::ostream &Log) {
   const Register* SP = RegisterClassManager.getStackPointer();
   const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
@@ -657,7 +715,8 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
   Defs[SP->getName()] = "Reg";
   Defs[FP->getName()] = "Reg";
   Defs["NumBytes"] = "Imm";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB", "I",
+			   "TII.get");
   delete SR;  
   delete Exp;
   Exp = NULL;
@@ -678,12 +737,17 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
     Log << "sequence to do this in target architecture.\n";
     abort();
   }  
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");  
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB", "I",
+			   "TII.get");  
   delete SR;
   delete Exp;
   return SS.str();
 }
 
+
+// This function generates the EmitEpilogue function of the backend.
+// Assumptions: The name of registers SP and FP are in scope where this code
+//   will be put.
 string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   const Register* SP = RegisterClassManager.getStackPointer();
   const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
@@ -705,12 +769,16 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   StringMap Defs;
   Defs[SP->getName()] = "Reg";
   Defs[FP->getName()] = "Reg";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, 2, "MBB", "I", "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB",
+			   "I", "TII.get");
   delete SR;
   delete Exp;
   return SS.str();
 }
 
+// This function works out how to transfer between different classes
+// of storage in the target architecture and puts this information into
+// the backend as c++ code.
 string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
   stringstream SS;
   StringMap Defs;
@@ -742,7 +810,7 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
 	SS << "    // Could not infer code to make this transfer" << endl;
 	SS << "    return false;" << endl;
       } else {
-	SS << PatTrans.genEmitMI(SR, Defs, &LMap, 4);
+	SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4);
 	delete SR;	
       }
       delete Exp;
@@ -858,7 +926,14 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     temp << "EmitFunc" << count;
     PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());
     std::cerr << SSfunc.str();    
-    delete SR;
+    // Now check if this is a built-in pattern and we must remember this
+    // inference.
+    if (I->Name == "STOREFI")
+      InferenceResults.StoreToStackSlotSR = SR;
+    else if (I->Name == "LOADFI")
+      InferenceResults.LoadFromStackSlotSR = SR;
+    else
+      delete SR;
   }    
   stringstream SSswitch;
   for (map<string, MatcherCode>::iterator I = Map.begin(), E = Map.end();
@@ -868,6 +943,11 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
   end = std::time(0);
   Log << count << " pattern(s) implemented successfully in " << 
     std::difftime(end,start) << " second(s).\n";
+    
+  assert(InferenceResults.StoreToStackSlotSR != NULL && 
+	 "Missing built-in pattern STOREFI");
+  assert(InferenceResults.LoadFromStackSlotSR != NULL && 
+	 "Missing built-in pattern LOADFI");  
     
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());

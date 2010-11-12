@@ -124,7 +124,11 @@ namespace backendgen {
     // * Translating patterns to LLVM's instruction scheduling phase *
     std::string genEmitMI(SearchResult *SR, const StringMap& Defs,
 			  LiteralMap *LMap,
-			  unsigned ident = 2,
+			  bool alreadySorted = false,
+			  bool mayUseVirtualReg = true,
+			  std::list<const Register*>* auxiliarRegs = NULL,
+			  unsigned ident = 2, 
+			  const StringMap* ExtraParams = NULL,
 			  const std::string& MBB = "MBB",
 			  const std::string& Itr = "I",
 			  const std::string& get = "get");

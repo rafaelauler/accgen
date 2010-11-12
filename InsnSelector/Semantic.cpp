@@ -400,6 +400,10 @@ namespace backendgen {
     bool RegClassManager::addReservedRegister(Register *Reg) {
       return ReservedRegisters.insert(Reg).second;
     }
+    
+    bool RegClassManager::addAuxiliarRegister(Register *Reg) {
+      return AuxiliarRegisters.insert(Reg).second;
+    }
 
     RegisterClass *RegClassManager::getRegClass(const std::string &ClassName) {
       for (std::set<RegisterClass*>::iterator I = RegClasses.begin(),
@@ -460,6 +464,16 @@ namespace backendgen {
     std::set<Register*>::const_iterator RegClassManager::getReservedEnd() 
       const {
       return ReservedRegisters.end();
+    }
+    
+    std::set<Register*>::const_iterator RegClassManager::getAuxiliarBegin()
+      const {
+      return AuxiliarRegisters.begin();
+    }
+
+    std::set<Register*>::const_iterator RegClassManager::getAuxiliarEnd() 
+      const {
+      return AuxiliarRegisters.end();
     }
 
     std::set<Register*>::const_iterator RegClassManager::getCalleeSBegin()

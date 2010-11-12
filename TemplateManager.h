@@ -38,6 +38,18 @@ class TemplateManager {
   // is stored.
   const char * WorkingDir;
   LiteralMap LMap;
+  std::list<const Register*> AuxiliarRegs;
+  
+  // Important pattern inferece results, used more than once
+  // in the backend generation process.
+  struct _InferenceResults {
+    // StoreToStackSlotSR is a pattern with operands val and src, used to store
+    // reg "src" into frameindex "val"
+    SearchResult * StoreToStackSlotSR;
+    // LoadFromStackSlotSR is a pattern with operands addr, used to load from
+    // frameindex "addr" to a register "dest".
+    SearchResult * LoadFromStackSlotSR;
+  } InferenceResults;
   
   // Private members
   void CreateM4File();
@@ -51,6 +63,8 @@ class TemplateManager {
   std::string generateInsnSizeTable();
   std::string generateCallingConventions();
   std::string generatePrintLiteral();
+  std::string generateStoreRegToStackSlot();
+  std::string generateLoadRegFromStackSlot();
   std::string generateEliminateCallFramePseudo(std::ostream &Log,
 					       bool isPositive);
   std::string generateEmitPrologue(std::ostream &Log);
@@ -78,9 +92,18 @@ class TemplateManager {
     OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL) {
       CommentChar = '#';
       TypeCharSpecifier = '@';
+      InferenceResults.StoreToStackSlotSR = NULL;
+      for (std::set<Register*>::const_iterator 
+	I = RegisterClassManager.getAuxiliarBegin(),
+	E = RegisterClassManager.getAuxiliarEnd(); I != E; ++I) {
+	AuxiliarRegs.push_back(*I);
+      }
     }
 
-  ~TemplateManager() {}
+  ~TemplateManager() {
+    if (InferenceResults.StoreToStackSlotSR != NULL)
+      delete InferenceResults.StoreToStackSlotSR;
+  }
 
   void SetArchName (const char * name) { 
     std::locale loc;

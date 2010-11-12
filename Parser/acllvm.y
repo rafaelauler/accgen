@@ -70,6 +70,7 @@ void yyerror(char *error);
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
 %token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
+%token<num> AUXILIAR
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -331,6 +332,16 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
                  Register *Reg = RegStack.top();
                  RegStack.pop();
                  RegisterManager.addReservedRegister(Reg);
+                 --I;
+               }
+             }
+	     | DEFINE AUXILIAR REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
+             {
+               int I = RegStack.size() - 1;
+               while (I >= 0) {
+                 Register *Reg = RegStack.top();
+                 RegStack.pop();
+                 RegisterManager.addAuxiliarRegister(Reg);
                  --I;
                }
              }
