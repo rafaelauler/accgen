@@ -321,7 +321,7 @@ define instruction mov3 semantic as (
 //====-- STR --====//
 define instruction str1 semantic as (
   let Op1 = "" in
-    (transfer (memref Op2:GPR) Op3:GPR);
+    (transfer (memref Op3:GPR) Op2:GPR);
 ) cost 1;
 
 //====-- LDR --====//

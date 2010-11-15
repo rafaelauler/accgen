@@ -187,14 +187,15 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
     }      
     // Otherwise we have an operator
     const Operator* O = dynamic_cast<const Operator*>(Element);
-    assert (O != NULL && "Unexpected tree node type");
+    assert (O != NULL && "Unexpected tree node type");    
+    // Depth first - use push_front
+    for (int I = O->getArity() - 1, E = -1; I != E; --I) {
+      Queue.push_front((*O)[I]);
+    }
     const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Element);
     if (AO != NULL && AO->getPredicate() != NULL) {
-      Queue.push_back(AO->getPredicate()->getLHS());
-      Queue.push_back(AO->getPredicate()->getRHS());
-    }
-    for (int I = 0, E = O->getArity(); I != E; ++I) {
-      Queue.push_back((*O)[I]);
+      Queue.push_front(AO->getPredicate()->getRHS());
+      Queue.push_front(AO->getPredicate()->getLHS());      
     }
   }
   // Remove requested nodes
