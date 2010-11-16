@@ -40,6 +40,9 @@ class TemplateManager {
   LiteralMap LMap;
   std::list<const Register*> AuxiliarRegs;
   
+  typedef std::pair<const RegisterClass*, const RegisterClass*> RCPair;
+  typedef std::list<std::pair<RCPair,
+      SearchResult *> > MoveListTy;
   // Important pattern inferece results, used more than once
   // in the backend generation process.
   struct _InferenceResults {
@@ -49,6 +52,9 @@ class TemplateManager {
     // LoadFromStackSlotSR is a pattern with operands addr, used to load from
     // frameindex "addr" to a register "dest".
     SearchResult * LoadFromStackSlotSR;
+    // A list of patterns of move instructions, between each pair of possible
+    // register class
+    MoveListTy MoveRegToRegList;
   } InferenceResults;
   
   // Private members
@@ -64,12 +70,15 @@ class TemplateManager {
   std::string generateCallingConventions();
   std::string generatePrintLiteral();
   std::string generateStoreRegToStackSlot();
-  std::string generateLoadRegFromStackSlot();
+  std::string generateIsStoreToStackSlot();
+  std::string generateLoadRegFromStackSlot();  
+  std::string generateIsLoadFromStackSlot();
   std::string generateEliminateCallFramePseudo(std::ostream &Log,
 					       bool isPositive);
   std::string generateEmitPrologue(std::ostream &Log);
   std::string generateEmitEpilogue(std::ostream &Log);
   std::string generateCopyRegPatterns(std::ostream &Log);
+  std::string generateIsMove();
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
@@ -103,6 +112,13 @@ class TemplateManager {
   ~TemplateManager() {
     if (InferenceResults.StoreToStackSlotSR != NULL)
       delete InferenceResults.StoreToStackSlotSR;
+    if (InferenceResults.LoadFromStackSlotSR != NULL)
+      delete InferenceResults.LoadFromStackSlotSR;
+    for (MoveListTy::const_iterator I = InferenceResults.MoveRegToRegList
+         .begin(), E = InferenceResults.MoveRegToRegList.end(); I != E; ++I) {
+      if (I->second != NULL)
+	delete I->second;
+    }
   }
 
   void SetArchName (const char * name) { 

@@ -76,6 +76,7 @@ namespace backendgen {
   public:
     LiteralMap(): std::map<unsigned, std::string>(), CurrentIndex(1) {}
     unsigned addMember(const std::string& Name);
+    unsigned getMember(const std::string& Name);
     void printAll(std::ostream& O);
   };
   
@@ -132,6 +133,12 @@ namespace backendgen {
 			  const std::string& MBB = "MBB",
 			  const std::string& Itr = "I",
 			  const std::string& get = "get");
+			  
+    std::string genIdentifyMI(SearchResult *SR, const StringMap& Defs,
+			      LiteralMap *LMap,
+			      const std::string &Action,
+			      const std::string &MI = "MI",
+			      unsigned ident = 2);
   };
 
 }

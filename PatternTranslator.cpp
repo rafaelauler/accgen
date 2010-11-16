@@ -29,6 +29,8 @@ using std::list;
 using std::map;
 using std::set;
 using std::vector;
+using std::pair;
+using std::make_pair;
 
 // ==================== SDNode class members ==============================
 SDNode::SDNode() {
@@ -130,6 +132,24 @@ unsigned LiteralMap::addMember(const string& Name) {
   
   (*this)[CurrentIndex] = Name;
   return CurrentIndex++;  
+}
+
+// This member function adds a new member to the string table and returns
+// its index. If the string already exists, no new member is added, but a
+// index to the already existing string is returned.
+unsigned LiteralMap::getMember(const string& Name) {
+  bool found = false;
+  LiteralMap::const_iterator I, E;
+  for (I = this->begin(), E = this->end(); I != E; ++I) {
+    if (I->second == Name) {
+      found = true;
+      break;
+    }    
+  }
+  if (found)
+    return I->first;
+  
+  assert (0 && "getMember failed: Member does not exist");
 }
 
 void LiteralMap::printAll(std::ostream& O) {
@@ -747,7 +767,8 @@ inline void AddressOperand(std::ostream &S, vector<int>& Parents,
   while (prev != -1) {
     Q.push_back(prev);    
     prev = p;
-    p = Parents[p];
+    if (p != -1)
+      p = Parents[p];
   }
   while (!Q.empty()) {
     const int index = Q.back();
@@ -886,12 +907,10 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
-    // Building DAG Node for this instruction
     for (unsigned i = 0; i < ident; ++i)
       SS << " "; 
     SS << "BuildMI(" << MBB << ", " << Itr << ", " << get << "(";
-    //TODO: Replace hardwired Sparc16!
-    SS << "Sparc16::" << I->first->getLLVMName();  
+    SS << "__arch__`'::" << I->first->getLLVMName();  
     SS << ")";
     stringstream SSOperands;
             
@@ -1020,4 +1039,264 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
   return DeclarationsStream.str();
 }
 
+namespace {
+inline void generateIdent(std::ostream& O, unsigned ident) {
+  for (unsigned i = 0; i < ident; ++i)
+    O << " ";
+}
 
+// Used in genIdentifyMI, see more details at local var Levels.
+struct Level {
+  stringstream *decl, *cond, *action;
+  string instr;  
+};
+}
+
+/// This member function generates LLVM backend C++ code to identify a known
+/// pattern expressed as MachineInstructions (MI), that is, in the final phase
+/// of code generation. If the identification is positive and DefsMap is
+/// populated, it also generates code to extract the pattern operands, 
+/// storing them in the variable names defines in the DefsMap.
+
+// Expects the MachineInstr containing the root instruction of the pattern
+// to be in scope with the name "pMI".
+// Expects the function "findNearestDef" to be in scope, returning a
+// MachineInstr that defines a requested virtual register.
+string PatternTranslator::genIdentifyMI(SearchResult *SR,
+					const StringMap& Defs,
+					LiteralMap *LMap,
+					const string &Action,
+					const std::string &MI,
+					unsigned ident) {  
+  // This list stores, for each level of comparison, a pair containing code
+  // that positively identifies a portion of the pattern and its respective
+  // necessary declarations in order to execute the comparison (if statement).
+  // As the pattern is being recognized, the code advances in the chain
+  // of if conditions. Each if condition is a level. If the pattern fails
+  // any level, it is not recognized.
+  list<Level> Levels;
+  list<Level>::iterator CurLevel;  
+  Levels.resize(1);
+  CurLevel = Levels.begin();
+  CurLevel->instr = string(MI);
+  CurLevel->action = new stringstream();
+  CurLevel->decl = new stringstream();
+  CurLevel->cond = new stringstream();
+  stringstream FinalAction;
+  unsigned curIdent = ident;
+    
+  map<string, Level *> DeclaredVirtuals;  
+    
+  OperandsDefsType::reverse_iterator OI = SR->OperandsDefs->rbegin();
+  for (InstrList::reverse_iterator I = SR->Instructions->rbegin(),
+	 E = SR->Instructions->rend(); I != E; ++I) {    
+    CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
+    CnstOperandsList* Outs = I->first->getOuts();
+    BindingsList* Bindings = I->second->OperandsBindings;
+    assert (OI != SR->OperandsDefs->rend() && "SearchResult inconsistency");
+    NameListType* OpNames = *(OI++);
+    curIdent = curIdent + 2;
+    // Already sorted, as this pattern was probably already emitted
+    //sortOperandsDefs(OpNames, I->second);
+    assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
+    const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());    
+    if (Bindings != NULL) {
+      assert(OpNames->size() + Bindings->size() == AllOps->size()
+	     && "Inconsistency. Missing sufficient bindings?");
+    } else {
+      assert(OpNames->size() == AllOps->size() 
+	     && "Inconsistency. Missing sufficient bindings?");
+    }
+    
+    // If this instruction does not have a definition and is not the root,
+    // there is no possible way we can identify this pattern because there
+    // are instructions in the pattern that can't be reached via root!
+    if (CurLevel != Levels.begin() && DefOperand == NULL) {
+      assert(0 && "Multiple defs patterns not implemented!");
+    }
+    if (CurLevel == Levels.begin()) {
+      *CurLevel->cond << CurLevel->instr << " != NULL && " << CurLevel->instr 
+		    << "->getOpcode() == __arch__`'::" 
+		    << I->first->getLLVMName() << " ";                
+    }
+    // We need to discover how this is instruction is declared. In order to
+    // do this, we traverse the operand list, find the defined reg name
+    // and infer the name of the variable used to declare this instruction.
+    if (DefOperand != NULL) {      
+      bool found = false;
+      NameListType::const_iterator NI = OpNames->begin();
+      for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+	   E2 = AllOps->end(); I2 != E2; ++I2) {
+	const Operand *Element = *I2;     
+	if (reinterpret_cast<const void*>(Element) == 
+	    reinterpret_cast<const void*>(DefOperand)) {
+	  // This is the defined operand
+	  assert (dynamic_cast<const RegisterOperand*>(Element) &&
+	      "Currently only support register operand definition");
+	  if (CurLevel == Levels.begin()) {	    
+	    if (Defs.find(*NI) != Defs.end()) {	
+	      StringMap::const_iterator CI = Defs.find(*NI);
+	      assert (CI->second == "Reg" && "Defined operand must be reg");
+	      *CurLevel->cond << " && " << CurLevel->instr 
+			    << "->getOperand(0).isReg()";
+	      generateIdent(FinalAction, curIdent);
+	      FinalAction << *NI << "= " << CurLevel->instr 
+			  << "->getOperand(0).getReg();" << endl;			   
+	    }
+	  } else {
+	    CurLevel->instr = *NI;
+	    CurLevel->instr.append("_MI");
+	    // If this name was not already declared by a previous instruction,
+	    // then something is very wrong, i.e., there are multiple defs in
+	    // this pattern.
+	    assert(DeclaredVirtuals.find(*NI) != DeclaredVirtuals.end() 
+	           && "Multiple defs patterns not implemented!");
+	  }	  
+	  found = true;
+	  break;
+	}
+      }      
+      assert ((CurLevel == Levels.begin() || found) 
+	      && "DefOperand not found!");
+    }
+    // Build the first condition of this level, identifying the instruction
+    // opcode
+    if (CurLevel != Levels.begin()) {
+      *CurLevel->cond << CurLevel->instr << " != NULL && " << CurLevel->instr 
+		    << "->getOpcode() == __arch__`'::" 
+		    << I->first->getLLVMName() << " ";                
+    }
+    // Now we simply traverse the operands and build the conditional string to
+    // positively identify this pattern
+    unsigned i = 0;
+    if (DefOperand != NULL)
+      i = 1;
+    NameListType::const_iterator NI = OpNames->begin();
+    for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+	   E2 = AllOps->end(); I2 != E2; ++I2) {
+      const Operand *Element = *I2;     
+      if (reinterpret_cast<const void*>(Element) == 
+	  reinterpret_cast<const void*>(DefOperand)) {
+	// Already handled	
+	++NI;
+	continue;
+      }
+      // DUMMY
+      if (Element->getType() == 0) {		
+	// See if bindings list has a definition for it
+	if (Bindings != NULL) {
+	  bool Found = false;
+	  for (BindingsList::const_iterator I = Bindings->begin(),
+		 E = Bindings->end(); I != E; ++I) {
+	    if (HasOperandNumber(I->first)) {
+	      const unsigned i_temp = DefOperand? i : i+1;
+	      if(ExtractOperandNumber(I->first) == i_temp) {
+		unsigned index = LMap->getMember(I->second);
+		*CurLevel->cond << " && " << CurLevel->instr 
+		               << "->getOperand(" << i << ").isImm() && " 
+		               << CurLevel->instr << "->getOperand(" << i 
+		               << ").getImm() == " << index;
+		Found = true;
+		break;
+	      }
+	    }
+	  }
+	  assert (Found && "Missing bindings for dummy operand");
+	  ++i;
+	  continue;
+	}
+	// No bindings for this dummy
+	// TODO: ABORT? Wait for side effect compensation processing?
+	assert(0 && "Side effect compensation not detectable");
+	++i;
+	continue;
+      }
+      // NOT DUMMY
+      assert(NI != OpNames->end() && 
+	     "BUG: OperandsDefs lacks required definition");
+      // Is this operand already defined?
+            
+      if (Defs.find(*NI) != Defs.end()) {
+	StringMap::const_iterator CI = Defs.find(*NI);
+	*CurLevel->cond << " && " << CurLevel->instr << "->getOperand(" << i
+	               << ").is" << CI->second << "()";
+	generateIdent(FinalAction, curIdent);
+	FinalAction << *NI << " = " << CurLevel->instr << "->getOperand("
+	                 << i << ").get" << CI->second << "();" << endl;
+	++NI;
+	++i;
+	continue;
+      }
+      // This operand type is not defined, so it must be a scratch
+      // register            
+      // Test to see if this is a RegisterOperand
+      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
+      if (RO != NULL) {
+	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
+	  // This is important, since here we declare a MachineInstr* that
+	  // may be used in the future to continue identification of the
+	  // pattern. This name is later recovered in the first loop.
+	  DeclaredVirtuals[*NI] = &*CurLevel;	  
+	  generateIdent(*CurLevel->decl, curIdent-2);
+	  generateIdent(*CurLevel->action, curIdent);
+	  *CurLevel->decl << "int " << *NI << " = (" << i << " < " 
+			 << CurLevel->instr 
+	                 << "->getNumOperands() && " 
+	                 << CurLevel->instr 	  
+	                 << "->getOperand(" << i << ").isReg()) ? (int)" 
+	                 << CurLevel->instr << "->getOperand(" << i 
+	                 << ").getReg() : -1;" <<  endl;	  
+	  *CurLevel->action << "const MachineInstr* " << *NI 
+	                   << "_MI = findNearestDef(" 
+	                    << CurLevel->instr << "," << *NI
+	                   << ");" << endl;
+	}
+	*CurLevel->cond << " && " << CurLevel->instr << "->getOperand(" << i
+	               << ").isReg() && " << CurLevel->instr << "->getOperand("
+	               << i << ").getReg() == (unsigned) " << *NI;
+	++NI;
+	++i;
+	continue;
+      }
+      // Not a scratch register operand... 
+      assert (0 && "Non-scratch operands must be defined in DefList");
+    }        
+    // Housekeeping
+    delete AllOps;
+    delete Outs;
+    Levels.resize(Levels.size()+1);
+    CurLevel++;
+    CurLevel->action = new stringstream();
+    CurLevel->decl = new stringstream();
+    CurLevel->cond = new stringstream();
+  }
+  
+  stringstream SS;
+  // Organizing code
+  unsigned NumParen = 0;
+  curIdent = ident - 2;
+  for (list<Level>::iterator I = Levels.begin(), E = Levels.end(); I!= E; ++I){
+    curIdent = curIdent + 2;
+    // Check this because the last Level is empty and must be avoided
+    if (I->cond->str().size() > 0) {
+      SS << I->decl->str();
+      generateIdent(SS, curIdent);
+      SS << "if (" << I->cond->str() << ") {" << endl;      
+      SS << I->action->str();
+      ++NumParen;    
+    }
+    delete I->action;
+    delete I->decl;
+    delete I->cond;
+  }
+  SS << FinalAction.str();
+  generateIdent(SS, curIdent);
+  SS << Action << endl;
+  
+  for (unsigned I = 0; I < NumParen; ++I) {
+    curIdent = curIdent - 2;
+    generateIdent(SS, curIdent);
+    SS << "}" << endl;
+  }  
+  return SS.str();
+}

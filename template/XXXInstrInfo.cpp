@@ -41,6 +41,27 @@ const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock 
   }
   return BestFit;
 }
+
+const MachineInstr* findNearestDef(const MachineInstr* MI, unsigned Reg) {
+  //const MachineFunction* MF = MI->getParent()->getParent();  
+  const MachineBasicBlock *I = MI->getParent();
+  const MachineInstr* NearestDef = NULL;  
+  bool found = false;
+  //for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
+  //     I != E && !found; ++ I) {
+    for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (I2->isIdenticalTo(MI)) {
+	found = true;
+	break;
+      }
+      if (I2->findRegisterDefOperandIdx(Reg) != -1)
+	NearestDef = &*I2;
+    }
+  //}
+  return NearestDef;
+}
+
 }
 
 //static bool isZeroImm(const MachineOperand &op) {
@@ -53,7 +74,9 @@ const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock 
 bool `'__arch__`'InstrInfo::isMoveInstr(const MachineInstr &MI,
                                  unsigned &SrcReg, unsigned &DstReg,
                                  unsigned &SrcSR, unsigned &DstSR) const {
-  return false;
+  SrcSR = DstSR = 0; // No sub-registers.
+  const MachineInstr* pMI = &MI;
+  __is_move__
 }
 
 /// isLoadFromStackSlot - If the specified machine instruction is a direct
@@ -63,6 +86,11 @@ bool `'__arch__`'InstrInfo::isMoveInstr(const MachineInstr &MI,
 /// any side effects other than loading from the stack slot.
 unsigned `'__arch__`'InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
                                              int &FrameIndex) const {
+#define getFrameIndex getIndex
+#define isFrameIndex isFI					       
+__is_load_from_stack_slot__
+#undef getFrameIndex
+#undef isFrameIndex
   return 0;
 }
 
@@ -73,6 +101,11 @@ unsigned `'__arch__`'InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
 /// any side effects other than storing to the stack slot.
 unsigned `'__arch__`'InstrInfo::isStoreToStackSlot(const MachineInstr *MI,
                                             int &FrameIndex) const {
+#define getFrameIndex getIndex
+#define isFrameIndex isFI	
+__is_store_to_stack_slot__
+#undef getFrameIndex
+#undef isFrameIndex
   return 0;
 }
 
@@ -80,6 +113,7 @@ unsigned
 `'__arch__`'InstrInfo::InsertBranch(MachineBasicBlock &MBB,MachineBasicBlock *TBB,
                              MachineBasicBlock *FBB,
                              const SmallVectorImpl<MachineOperand> &Cond)const{
+  assert (0 && "InsertBranch not implemented.");
   return 0;
 }
 
@@ -110,6 +144,7 @@ void `'__arch__`'InstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
                                        SmallVectorImpl<MachineOperand> &Addr,
                                        const TargetRegisterClass *RC,
                                  SmallVectorImpl<MachineInstr*> &NewMIs) const {
+  assert (0 && "storeRegToAddr not implemented.");
 }
 
 void `'__arch__`'InstrInfo::
@@ -125,11 +160,13 @@ void `'__arch__`'InstrInfo::loadRegFromAddr(MachineFunction &MF, unsigned DestRe
                                         SmallVectorImpl<MachineOperand> &Addr,
                                         const TargetRegisterClass *RC,
                                  SmallVectorImpl<MachineInstr*> &NewMIs) const {
+  assert (0 && "loadRegFromAddr not implemented.");
 }
 
 MachineInstr *`'__arch__`'InstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
                                                     MachineInstr* MI,
                                           const SmallVectorImpl<unsigned> &Ops,
                                                     int FI) const {
+  //assert (0 && "foldMemoryOperandImpl not implemented.");
   return NULL;
 }

@@ -22,6 +22,8 @@ using std::set;
 using std::string;
 using std::stringstream;
 using std::endl;
+using std::pair;
+using std::make_pair;
 
 // Creates the M4 file that defines macros expansions to be
 // performed in template files. These expansions are defines as
@@ -107,6 +109,8 @@ void TemplateManager::CreateM4File()
   
   O << "m4_define(`__copyregpats__',`";
   O << generateCopyRegPatterns(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__is_move__',`";
+  O << generateIsMove() << "')m4_dnl\n";
   O << "m4_define(`__eliminate_call_frame_pseudo_positive__',`";
   O << generateEliminateCallFramePseudo(std::cout, true) << "')m4_dnl\n";  
   O << "m4_define(`__eliminate_call_frame_pseudo_negative__',`";
@@ -118,7 +122,11 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__store_reg_to_stack_slot__',`";
   O << generateStoreRegToStackSlot() << "')m4_dnl\n";
   O << "m4_define(`__load_reg_from_stack_slot__',`";
-  O << generateLoadRegFromStackSlot() << "')m4_dnl\n";  
+  O << generateLoadRegFromStackSlot() << "')m4_dnl\n";      
+  O << "m4_define(`__is_load_from_stack_slot__',`";
+  O << generateIsLoadFromStackSlot() << "')m4_dnl\n";  
+  O << "m4_define(`__is_store_to_stack_slot__',`";
+  O << generateIsStoreToStackSlot() << "')m4_dnl\n";    
   
   // Print literals are only available AFTER all pattern
   // generation inference!
@@ -637,6 +645,23 @@ string TemplateManager::generateStoreRegToStackSlot() {
 
 // REQUIRES: generateSimplePatterns() must be run before, so the pattern
 // inference results (in TemplateManager::InferenceResults) are present.
+string TemplateManager::generateIsStoreToStackSlot() {
+  stringstream SS;
+  StringMap Defs;
+  Defs["val"] = "FrameIndex";
+  Defs["src"] = "Reg";
+  
+  SS << "  int val;" << endl;
+  SS << "  unsigned src;" << endl;      
+  SS << PatTrans.genIdentifyMI(InferenceResults.StoreToStackSlotSR, Defs,
+			       &LMap, "FrameIndex = val;\n"
+    "return src;");  
+  SS << endl;
+  return SS.str();
+}
+
+// REQUIRES: generateSimplePatterns() must be run before, so the pattern
+// inference results (in TemplateManager::InferenceResults) are present.
 // Assumptions: "val" and "src" are in the scope where this code will be put, 
 //    in which "val" is the frameindex and "src" is the register to be stored.
 //    "isKill" is a boolean value in scope, indicating if the src reg is a 
@@ -653,6 +678,23 @@ string TemplateManager::generateLoadRegFromStackSlot() {
   
   SS << PatTrans.genEmitMI(InferenceResults.LoadFromStackSlotSR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 2);
+  return SS.str();
+}
+
+// REQUIRES: generateSimplePatterns() must be run before, so the pattern
+// inference results (in TemplateManager::InferenceResults) are present.
+string TemplateManager::generateIsLoadFromStackSlot() {
+  stringstream SS;
+  StringMap Defs;
+  Defs["addr"] = "FrameIndex";
+  Defs["dest"] = "Reg";
+  
+  SS << "  int addr;" << endl;
+  SS << "  unsigned dest;" << endl;      
+  SS << PatTrans.genIdentifyMI(InferenceResults.LoadFromStackSlotSR, Defs,
+			       &LMap, "FrameIndex = addr;\n"
+    "return dest;");  
+  SS << endl;
   return SS.str();
 }
 
@@ -810,14 +852,37 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
 	SS << "    // Could not infer code to make this transfer" << endl;
 	SS << "    return false;" << endl;
       } else {
-	SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4);
-	delete SR;	
+	InferenceResults.MoveRegToRegList.push_back(make_pair(make_pair(*I,
+						      *I2), SR));
+	SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4);	
       }
       delete Exp;
       SS << "  } ";
     }
   }
 
+  return SS.str();
+}
+
+// REQUIRES generateRegCopyPatterns to be previously ran and populate
+// InferenceResults.MoveRegToRegList
+string TemplateManager::generateIsMove() {
+  stringstream SS;
+  StringMap Defs;
+  Defs["DestReg"] = "Reg";
+  Defs["SrcReg"] = "Reg";
+  
+  SS << "unsigned DestReg;" << endl;
+  for (MoveListTy::const_iterator I= InferenceResults.MoveRegToRegList.begin(),
+       E = InferenceResults.MoveRegToRegList.end(); I != E; ++I) {
+    
+    SS << "// SrcRC == " << I->first.first->getName() << " && DestRC == " 
+       << I->first.second->getName() << "" << endl;
+    SS << PatTrans.genIdentifyMI(I->second, Defs, &LMap, "DstReg = DestReg;\n"
+    "return true;", "pMI");    
+  }
+  SS << endl;
+  SS << "return false;";
   return SS.str();
 }
 
