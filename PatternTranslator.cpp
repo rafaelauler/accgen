@@ -1019,7 +1019,10 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	                     << (*currentAuxReg)->getName() << ";" << endl;
 	  ++currentAuxReg;
 	}
-	SSOperands << ".addReg(" << *NI << ")";	
+	// The suffix false, false, true sets this to isKill = true, because
+	// we need to kill the aux reg since it is a physical reg and we
+	// will no longer need this definition.
+	SSOperands << ".addReg(" << *NI << ", false, false, true)";	
 	++NI;
 	++i;
 	continue;

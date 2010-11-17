@@ -419,15 +419,28 @@ string TemplateManager::generateInstructionsDefs() {
 	}
 	delete RList;
 	SS << "]";
-	if (Uses->size() > 0) SS << ", ";
+	if (Uses->size() > 0 || isCall) SS << ", ";
       }
-      if (Uses->size() > 0) {
+      if (Uses->size() > 0 || isCall) {
 	SS << "Uses = [";
 	for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
 	       E2 = Uses->end(); I2 != E2; ++I2) {
 	  if (I2 != Uses->begin())
 	    SS << ",";	  
 	  SS << (*I2)->getOperandName();      
+	}
+	std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
+	  .getCCBegin();
+	while (I2 != RegisterClassManager.getCCEnd() && 
+	  ((*I2)->IsReturnConvention || (*I2)->UseStack)) ++I2;
+	if (I2 != RegisterClassManager.getCCEnd() && (*I2)->getBegin() 
+	    != (*I2)->getEnd()) {
+	  for (std::list<const Register*>::const_iterator I3 =
+	    (*I2)->getBegin(), E3 = (*I2)->getEnd(); I3 != E3; ++I3) {
+	    if (I3 != (*I2)->getBegin() || Uses->size() != 0)
+	      SS << ",";	  
+	    SS << (*I3)->getName();
+	  }
 	}
 	SS << "]";
       }

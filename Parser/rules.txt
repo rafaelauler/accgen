@@ -138,7 +138,7 @@ define registers GPR:regs as (
 //===========================-- ABI stuff --==================================//
 
 define abi as (
-  define callee save registers as (r14);
+  define callee save registers as (r4 r5 r6 r7);
   define reserved registers as    (r9 r13 r14 r15);
   define auxiliar registers as    (r9);
   //define calling convention for int as stack size 4 alignment 4;
