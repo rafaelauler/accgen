@@ -64,17 +64,19 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 12;
+  const unsigned NodeNamesSz = 14;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
+			       "sub",
 			       "call",
 			       "ret",
 			       "frameindex",
 			       "imm",
 			       "tglobaladdr",
 			       "globaladdr",
+			       "br",
 			       "br_cc",
 			       "condcode",
 			       "basicblock"
@@ -83,12 +85,14 @@ namespace {
   const string EnumNames[] = { "ISD::LOAD", 
 			       "ISD::STORE",
 			       "ISD::ADD",
+			       "ISD::SUB",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
 			       "ISD::TargetGlobalAddress",
 			       "ISD::GlobalAddress",
+			       "ISD::BR",
 			       "ISD::BR_CC",
 			       "ISD::CONDCODE",
 			       "ISD::BasicBlock"
@@ -97,12 +101,14 @@ namespace {
   GetNodeFunc FuncNames[] = { NULL, // load
 			      NULL, // store
 			      NULL, // add
+			      NULL, // sub
 			      NULL, // call
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
 			      GetConstant, // imm
 			      NULL, // tglobaladdr
 			      GetGlobalAddress, // globaladdr
+			      NULL, // br
 			      NULL, // br_cc
 			      NULL, // condcode
 			      NULL  // basicblock
@@ -111,12 +117,14 @@ namespace {
   MatchNodeFunc MFuncNames[] = {  NULL, // load
 				  NULL, // store
 				  NULL, // add
+				  NULL, // sub
 				  NULL, // call
 				  NULL, // ret
 				  NULL, // frameindex
 				  NULL, // imm
 				  NULL, // tglobaladdr
 				  NULL, // globaladdr
+				  NULL, // br
 				  NULL, // br_cc
 				  MatchCondCode, // condcode
 				  NULL  // basicblock
@@ -125,12 +133,14 @@ namespace {
   bool MatchChildrenVals[] = { true,  // load
 			       true,  // store
 			       true,  // add
+			       true,  // sub
 			       true,  // call
 			       true,  // ret
 			       false, // frameindex
 			       false, // imm
 			       false, // tglobaladdr
 			       false, // globaladdr
+			       true,  // br
 			       true,  // br_cc
 			       false, // condcode
 			       false  // basicblock
@@ -139,12 +149,14 @@ namespace {
   bool HasChainVals[] = { true,  // load
 			  true,  // store
 			  false, // add
+			  false, // sub
 			  true,  // call
 			  true,  // ret
 			  false, // frameindex
 			  false, // imm
 			  false, // tglobaladdr
 			  false, // globaladdr
+			  true,  // br
 			  true,  // br_cc
 			  false, // condcode
 			  false  // basicblock
@@ -153,12 +165,14 @@ namespace {
   bool HasInFlagVals[] = {  false, // load
 			    false, // store
 			    false, // add
+			    false, // sub
 			    false, // call
 			    true,  // ret
 			    false, // frameindex
 			    false, // imm
 			    false, // tglobaladdr
 			    false, // globaladdr
+			    false, // br
 			    false, // br_cc
 			    false, // condcode
 			    false  // basicblock
@@ -167,12 +181,14 @@ namespace {
   bool HasOutFlagVals[] = { false, // load
 			    false, // store
 			    false, // add
+			    false, // sub
 			    true,  // call
 			    false, // ret
 			    false, // frameindex
 			    false, // imm
 			    false, // tglobaladdr
 			    false, // globaladdr
+			    false, // br
 			    false, // br_cc
 			    false, // condcode
 			    false  // basicblock

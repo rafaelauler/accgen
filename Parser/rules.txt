@@ -134,9 +134,24 @@ define pattern ADD as (
   (transfer a3:regs (+ a1:regs a2:regs));
 );
 
+define pattern SUBCONST as (
+  "(sub i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (- a1:regs imm:a2:immed));
+);
+
+define pattern SUB as (
+  "(sub i32:$a1, i32:$a2)";
+  (transfer a3:regs (- a1:regs a2:regs));
+);
+
 define pattern BRCOND as (
   "(br_cc (condcode SETLT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:lt (comp lhs:regs rhs:regs) imm:tgt:immed);
+);
+
+define pattern BR as (
+  "(br (basicblock i32:$tgt))";
+  (jump imm:tgt:immed);
 );
 
 define pattern CONST as (
