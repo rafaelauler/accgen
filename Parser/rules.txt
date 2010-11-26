@@ -183,6 +183,7 @@ define abi as (
   define auxiliar registers as    (r9);
   //define calling convention for int as stack size 4 alignment 4;
   define calling convention for int as (r0 r1 r2 r3);
+  define calling convention for int as stack size 4 alignment 4;
   define return convention for int as (r0 r1);
   define programcounter register as r15;
   define stackpointer register as r13;
