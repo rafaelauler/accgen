@@ -39,6 +39,8 @@ namespace backendgen {
     // we need to write it using the LLVM Assembly Writter.
     // The index identifies the literal string in a map. If it is zero, then
     // this node is not literal.
+    // Only used when translated from SearchResult. When translating from a
+    // LLVMDAGString, used to flag a constant value that needs to be checked.
     unsigned LiteralIndex; 
     // If specific register, we need to print it differently, as LLVM will
     // already known this name and recognize as a register.
@@ -46,6 +48,11 @@ namespace backendgen {
                                  
     unsigned NumOperands;
     SDNode** ops;
+    // This is a special operand. Its only purpose is to impose order
+    // between two nodes that does not have any use-def connection normally
+    // used by the DAG structure. 
+    // Only used when translated from SearchRestult
+    SDNode* Chain;  
     SDNode();
     ~SDNode();
     void SetOperands(unsigned num);

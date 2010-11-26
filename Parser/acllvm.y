@@ -609,6 +609,19 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
                       $$ = new Constant($5, OperandTable.getType($3)); 
 		      free($3);
                     }
+          | CONST COLON ID COLON ID
+                    {              
+		      if (OperandTable.getType($3).Type != CondType) {
+			std::cerr << "Line " << LineNumber << ": Unrecognized"
+                          " constant. Value must be integer.\n" ;
+			ClearStack();
+                        YYERROR;
+		      }
+                      $$ = new Constant(OperandTableManager::parseCondVal($5),
+                                        OperandTable.getType($3)); 
+		      free($3);
+		      free($5);
+                    }
           | ID      { 
                       $$ = new Operand(OperandTable.getType($1), "E");
 		      free($1);

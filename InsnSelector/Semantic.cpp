@@ -45,6 +45,12 @@ namespace backendgen {
       return ReverseTypeMap[OpType];
     }
     
+    ConstType OperandTableManager::parseCondVal (const std::string &S) {
+      if (S == CondLtStr)
+	return LtCondVal;
+      return 0;
+    }
+    
     OperandType OperandTableManager::getType (const std::string &Name) {    
       
       if (TypeMap.find(Name) == TypeMap.end()) {
@@ -55,7 +61,9 @@ namespace backendgen {
 	// Try to recognize known types and use the adequate code
 	if (Name == IntTypeStr)
 	  NewType.Type = IntType;
-	else {
+	else if (Name == CondTypeStr) {
+	  NewType.Type = CondType;
+	} else {
 	  NewType.Type = hash<std::string>(Name, 0);	
 	  if (NewType.Type < LastType)
 	    NewType.Type += LastType;

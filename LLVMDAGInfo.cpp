@@ -55,7 +55,16 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 9;
+  //string GetBasicBlock(const string &N) {
+  //}
+  
+  string MatchCondCode(const string &N, const string &S) {
+    stringstream SS;
+    SS << "cast<CondCodeSDNode>(" << N << ")->get() == ISD::" << S;
+    return SS.str();
+  }
+  
+  const unsigned NodeNamesSz = 12;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -65,7 +74,10 @@ namespace {
 			       "frameindex",
 			       "imm",
 			       "tglobaladdr",
-			       "globaladdr"
+			       "globaladdr",
+			       "br_cc",
+			       "condcode",
+			       "basicblock"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
@@ -76,62 +88,94 @@ namespace {
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
 			       "ISD::TargetGlobalAddress",
-			       "ISD::GlobalAddress"
+			       "ISD::GlobalAddress",
+			       "ISD::BR_CC",
+			       "ISD::CONDCODE",
+			       "ISD::BasicBlock"
   };
   
-  GetNodeFunc FuncNames[] = { NULL,
-			      NULL,
-			      NULL,
-			      NULL,
-			      NULL,
-			      GetFrameIndex,
-			      GetConstant,
-			      NULL,
-			      GetGlobalAddress
+  GetNodeFunc FuncNames[] = { NULL, // load
+			      NULL, // store
+			      NULL, // add
+			      NULL, // call
+			      NULL, // ret
+			      GetFrameIndex, // frameindex
+			      GetConstant, // imm
+			      NULL, // tglobaladdr
+			      GetGlobalAddress, // globaladdr
+			      NULL, // br_cc
+			      NULL, // condcode
+			      NULL  // basicblock
+  };
+  
+  MatchNodeFunc MFuncNames[] = {  NULL, // load
+				  NULL, // store
+				  NULL, // add
+				  NULL, // call
+				  NULL, // ret
+				  NULL, // frameindex
+				  NULL, // imm
+				  NULL, // tglobaladdr
+				  NULL, // globaladdr
+				  NULL, // br_cc
+				  MatchCondCode, // condcode
+				  NULL  // basicblock
   };
 
-  bool MatchChildrenVals[] = { true,
-			       true,
-			       true,
-			       true,
-			       true,
-			       false,
-			       false,
-			       false,
-			       false
+  bool MatchChildrenVals[] = { true,  // load
+			       true,  // store
+			       true,  // add
+			       true,  // call
+			       true,  // ret
+			       false, // frameindex
+			       false, // imm
+			       false, // tglobaladdr
+			       false, // globaladdr
+			       true,  // br_cc
+			       false, // condcode
+			       false  // basicblock
   };
   
-  bool HasChainVals[] = { true,
-			  true,
-			  false,
-			  true,
-			  true,
-			  false,
-			  false,
-			  false,
-			  false
+  bool HasChainVals[] = { true,  // load
+			  true,  // store
+			  false, // add
+			  true,  // call
+			  true,  // ret
+			  false, // frameindex
+			  false, // imm
+			  false, // tglobaladdr
+			  false, // globaladdr
+			  true,  // br_cc
+			  false, // condcode
+			  false  // basicblock
   };
   
-  bool HasInFlagVals[] = {  false,
-			    false,
-			    false,
-			    false,
-			    true,
-			    false,
-			    false,
-			    false,
-			    false
+  bool HasInFlagVals[] = {  false, // load
+			    false, // store
+			    false, // add
+			    false, // call
+			    true,  // ret
+			    false, // frameindex
+			    false, // imm
+			    false, // tglobaladdr
+			    false, // globaladdr
+			    false, // br_cc
+			    false, // condcode
+			    false  // basicblock
   };
   
-  bool HasOutFlagVals[] = { false,
-			    false,
-			    false,
-			    true,
-			    false,
-			    false,
-			    false,
-			    false,
-			    false
+  bool HasOutFlagVals[] = { false, // load
+			    false, // store
+			    false, // add
+			    true,  // call
+			    false, // ret
+			    false, // frameindex
+			    false, // imm
+			    false, // tglobaladdr
+			    false, // globaladdr
+			    false, // br_cc
+			    false, // condcode
+			    false  // basicblock
   };
   
   //const string * NodeToEnumName[] = { NodeNames, EnumNames };
@@ -162,7 +206,7 @@ LLVMNodeInfoMan::LLVMNodeInfoMan() {
     Nodes.push_back(LLVMNodeInfo(EnumNames[i], NodeNames[i], 
 				 MatchChildrenVals[i], HasChainVals[i],
 				 HasInFlagVals[i], HasOutFlagVals[i],
-				 FuncNames[i]));
+				 FuncNames[i], MFuncNames[i]));
     Map[NodeNames[i]] = &Nodes[i];
   }
 }

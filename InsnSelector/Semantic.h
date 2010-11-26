@@ -90,9 +90,15 @@ namespace backendgen {
 
     // We may have several operand types, albeit some predefined
     // values exist.
-    enum KnownTypes {IntType=1, LastType};
+    enum KnownTypes {IntType=1, CondType, LastType};
 
     const std::string IntTypeStr = "int";
+    const std::string CondTypeStr = "cond";
+    
+    // Cond values
+    const std::string CondLtStr = "lt";
+    
+    enum CondValues {LtCondVal=1};
 
     struct OperandType {
       unsigned int Type;
@@ -108,6 +114,7 @@ namespace backendgen {
       
     typedef std::map<std::string, OperandType> TypeMapType;
     typedef std::map<OperandType, std::string> ReverseTypeMapType;
+    typedef unsigned int ConstType;
     
     // Each expression operand must have a known type. This type
     // may be known (hardcoded types) or given by the user. This
@@ -119,6 +126,7 @@ namespace backendgen {
       int updateSize (OperandType Type, unsigned int NewSize);
       void setCompatible (const std::string &O1, const std::string &O2);
       void printAll (std::ostream& S) const;
+      static ConstType parseCondVal (const std::string &S);
     private:
       TypeMapType TypeMap;
       ReverseTypeMapType ReverseTypeMap;
@@ -162,9 +170,7 @@ namespace backendgen {
       FragOperand(const std::string &OpName, std::list<std::string>&List): 
 	Operand(OperandType(), OpName), ParameterList(List) {}
       std::list<std::string>& getParameterList() { return ParameterList; }
-    };
-
-    typedef unsigned int ConstType;
+    };    
 
     // A specialization of operand: Constant operands are known
     // and do not represent some kind of storage, but has type

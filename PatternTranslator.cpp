@@ -37,6 +37,7 @@ SDNode::SDNode() {
   RefInstr = NULL;
   OpName = NULL;
   ops = NULL;
+  Chain = NULL;
   NumOperands = 0;
   LiteralIndex = 0;
   IsSpecificReg = false;
@@ -52,6 +53,8 @@ SDNode::~SDNode() {
   } else {
     assert (NumOperands == 0 && "DAG inconsistency");
   }
+  if (Chain)
+    delete Chain;
   if (OpName != NULL)
     delete OpName;
 }
@@ -201,7 +204,8 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
       } else {
 	// Specific references are not true operands and must be
 	// removed from the list
-	OperandsIndexes.push_back(MARK_REMOVAL);
+	// FIXME: Should be removed by SR->FilterAssignedNames();
+	OperandsIndexes.push_back(MARK_REMOVAL);	
       }
       continue;
     }      
@@ -264,12 +268,15 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
 // syntax used when defining a "Pattern" object in XXXInstrInfo.td
 // This DAG is connected by uses relations and nodes contain only "ins"
 // operands.
-// BUG: What to do when the root of the dag assigns to a register
+
+// Q: What to do when the root of the dag assigns to a register
 // bound by VirtualToRealmap? How to handle Defs by Real registers?
+// Ans: GenerateInstrDefs from TemplateManager will generate a "def"
+// for the register in XXXInstrInfo.td, and this is enough.
 SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR, 
   LiteralMap* LMap) {
   DefList Defs;
-  SDNode *LastProcessedNode, *NoDefNode = NULL;
+  SDNode *LastProcessedNode, *NoDefNode = NULL;  
   // The idea is to discover the "outs" operands of the first instructions
   // of the sequence. This reveals us the "defs". Then, we search for uses
   // and thus "glueing" the defs as in the DAG like syntax. The last def
@@ -278,28 +285,43 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
   for (InstrList::const_iterator I = SR->Instructions->begin(),
 	 E = SR->Instructions->end(); I != E; ++I) {
     CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
-    CnstOperandsList* Outs = I->first->getOuts();
+    CnstOperandsList* Outs = I->first->getOuts();    
     BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
     NameListType* OpNames = *(OI++);
     sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
-    const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
+    const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());    
     // Building DAG Node for this instruction
     SDNode* N = new SDNode();
     N->RefInstr = I->first;
     N->SetOperands(AllOps->size());
     // If this instruction does not define any register, then we may need
-    // to put it as the root of the DAG.
-    // FIXME: If we have two of such instructions, then we always use the last
-    // one found as the root. Maybe issue an warning?
+    // to put it as the root of the DAG, or, if there is already a root,
+    // put it as a chain operand of the last processed instruction just to
+    // ensure order.
     if (Outs->size() == 0) {
-      assert (NoDefNode == NULL && 
-	"Can't support two instructions without Outs operands in a pattern");
-      NoDefNode = N;
+      if (NoDefNode != NULL) {
+	N->Chain = NoDefNode;
+	NoDefNode = N;
+      } else {
+	NoDefNode = N;
+      }
     }
     unsigned i = 0;
     if (Bindings != NULL) {
+#if 0 // debug!	
+      std::cerr << OpNames->size() << " " << Bindings->size() << " " << AllOps->size() << "\n";
+      
+      int u = 0;
+      for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+	   E2 = AllOps->end(); I2 != E2; ++I2) {
+	std::cerr << "Node " << u << ": ";
+	(*I2)->print(std::cerr);
+	std::cerr << "\n";
+	++u;
+      }
+#endif
       assert(OpNames->size() + Bindings->size() == AllOps->size()
 	     && "Inconsistency. Missing sufficient bindings?");
     } else {
@@ -447,7 +469,7 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
 					      unsigned *pos) { 
   unsigned i = *pos;
   for (; i != S.size(); ++i) if (isalnum(S[i]) || S[i] == '(' 
-                                 || S[i] == ')') break;
+                                 || S[i] == ')' || S[i] == '_') break;
   if (S[i] == ')')
     return NULL;
   if (i == S.size())    
@@ -460,7 +482,7 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
     for (; i != S.size(); ++i) if (!isspace(S[i])) break;
   }
   const unsigned begin = i;
-  for (; i != S.size(); ++i) if (!isalnum(S[i])) break;  
+  for (; i != S.size(); ++i) if (!(isalnum(S[i]) || S[i] == '_')) break;  
   
   // Premature end of string
   if (i == S.size())
@@ -469,6 +491,11 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
   // Determine if we have type specification (':')
   if (S[i] != ':') {    
     N->OpName = new string(S.substr(begin, i-begin));
+    // If this is a leaf, and does not have ":", then it is a constant that
+    // needs to be checked by the matcher!
+    // Inform this by using a nonzero value in LiteralIndex field.
+    if (!hasChildren)
+      N->LiteralIndex = 1;
   } else {
     N->TypeName = S.substr(begin, i-begin);    
     ++i; // Eat ':'
@@ -478,7 +505,7 @@ SDNode *PatternTranslator::parseLLVMDAGString(const std::string &S,
     }
     ++i; // Eat '$'
     const unsigned namebegin = i;
-    for (; i != S.size(); ++i) if (!isalnum(S[i])) break;  
+    for (; i != S.size(); ++i) if (!(isalnum(S[i]) || S[i] == '_')) break;  
     N->OpName = new string(S.substr(namebegin, i-namebegin));
   }
   if (!hasChildren) {
@@ -642,6 +669,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
 					 std::ostream &S) {  
   map<string, string> TempToVirtual;
   const LLVMNodeInfo *Info = NULL;
+  bool ChainTail = true; // Turns false if we need to chain a node
   
   if (pathToNode.empty()) 
     Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
@@ -652,28 +680,26 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
     for (unsigned i = 0; i < N->NumOperands; ++i) {
       if (N->ops[i]->RefInstr != NULL) {
 	list<unsigned> childpath = pathToNode;	
-	if (pathToNode.empty() && Info->HasChain) { // Correct indexes if chain
-	  childpath.push_back(i+1);
-	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);
-	} else {
-	  childpath.push_back(i);
-	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);
-	}
+	childpath.push_back(i);
+	genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);	
       }
-    }            
+    }
+    // Check for chain
+    if (N->Chain) {
+      assert (N->Chain->RefInstr != NULL && "Chain must be an instruction");
+      ChainTail = false;
+      list<unsigned> childpath = pathToNode;      
+      childpath.push_back(N->NumOperands);
+      genEmitSDNode(N->Chain, LLVMDAG, childpath, S);
+    }    
   }
   
   // Declare our leaf nodes. Non-leaf nodes are already declared
   // due to recursion.
   for (unsigned i = 0; i < N->NumOperands; ++i) {
-    list<unsigned> childpath = pathToNode;	
-    if (pathToNode.empty() && Info->HasChain) { // Correct indexes if chain
-      childpath.push_back(i+1);
-      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath);
-    } else {
-      childpath.push_back(i);
-      emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath); 
-    }
+    list<unsigned> childpath = pathToNode;	    
+    childpath.push_back(i);
+    emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath);     
   }  
   
   const string NodeName = buildNodeName(pathToNode);
@@ -681,23 +707,26 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
   const bool HasChain = (pathToNode.empty() && Info->HasChain) || OutSz <= 0;
   const bool HasInFlag = (pathToNode.empty() && Info->HasInFlag);
   const bool HasOutFlag = (pathToNode.empty() && Info->HasOutFlag);
+  
+  assert ((ChainTail || HasChain) && "If this node chains another node, it"
+           " must have chain operand!");
   // Declare our operand vector
   if (N->NumOperands > 0) {
     S << "  SDValue Ops" << NodeName << "[] = {";        
     for (unsigned i = 0; i < N->NumOperands; ++i) {
-      list<unsigned> childpath = pathToNode;
-       // Correct indexes if has chain
-      if (HasChain) {
-	childpath.push_back(i+1);
-      } else { 
-	childpath.push_back(i);
-      }
+      list<unsigned> childpath = pathToNode;       
+      childpath.push_back(i);      
       S << buildNodeName(childpath);      
       if (i != N->NumOperands-1)
 	S << ", ";
     }    
-    if (HasChain) {
+    if (HasChain && ChainTail) {
       S << ", N.getOperand(0)";
+    } else if (HasChain && !ChainTail) {
+      list<unsigned> childpath = pathToNode;
+      S << ", ";
+      childpath.push_back(N->NumOperands);
+      S << buildNodeName(childpath);
     }
     // HasFlag? If yes, we must receive it as the last operand 
     if (HasInFlag && HasChain) 
@@ -709,8 +738,13 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
     if (HasChain || HasInFlag)
       S << "  SDValue Ops" << NodeName << "[] = {";
     // HasChain? If yes, we must receive it as the first operand
-    if (HasChain)      
+    if (HasChain && ChainTail)      
       S << "N.getOperand(0)";
+    else if (HasChain && !ChainTail) {
+      list<unsigned> childpath = pathToNode;
+      childpath.push_back(N->NumOperands);
+      S << buildNodeName(childpath);
+    }
     // HasFlag? If yes, we must receive it as the last operand 
     if (HasInFlag && HasChain) 
       S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")";
@@ -728,8 +762,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
     S << "  return CurDAG->SelectNodeTo(N.getNode(), ";
   }
   
-  //TODO: Replace hardwired Sparc16!
-  S << "Sparc16::" << N->RefInstr->getLLVMName();  
+  S << "`'__arch__`'::" << N->RefInstr->getLLVMName();  
   if (OutSz <= 0)
     S << ", MVT::Other";
   else {    
@@ -816,7 +849,14 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
     if (N->NumOperands == 0) {
       S << "N";
       AddressOperand(S, Parents, ChildNo, i);
-      S << "->getValueType(0).getSimpleVT() == MVT::" << N->TypeName;
+      if (N->LiteralIndex == 0) {
+	S << "->getValueType(0).getSimpleVT() == MVT::" << N->TypeName;
+      } else {
+	//In this case, this node is a constant and needs to be correctly
+	//mached.
+	assert(0 && "Constant node cannot be matched. Use "
+	       "MatchChildren=false in parent node.");
+      }
       continue;
     }
     // not leaf
@@ -832,6 +872,16 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 	  ChildNo.push_back(j+1);
 	else
 	  ChildNo.push_back(j);
+      }
+    } else {
+      // Check if this is a constant that needs to be matched
+      if (N->NumOperands == 1 && N->ops[0]->LiteralIndex != 0) {
+	assert (Info->MatchNode && "Matching function must exist for const"
+	        " node");
+	stringstream S2;
+	S2 << "N";
+	AddressOperand(S2, Parents, ChildNo, i);	
+	S << " && " << Info->MatchNode(S2.str(), *N->ops[0]->OpName);
       }
     }
   }

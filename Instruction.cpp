@@ -277,7 +277,9 @@ operand or memory reference.");
       std::copy(Result->begin(), Result->end(), back_inserter(Temp));
       Result->clear();
       std::sort(Temp.begin(), Temp.end(), OperandsComparator());
-      std::unique(Temp.begin(), Temp.end(), OperandsEqual());
+      std::vector<const Operand*>::iterator newEnd =
+        std::unique(Temp.begin(), Temp.end(), OperandsEqual());
+      Temp.erase(newEnd, Temp.end());
       std::copy(Temp.begin(), Temp.end(), back_inserter(*Result));
      
     }
