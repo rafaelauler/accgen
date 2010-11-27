@@ -48,6 +48,12 @@ namespace backendgen {
     ConstType OperandTableManager::parseCondVal (const std::string &S) {
       if (S == CondLtStr)
 	return LtCondVal;
+      if (S == CondGtStr)
+	return GtCondVal;
+      if (S == CondUltStr)
+	return UltCondVal;
+      if (S == CondUgtStr)
+	return UgtCondVal;
       return 0;
     }
     

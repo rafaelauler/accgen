@@ -139,6 +139,11 @@ define pattern CALL as (
   (call imm:tgt:immed);
 );
 
+define pattern CALL2 as (
+  "(call (texternalsymbol i32:$tgt))";
+  (call imm:tgt:immed);
+);
+
 define pattern ADDCONST as (
   "(add i32:$a1, (imm i32:$a2))";
   (transfer a3:regs (+ a1:regs imm:a2:immed));
@@ -154,6 +159,11 @@ define pattern SUBCONST as (
   (transfer a3:regs (- a1:regs imm:a2:immed));
 );
 
+define pattern SHLCONST as (
+  "(shl i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (shl a1:regs imm:a2:immed));
+);
+
 define pattern SUB as (
   "(sub i32:$a1, i32:$a2)";
   (transfer a3:regs (- a1:regs a2:regs));
@@ -162,6 +172,21 @@ define pattern SUB as (
 define pattern BRCOND as (
   "(br_cc (condcode SETLT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:lt (comp lhs:regs rhs:regs) imm:tgt:immed);
+);
+
+define pattern BRCOND2 as (
+  "(br_cc (condcode SETGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:immed);
+);
+
+define pattern BRCOND3 as (
+  "(br_cc (condcode SETULT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:immed);
+);
+
+define pattern BRCOND4 as (
+  "(br_cc (condcode SETUGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:immed);
 );
 
 define pattern BR as (
@@ -219,7 +244,7 @@ define semantic fragment SimpleAddrMode as (
 
 // Register shifted by imm 
 define semantic fragment RegShiftedAddrMode as (
-  (shl Op5:GPR Op7:immed);
+  (shl Op5:GPR imm:Op7:immed);
 );
 
 // Register shifted right by 1 
@@ -245,6 +270,12 @@ define instruction b semantic as (
     (jump imm:Op2:immed);
   let Op1 = "lt" in
     (cjump const:cond:lt SR:CPSR imm:Op2:immed);
+  let Op1 = "gt" in
+    (cjump const:cond:gt SR:CPSR imm:Op2:immed);
+  let Op1 = "lo" in
+    (cjump const:cond:ult SR:CPSR imm:Op2:immed);
+  let Op1 = "hi" in
+    (cjump const:cond:ugt SR:CPSR imm:Op2:immed);
 ) cost 1;
 define instruction b semantic as (
   let Op1 = "" in
@@ -377,13 +408,16 @@ define instruction mov1 semantic as (
     (transfer Op3:GPR SimpleAddrMode:fragment params (Op4));
 ) cost 1;
 define instruction mov1 semantic as (
-  (transfer Op3:GPR RegShiftedAddrMode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "LSL" in
+    (transfer Op3:GPR RegShiftedAddrMode:fragment params (Op4 Op6));
 ) cost 1;
 define instruction mov1 semantic as (
-  (transfer Op3:GPR RegRotAddrMode:fragment params (Op4));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR RegRotAddrMode:fragment params (Op4));
 ) cost 1;
 define instruction mov2 semantic as (
-  (transfer Op3:GPR RegShifted2AddrMode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR RegShifted2AddrMode:fragment params (Op4 Op6));
 //  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (

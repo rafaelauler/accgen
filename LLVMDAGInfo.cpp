@@ -64,16 +64,18 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 14;
+  const unsigned NodeNamesSz = 16;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
 			       "sub",
+			       "shl",
 			       "call",
 			       "ret",
 			       "frameindex",
 			       "imm",
+			       "texternalsymbol",
 			       "tglobaladdr",
 			       "globaladdr",
 			       "br",
@@ -86,10 +88,12 @@ namespace {
 			       "ISD::STORE",
 			       "ISD::ADD",
 			       "ISD::SUB",
+			       "ISD::SHL",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
+			       "ISD::TargetExternalSymbol",
 			       "ISD::TargetGlobalAddress",
 			       "ISD::GlobalAddress",
 			       "ISD::BR",
@@ -102,10 +106,12 @@ namespace {
 			      NULL, // store
 			      NULL, // add
 			      NULL, // sub
+			      NULL, // shl
 			      NULL, // call
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
 			      GetConstant, // imm
+			      NULL, // texternalsymbol
 			      NULL, // tglobaladdr
 			      GetGlobalAddress, // globaladdr
 			      NULL, // br
@@ -118,10 +124,12 @@ namespace {
 				  NULL, // store
 				  NULL, // add
 				  NULL, // sub
+				  NULL, // shl
 				  NULL, // call
 				  NULL, // ret
 				  NULL, // frameindex
 				  NULL, // imm
+				  NULL, // texternalsymbol
 				  NULL, // tglobaladdr
 				  NULL, // globaladdr
 				  NULL, // br
@@ -134,10 +142,12 @@ namespace {
 			       true,  // store
 			       true,  // add
 			       true,  // sub
+			       true,  // shl
 			       true,  // call
 			       true,  // ret
 			       false, // frameindex
 			       false, // imm
+			       false, // texternalsymbol
 			       false, // tglobaladdr
 			       false, // globaladdr
 			       true,  // br
@@ -150,10 +160,12 @@ namespace {
 			  true,  // store
 			  false, // add
 			  false, // sub
+			  false, // shl
 			  true,  // call
 			  true,  // ret
 			  false, // frameindex
 			  false, // imm
+			  false, // texternalsymbol
 			  false, // tglobaladdr
 			  false, // globaladdr
 			  true,  // br
@@ -166,10 +178,12 @@ namespace {
 			    false, // store
 			    false, // add
 			    false, // sub
+			    false, // shl
 			    false, // call
 			    true,  // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // texternalsymbol
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br
@@ -182,10 +196,12 @@ namespace {
 			    false, // store
 			    false, // add
 			    false, // sub
+			    false, // shl
 			    true,  // call
 			    false, // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // texternalsymbol
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br

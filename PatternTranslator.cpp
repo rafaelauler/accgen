@@ -349,18 +349,22 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
 	
 	// See if bindings list has a definition for it
 	if (Bindings != NULL) {
+	  bool Found = false;
 	  for (BindingsList::const_iterator I = Bindings->begin(),
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
-	      if(ExtractOperandNumber(I->first) == i + 1) {
+	      unsigned OpNum = HasDef? i + 2 : i + 1;
+	      if(ExtractOperandNumber(I->first) == OpNum) {
 		N->ops[i]->LiteralIndex = LMap->addMember(I->second);
 		// Here we leave N->TypeName empty, because a 
 		// dummy operand does not have type.
+		Found = true;
 		++i;
 		break;
 	      }
 	    }
-	  }	
+	  }
+	  assert (Found && "Expected binding not found.");
 	  continue;
 	}
 	// No bindings for this dummy
@@ -926,7 +930,7 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 // corresponding better to our internal notation. For example, we don't need
 // to convert our internal notation to a DAG as an intermediary step for 
 // translation.
-
+//TODO: HANDLE CHAIN
 std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs,
 					 LiteralMap *LMap,
 					 bool alreadySorted,
@@ -998,7 +1002,8 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	  for (BindingsList::const_iterator I = Bindings->begin(),
 		 E = Bindings->end(); I != E; ++I) {
 	    if (HasOperandNumber(I->first)) {
-	      if(ExtractOperandNumber(I->first) == i + 1) {
+	      unsigned OpNum = hasDef? i + 2: i + 1;
+	      if(ExtractOperandNumber(I->first) == OpNum) {
 		unsigned index = LMap->addMember(I->second);
 		SSOperands << ".addImm("<< index << ")";
 		Found = true;
@@ -1115,6 +1120,8 @@ struct Level {
 // to be in scope with the name "pMI".
 // Expects the function "findNearestDef" to be in scope, returning a
 // MachineInstr that defines a requested virtual register.
+
+//TODO: HANDLE CHAIN
 string PatternTranslator::genIdentifyMI(SearchResult *SR,
 					const StringMap& Defs,
 					LiteralMap *LMap,
