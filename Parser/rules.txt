@@ -10,7 +10,7 @@
 
 //==========================-- Operators --===================================//
 
-// Built-in operators: +, -, ~, transfer, call, ret
+// Built-in operators: +, -, ~, transfer, call, ret, memref
 // These operands must exist
 define operator +        as arity 2;
 define operator -        as arity 2;
@@ -24,6 +24,7 @@ define operator shl      as arity 2;            // Shift left
 define operator shr      as arity 2;            // Shift right
 define operator and      as arity 2;
 define operator or       as arity 2;
+//NOTE: MemRef is a special case not affected by wildcard rules
 define operator memref   as arity 1;
 define operator call     as arity 1;
 define operator jump     as arity 1;
@@ -56,6 +57,9 @@ AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
 
 AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
+(transfer (memref AnyOperator1:any) (memref AnyOperator2:any)) => 
+  (dec (transfer AReg:regs (memref AnyOperator2:any)) (transfer (memref AnyOperator1:any) AReg:regs));
+
 const:int:0 => (xor Reg:regs Reg:regs);
 
 (transfer OperA:any OperB:any) => 
@@ -78,9 +82,20 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 // It is important to order similar patterns, most restrictive first.
 
+//define pattern STOREADDFICONST as (
+//  "(store (imm i32:$src), (add i32:$a1 (frameindex i32:$val)))";
+//  (transfer (memref (+ a1:regs (+ val:regs imm:val:immed))) imm:src:immed);
+//);
+
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
   (transfer (memref (+ val:regs imm:val:immed)) imm:src:immed);
+);
+
+define pattern STOREFROMFI as (
+  "(store (frameindex i32:$valsrc) i32:$addr)";
+  (transfer (memref addr:regs) 
+    (memref (+ valsrc:regs imm:valsrc:immed)));
 );
 
 // Built-in pattern: STOREFI is used to determine how the backend will spill
@@ -114,10 +129,10 @@ define pattern GLOBALADDRESS as (
   (transfer a3:regs (memref (+ addr:regs imm:addr:immed)));
 );
 
-//define pattern FRAMEINDEX as (
-//  "(frameindex)";
-//  (transfer a3:regs imm:val:immed);
-//);
+define pattern FRAMEINDEX as (
+  "(frameindex i32:$addr)";
+  (transfer a3:regs (+ addr:regs imm:addr:immed));
+);
 
 define pattern CALL as (
   "(call (tglobaladdr i32:$tgt))";

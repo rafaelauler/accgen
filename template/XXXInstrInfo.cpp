@@ -87,7 +87,7 @@ bool `'__arch__`'InstrInfo::isMoveInstr(const MachineInstr &MI,
 unsigned `'__arch__`'InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
                                              int &FrameIndex) const {
 #define getFrameIndex getIndex
-#define isFrameIndex isFI					       
+#define isFrameIndex isFI
 __is_load_from_stack_slot__
 #undef getFrameIndex
 #undef isFrameIndex

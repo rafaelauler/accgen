@@ -1006,8 +1006,7 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     SSheaders << PatTrans.genEmitSDNodeHeader(count);
     stringstream temp;
     temp << "EmitFunc" << count;
-    PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());
-    std::cerr << SSfunc.str();    
+    PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());    
     // Now check if this is a built-in pattern and we must remember this
     // inference.
     if (I->Name == "STOREFI")

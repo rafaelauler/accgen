@@ -66,11 +66,13 @@ namespace backendgen {
   {
     bool isOperator;
     // Here we match operator by operator, operand by operand
+    //NOTE: MemRef is a special case not affected by wildcard rules
     if ((isOperator = R->isOperator()) == E->isOperator() &&
 	((R->getType() == E->getType() &&
 	(R->getSize() == E->getSize() || R->getSize() == 0 || 
 	 E->getSize() == 0)) ||
-	 R->getType() == 0) )
+	 (R->getType() == 0 && (E->isOperator() == false 
+	                     || E->getType() != MemRefOp))) )
       {
 	AnnotatedTreeList* Result = NULL;
 	if (!JustCompare) Result = new AnnotatedTreeList();
@@ -199,11 +201,12 @@ namespace backendgen {
     // We can also match if a rule operand matches an expression operator
     if (R->isOperand() && E->isOperator())
       {
-	const Operator *EO = dynamic_cast<const Operator*>(E);
+	const Operator *EO = dynamic_cast<const Operator*>(E);	
+	//NOTE: MemRef is a special case not affected by wildcard rules
 	if ((EO->getReturnTypeType() == R->getType() &&
 	     (EO->getReturnTypeSize() == R->getSize() 
 	      || R->getSize() == 0))
-	    || R->getType() == 0) 
+	    || (R->getType() == 0 && EO->getType() != MemRefOp)) 
 	  {
 	    if (JustCompare)
 	      return reinterpret_cast<AnnotatedTreeList*>(1);
