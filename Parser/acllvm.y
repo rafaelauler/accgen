@@ -31,6 +31,7 @@ FragmentManager FragMan;
 PatternManager  PatMan;
 std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
+bool HasError = false;
 // String list used to store fragment instance parameters
 std::list<std::string> StrList;
 // Expression stack used to process operators parameters
@@ -687,6 +688,7 @@ operator: OPERATOR      {
 
 void yyerror (char *error)
 {
+  HasError = true;
   fprintf(stderr, "Line %d: %s\n", LineNumber, error);
 }
 

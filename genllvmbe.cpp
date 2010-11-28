@@ -31,6 +31,7 @@ extern "C" {
 // Some parser dependent data and code
 extern FILE* yybein;
 extern int yybeparse();
+extern bool HasError;
 
 // Defined in semantics parser 
 extern backendgen::InstrManager InstructionManager;
@@ -47,7 +48,7 @@ using namespace backendgen;
 
 // Function responsible for parsing backend generation information
 // available in FileName
-void ParseBackendInformation(const char* FileName) {
+bool ParseBackendInformation(const char* FileName) {
   yybein = fopen(FileName, "r");
   if (yybein == NULL) { 
     std::cerr << "Could not open backend information file\"" << FileName 
@@ -55,6 +56,7 @@ void ParseBackendInformation(const char* FileName) {
     exit(EXIT_FAILURE);
   }
   yybeparse();
+  return !HasError;
 }
 
 void parse_archc_description(char **argv) {
@@ -382,7 +384,13 @@ int main(int argc, char **argv) {
   // Build information needed to parse backend generation file
   BuildFormats();
   BuildInsn();  
-  ParseBackendInformation(argv[3]);
+  if (!ParseBackendInformation(argv[3])) {
+    DeallocateFormats();
+    MemWatcher->ReportStatistics(std::cout);
+    MemWatcher->FreeAll();
+    helper::CMemWatcher::Destroy();
+    exit(EXIT_FAILURE);
+  }
 
   // Create the LLVM Instruction Formats file for Sparc16
   const char *FormatsFile = "llvmbackend/Sparc16InstrFormats.td";

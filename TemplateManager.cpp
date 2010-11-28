@@ -197,7 +197,8 @@ string TemplateManager::buildDataLayoutString() {
     SS << "e";
   // Now for pointer information
   // XXX: Hardcoded prefered alignment as the same as pointer size.
-  SS << "-p:" << WordSize << ":" << WordSize;
+  SS << "-p:" << WordSize << ":" << WordSize
+     << "-f80" << ":" << WordSize << ":" << WordSize;
 
   return SS.str();
 }

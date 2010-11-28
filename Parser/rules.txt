@@ -164,9 +164,19 @@ define pattern SHLCONST as (
   (transfer a3:regs (shl a1:regs imm:a2:immed));
 );
 
+define pattern SHRCONST as (
+  "(srl i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (shr a1:regs imm:a2:immed));
+);
+
 define pattern SUB as (
   "(sub i32:$a1, i32:$a2)";
   (transfer a3:regs (- a1:regs a2:regs));
+);
+
+define pattern OR as (
+  "(or i32:$a1, i32:$a2)";
+  (transfer a3:regs (or a1:regs a2:regs));
 );
 
 define pattern BRCOND as (
@@ -245,6 +255,11 @@ define semantic fragment SimpleAddrMode as (
 // Register shifted by imm 
 define semantic fragment RegShiftedAddrMode as (
   (shl Op5:GPR imm:Op7:immed);
+);
+
+// Register right shifted by imm 
+define semantic fragment RegRightShiftedAddrMode as (
+  (shr Op5:GPR imm:Op7:immed);
 );
 
 // Register shifted right by 1 
@@ -365,18 +380,23 @@ define instruction add3 semantic as (
 
 //====-- ORR --====//
 define instruction orr1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (or Op4:GPR SimpleAddrMode:fragment));
 ) cost 1;
 define instruction orr1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (or Op4:GPR RegShiftedAddrMode:fragment));
 ) cost 1;
 define instruction orr1 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (or Op4:GPR RegRotAddrMode:fragment));
 ) cost 1;
 define instruction orr2 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (or Op4:GPR RegShifted2AddrMode:fragment));
 ) cost 1;
 define instruction orr3 semantic as (
+let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (or Op4:GPR ImmAddrMode:fragment));
 ) cost 1;
 
@@ -410,6 +430,8 @@ define instruction mov1 semantic as (
 define instruction mov1 semantic as (
   let Op1 = "", Op2 = "", Op5 = "LSL" in
     (transfer Op3:GPR RegShiftedAddrMode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "LSR" in
+    (transfer Op3:GPR RegRightShiftedAddrMode:fragment params (Op4 Op6));
 ) cost 1;
 define instruction mov1 semantic as (
   let Op1 = "", Op2 = "" in

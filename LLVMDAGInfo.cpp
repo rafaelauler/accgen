@@ -64,13 +64,15 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 16;
+  const unsigned NodeNamesSz = 18;
   
   const string NodeNames[] = { "load", 
 			       "store",
 			       "add",
 			       "sub",
 			       "shl",
+			       "srl",
+			       "or",
 			       "call",
 			       "ret",
 			       "frameindex",
@@ -89,6 +91,8 @@ namespace {
 			       "ISD::ADD",
 			       "ISD::SUB",
 			       "ISD::SHL",
+			       "ISD::SRL",
+			       "ISD::OR",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
@@ -107,6 +111,8 @@ namespace {
 			      NULL, // add
 			      NULL, // sub
 			      NULL, // shl
+			      NULL, // srl
+			      NULL, // or
 			      NULL, // call
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
@@ -125,6 +131,8 @@ namespace {
 				  NULL, // add
 				  NULL, // sub
 				  NULL, // shl
+				  NULL, // srl
+				  NULL, // or
 				  NULL, // call
 				  NULL, // ret
 				  NULL, // frameindex
@@ -143,6 +151,8 @@ namespace {
 			       true,  // add
 			       true,  // sub
 			       true,  // shl
+			       true,  // srl
+			       true,  // or
 			       true,  // call
 			       true,  // ret
 			       false, // frameindex
@@ -161,6 +171,8 @@ namespace {
 			  false, // add
 			  false, // sub
 			  false, // shl
+			  false, // srl
+			  false, // or
 			  true,  // call
 			  true,  // ret
 			  false, // frameindex
@@ -179,6 +191,8 @@ namespace {
 			    false, // add
 			    false, // sub
 			    false, // shl
+			    false, // srl
+			    false, // or
 			    false, // call
 			    true,  // ret
 			    false, // frameindex
@@ -197,6 +211,8 @@ namespace {
 			    false, // add
 			    false, // sub
 			    false, // shl
+			    false, // srl
+			    false, // or
 			    true,  // call
 			    false, // ret
 			    false, // frameindex

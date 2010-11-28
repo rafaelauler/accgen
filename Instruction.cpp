@@ -92,75 +92,6 @@ namespace backendgen {
     return Name;
   }
   
-  int Instruction::getOutSize() const {    
-    // We extract this information from our semantics forest.
-    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
-	 I != E; ++I) {
-      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
-      assert (OP != NULL && "Semantics top level node must be an operator");
-      // If semantics top level operator is not a transfer, then we don't
-      // have outs
-      if (OP->getType() != AssignOp)
-	continue;
-      // First operand of a transfer operator will give us the destination.
-      // This destination is a instruction definition, thus must be
-      // member of outs
-      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
-      if (Oper != NULL) {
-	// Specific references are not really operands, they are more like
-	// "constants". Moreover, we are only interested in registeroperands.
-	if (!Oper->isSpecificReference() &&
-	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
-	  return Oper->getSize();
-	}
-	continue;
-      }
-      // Exceptionally, we have a memory reference and thus it is not an operand
-      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
-      assert (O != NULL && "Must be either operand or operator");
-      assert (O->getType() == MemRefOp && "Transfer first child must be \
-operand or memory reference.");     
-      //Result->push_back(&MemRefOperand);
-      return 0;      
-    }
-    return -1;
-  }
-
-  // Extract all output register operands in this instruction (outs)
-  std::list<const Operand*>* Instruction::getOuts() const {
-    std::list<const Operand*>* Result = new std::list<const Operand*>();
-    // We extract this information from our semantics forest.
-    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
-	 I != E; ++I) {
-      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
-      assert (OP != NULL && "Semantics top level node must be an operator");
-      // If semantics top level operator is not a transfer, then we don't
-      // have outs
-      if (OP->getType() != AssignOp)
-	continue;
-      // First operand of a transfer operator will give us the destination.
-      // This destination is a instruction definition, thus must be
-      // member of outs
-      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
-      if (Oper != NULL) {
-	// Specific references are not really operands, they are more like
-	// "constants". Moreover, we are only interested in registeroperands.
-	if (!Oper->isSpecificReference() &&
-	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
-	  Result->push_back(Oper);
-	}
-	continue;
-      }
-      // Exceptionally, we have a memory reference and thus it is not an operand
-      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
-      assert (O != NULL && "Must be either operand or operator");
-      assert (O->getType() == MemRefOp && "Transfer first child must be \
-operand or memory reference.");     
-      Result->push_back(&MemRefOperand);
-    }
-    return Result;
-  }
-
   // Our binary predicate to compare two operands
   class OperandsComparator {
   public:
@@ -195,6 +126,92 @@ operand or memory reference.");
       return (std::find(list->begin(), list->end(), A) != list->end());
     } 
   };
+  
+  
+  
+  int Instruction::getOutSize() const {    
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
+      assert (OP != NULL && "Semantics top level node must be an operator");
+      // If semantics top level operator is not a transfer, then we don't
+      // have outs
+      if (OP->getType() != AssignOp)
+	continue;
+      // First operand of a transfer operator will give us the destination.
+      // This destination is a instruction definition, thus must be
+      // member of outs
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
+      if (Oper != NULL) {
+	// Specific references are not really operands, they are more like
+	// "constants". Moreover, we are only interested in registeroperands.
+	if (!Oper->isSpecificReference() &&
+	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
+	  return Oper->getSize();
+	}
+	continue;
+      }
+      // Exceptionally, we have a memory reference and thus it is not an operand
+      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
+      assert (O != NULL && "Must be either operand or operator");
+      assert (O->getType() == MemRefOp && "Transfer first child must be \
+operand or memory reference.");     
+      //Result->push_back(&MemRefOperand);
+      return 0;      
+    }
+    return -1;
+  }
+    
+  // Sort operands according to their order in the assembly
+  // syntax and eliminate duplicates.      
+  void SortOperandsList(std::list<const Operand*>* Result) {
+    std::vector<const Operand*> Temp;
+    Temp.reserve(Result->size());
+    std::copy(Result->begin(), Result->end(), back_inserter(Temp));
+    Result->clear();
+    std::sort(Temp.begin(), Temp.end(), OperandsComparator());
+    std::vector<const Operand*>::iterator newEnd =
+      std::unique(Temp.begin(), Temp.end(), OperandsEqual());
+    Temp.erase(newEnd, Temp.end());
+    std::copy(Temp.begin(), Temp.end(), back_inserter(*Result));  
+  }
+
+  // Extract all output register operands in this instruction (outs)
+  std::list<const Operand*>* Instruction::getOuts() const {
+    std::list<const Operand*>* Result = new std::list<const Operand*>();
+    // We extract this information from our semantics forest.
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      const Operator *OP = dynamic_cast<const Operator*>(I->SemanticExpression);
+      assert (OP != NULL && "Semantics top level node must be an operator");
+      // If semantics top level operator is not a transfer, then we don't
+      // have outs
+      if (OP->getType() != AssignOp)
+	continue;
+      // First operand of a transfer operator will give us the destination.
+      // This destination is a instruction definition, thus must be
+      // member of outs
+      const Operand* Oper = dynamic_cast<const Operand*>((*OP)[0]);      
+      if (Oper != NULL) {
+	// Specific references are not really operands, they are more like
+	// "constants". Moreover, we are only interested in registeroperands.
+	if (!Oper->isSpecificReference() &&
+	    dynamic_cast<const RegisterOperand*>(Oper) != NULL) {	  
+	  Result->push_back(Oper);
+	}
+	continue;
+      }
+      // Exceptionally, we have a memory reference and thus it is not an operand
+      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
+      assert (O != NULL && "Must be either operand or operator");
+      assert (O->getType() == MemRefOp && "Transfer first child must be \
+operand or memory reference.");     
+      Result->push_back(&MemRefOperand);
+    }
+    SortOperandsList(Result);
+    return Result;
+  }
 
   // Extract all used operands in this instruction (ins)
   std::list<const Operand*>* Instruction::getIns() const {
@@ -270,19 +287,7 @@ operand or memory reference.");
     // Now, we should have all kinds of operands in the list, some of which,
     // are duplicated. We sort them according to their order in the assembly
     // syntax and eliminate duplicates.
-    {
-      // FIXME: If we need a vector to sort, always use a vector!
-      std::vector<const Operand*> Temp;
-      Temp.reserve(Result->size());
-      std::copy(Result->begin(), Result->end(), back_inserter(Temp));
-      Result->clear();
-      std::sort(Temp.begin(), Temp.end(), OperandsComparator());
-      std::vector<const Operand*>::iterator newEnd =
-        std::unique(Temp.begin(), Temp.end(), OperandsEqual());
-      Temp.erase(newEnd, Temp.end());
-      std::copy(Temp.begin(), Temp.end(), back_inserter(*Result));
-     
-    }
+    SortOperandsList(Result);
 
     // For each missing operand, we insert a dummy operand just to fill
     // the position and correctly order remaining defined operands

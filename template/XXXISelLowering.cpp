@@ -261,12 +261,148 @@ LowerCallResult(SDValue Chain, SDValue InFlag, CallSDNode *TheCall,
                      &ResultVals[0], ResultVals.size()).getNode();
 }
 
+namespace {
+const TargetRegisterClass* findSuitableRegClass(MVT vt, const TargetMachine &TM) {
+  const TargetRegisterClass* BestFit = 0;
+  unsigned NumRegs = 0;
+  const TargetRegisterInfo *RI = TM.getRegisterInfo();
+  for (TargetRegisterInfo::regclass_iterator I = RI->regclass_begin(),
+    E = RI->regclass_end(); I != E; ++I) {
+    if ((*I)->hasType(vt) &&
+        (!BestFit || (*I)->getNumRegs() > NumRegs)) {      
+      BestFit = *I;
+      NumRegs = (*I)->getNumRegs();
+    }
+  }
+  return BestFit;
+}
+}
 
-void
-__arch__`'TargetLowering::LowerArguments(Function &F, SelectionDAG &DAG,
-                                    SmallVectorImpl<SDValue> &ArgValues,
-                                    DebugLoc dl) {
- 
+/// LowerFORMAL_ARGUMENTS - transform physical registers into
+/// virtual registers and generate load operations for
+/// arguments places on the stack.
+SDValue __arch__`'TargetLowering::
+LowerFORMAL_ARGUMENTS(SDValue Op, SelectionDAG &DAG) 
+{
+  SDValue Root = Op.getOperand(0);
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  //MipsFunctionInfo *MipsFI = MF.getInfo<MipsFunctionInfo>();
+
+  bool isVarArg = cast<ConstantSDNode>(Op.getOperand(2))->getZExtValue() != 0;
+  unsigned CC = DAG.getMachineFunction().getFunction()->getCallingConv();
+
+  unsigned StackReg = MF.getTarget().getRegisterInfo()->getFrameRegister(MF);
+
+  // GP must be live into PIC and non-PIC call target.
+  //AddLiveIn(MF, Mips::GP, Mips::CPURegsRegisterClass);
+
+  // Assign locations to all of the incoming arguments.
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CC, isVarArg, getTargetMachine(), ArgLocs);
+
+  CCInfo.AnalyzeFormalArguments(Op.getNode(), CC_`'__arch__`');
+  SmallVector<SDValue, 16> ArgValues;
+  SDValue StackPtr;
+
+  //unsigned FirstStackArgLoc = (Subtarget->isABI_EABI() ? 0 : 16);
+
+  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+
+    CCValAssign &VA = ArgLocs[i];
+
+    // Arguments stored on registers
+    if (VA.isRegLoc()) {
+      MVT RegVT = VA.getLocVT();
+      const TargetRegisterClass *RC = findSuitableRegClass(RegVT, getTargetMachine());
+            
+      assert(RC && "RegVT not supported by FORMAL_ARGUMENTS Lowering");
+
+      // Transform the arguments stored on 
+      // physical registers into virtual ones
+      unsigned Reg = AddLiveIn(DAG.getMachineFunction(), VA.getLocReg(), RC);
+      SDValue ArgValue = DAG.getCopyFromReg(Root, Reg, RegVT);
+      
+      // If this is an 8 or 16-bit value, it is really passed promoted 
+      // to 32 bits.  Insert an assert[sz]ext to capture this, then 
+      // truncate to the right size.
+      if (VA.getLocInfo() == CCValAssign::SExt)
+        ArgValue = DAG.getNode(ISD::AssertSext, RegVT, ArgValue,
+                               DAG.getValueType(VA.getValVT()));
+      else if (VA.getLocInfo() == CCValAssign::ZExt)
+        ArgValue = DAG.getNode(ISD::AssertZext, RegVT, ArgValue,
+                               DAG.getValueType(VA.getValVT()));
+      
+      if (VA.getLocInfo() != CCValAssign::Full)
+        ArgValue = DAG.getNode(ISD::TRUNCATE, VA.getValVT(), ArgValue);
+
+      ArgValues.push_back(ArgValue);
+
+      // To meet ABI, when VARARGS are passed on registers, the registers
+      // must have their values written to the caller stack frame. 
+      if (isVarArg) {
+        if (StackPtr.getNode() == 0)
+          StackPtr = DAG.getRegister(StackReg, getPointerTy());
+     
+        // The stack pointer offset is relative to the caller stack frame. 
+        // Since the real stack size is unknown here, a negative SPOffset 
+        // is used so there's a way to adjust these offsets when the stack
+        // size get known (on EliminateFrameIndex). A dummy SPOffset is 
+        // used instead of a direct negative address (which is recorded to
+        // be used on emitPrologue) to avoid mis-calc of the first stack 
+        // offset on PEI::calculateFrameObjectOffsets.
+        // Arguments are always 32-bit.
+        int FI = MFI->CreateFixedObject(4, 0);
+        //MipsFI->recordStoreVarArgsFI(FI, -(4+(i*4)));
+        SDValue PtrOff = DAG.getFrameIndex(FI, getPointerTy());
+      
+        // emit ISD::STORE whichs stores the 
+        // parameter value to a stack Location
+        ArgValues.push_back(DAG.getStore(Root, ArgValue, PtrOff, NULL, 0));
+      }
+
+    } else { // VA.isRegLoc()
+
+      // sanity check
+      assert(VA.isMemLoc());
+      
+      // The stack pointer offset is relative to the caller stack frame. 
+      // Since the real stack size is unknown here, a negative SPOffset 
+      // is used so there's a way to adjust these offsets when the stack
+      // size get known (on EliminateFrameIndex). A dummy SPOffset is 
+      // used instead of a direct negative address (which is recorded to
+      // be used on emitPrologue) to avoid mis-calc of the first stack 
+      // offset on PEI::calculateFrameObjectOffsets.
+      // Arguments are always 32-bit.
+      unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
+      int FI = MFI->CreateFixedObject(ArgSize, 0);
+      //MipsFI->recordLoadArgsFI(FI, -(ArgSize+
+      //  (FirstStackArgLoc + VA.getLocMemOffset())));
+
+      // Create load nodes to retrieve arguments from the stack
+      SDValue FIN = DAG.getFrameIndex(FI, getPointerTy());
+      ArgValues.push_back(DAG.getLoad(VA.getValVT(), Root, FIN, NULL, 0));
+    }
+  }
+
+  // The mips ABIs for returning structs by value requires that we copy
+  // the sret argument into $v0 for the return. Save the argument into
+  // a virtual register so that we can access it from the return points.
+  //if (DAG.getMachineFunction().getFunction()->hasStructRetAttr()) {
+  //  unsigned Reg = MipsFI->getSRetReturnReg();
+  //  if (!Reg) {
+  //    Reg = MF.getRegInfo().createVirtualRegister(getRegClassFor(MVT::i32));
+  //    MipsFI->setSRetReturnReg(Reg);
+  //  }
+  //  SDValue Copy = DAG.getCopyToReg(DAG.getEntryNode(), Reg, ArgValues[0]);
+  //  Root = DAG.getNode(ISD::TokenFactor, MVT::Other, Copy, Root);
+  //}
+
+  ArgValues.push_back(Root);
+
+  // Return the new list of results.
+  return DAG.getNode(ISD::MERGE_VALUES, Op.getNode()->getVTList(),
+                     &ArgValues[0], ArgValues.size()).getValue(Op.getResNo());
 }
 
 
@@ -354,6 +490,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
   case ISD::GlobalAddress:      return LowerGLOBALADDRESS(Op, DAG);
   case ISD::ConstantPool:       return LowerCONSTANTPOOL(Op, DAG);  
   case ISD::RET:                return LowerRET(Op, DAG);
+  case ISD::FORMAL_ARGUMENTS:   return LowerFORMAL_ARGUMENTS(Op, DAG);
   }
 
 }

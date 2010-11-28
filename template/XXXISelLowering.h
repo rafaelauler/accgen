@@ -46,6 +46,7 @@ namespace llvm {
     SDValue LowerCALL(SDValue Op, SelectionDAG &DAG);
     SDValue LowerGLOBALADDRESS(SDValue Op, SelectionDAG &DAG);
     SDValue LowerCONSTANTPOOL(SDValue Op, SelectionDAG &DAG);
+    SDValue LowerFORMAL_ARGUMENTS(SDValue Op, SelectionDAG &DAG);
 
   public:
     __arch__`'TargetLowering(TargetMachine &TM);
@@ -61,11 +62,8 @@ namespace llvm {
                                                 APInt &KnownZero,
                                                 APInt &KnownOne,
                                                 const SelectionDAG &DAG,
-                                                unsigned Depth = 0) const;
+                                                unsigned Depth = 0) const;    
 
-    virtual void LowerArguments(Function &F, SelectionDAG &DAG,
-                                SmallVectorImpl<SDValue> &ArgValues,
-                                DebugLoc dl);
     virtual MachineBasicBlock *EmitInstrWithCustomInserter(MachineInstr *MI,
                                                         MachineBasicBlock *MBB);
 
