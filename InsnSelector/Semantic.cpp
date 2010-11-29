@@ -54,6 +54,10 @@ namespace backendgen {
 	return UltCondVal;
       if (S == CondUgtStr)
 	return UgtCondVal;
+      if (S == CondNeStr)
+	return NeCondVal;
+      if (S == CondEqStr)
+	return EqCondVal;
       return 0;
     }
     
@@ -734,8 +738,7 @@ namespace backendgen {
       Operator* RHS = Operator::BuildOperator(OpMan, Ty);
       RegisterClass *SrcRegClass = RegMan.getRegClass(SrcRC);
       (*RHS)[0] = new RegisterOperand(SrcRegClass, Src);
-      // FIXME: Should "immed" be a recognized internal operand type?
-      (*RHS)[1] = new ImmediateOperand(OM.getType("immed"), Imm);
+      (*RHS)[1] = new ImmediateOperand(OM.getType("int"), Imm);
       return new AssignOperator(OpMan, LHS, RHS, NULL);
     }
     
@@ -751,7 +754,7 @@ namespace backendgen {
       OperatorType Ty;      
       Ty = OpMan.getType(NegOpStr);
       Operator* NegOp = Operator::BuildOperator(OpMan, Ty);
-      (*NegOp)[0] = new ImmediateOperand(OM.getType("immed"), Imm);
+      (*NegOp)[0] = new ImmediateOperand(OM.getType("int"), Imm);
       return new AssignOperator(OpMan, LHS, NegOp, NULL);
     }
 

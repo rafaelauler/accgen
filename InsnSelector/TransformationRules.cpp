@@ -79,17 +79,35 @@ namespace backendgen {
 
 	// Leaf? Cast to operand
 	if (!isOperator) {	
-	  const Constant* C1 = dynamic_cast<const Constant*>(R);
-	  // Depending on the operand type, we need to make further checkings
-	  // Constants must be equal
-	  if (C1 != NULL) {
+	  // If not wildcard, then it must be a perfect match.
+	  if (R->getType() != 0) {
+	    
+	    const Constant* C1 = dynamic_cast<const Constant*>(R);
 	    const Constant* C2 = dynamic_cast<const Constant*>(E);
-	    assert (C2 != NULL && "Nodes must agree in type at this stage.");
-	    if (C1->getConstValue() != C2->getConstValue()) {
+	    if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL)) {
+	      if (!JustCompare) delete Result;
+	      return NULL;
+	    }
+	    // Depending on the operand type, we need to make further checkings
+	    // Constants must be equal
+	    if (C1 != NULL) {	    	    	    
+	      if (C1->getConstValue() != C2->getConstValue()) {
+		if (!JustCompare) delete Result;
+		return NULL;
+	      }
+	    }
+	    
+	    // Immediate handling
+	    const ImmediateOperand* I1 = 
+	      dynamic_cast<const ImmediateOperand*>(R);
+	    const ImmediateOperand* I2 = 
+	      dynamic_cast<const ImmediateOperand*>(E);
+	    if ((I1 == NULL && I2 != NULL) || (I1 != NULL && I2 == NULL)) {
 	      if (!JustCompare) delete Result;
 	      return NULL;
 	    }
 	  }
+
 	  // References to specific registers must be equal
 	  const Operand * O1 = dynamic_cast<const Operand*>(R);	 
 #if 0

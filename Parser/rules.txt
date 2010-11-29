@@ -45,7 +45,6 @@ define operand int    as size 32;
 define operand mem    as size 32;
 define operand cond   as size 32;
 define operand regs   as size 32 like int;
-define operand immed  as size 32 like int;
 define operand short  as size 16 like int;
 define operand byte   as size 8  like int;
 define operand nibble as size 4  like int;
@@ -61,15 +60,6 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
   (dec (transfer AReg:regs (memref AnyOperator2:any)) (transfer (memref AnyOperator1:any) AReg:regs));
 
 const:int:0 => (xor Reg:regs Reg:regs);
-
-(transfer OperA:any OperB:any) => 
-	  (dec (transfer AReg:regs const:int:1)
-	  {AReg:regs == const:int:1} -> (transfer OperA:any OperB:any))
-	  ;
-
-(transfer OperA:any OperB:any) =>
-	  {AReg:regs == AReg:regs} -> (transfer OperA:any OperB:any);
-	  
 
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 
 //	  (dec {LHS:reg < RHS:regs} -> (transfer OperA:any OperB:any)
@@ -89,13 +79,13 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
-  (transfer (memref (+ val:regs imm:val:immed)) imm:src:immed);
+  (transfer (memref (+ val:regs imm:val:int)) imm:src:int);
 );
 
 define pattern STOREFROMFI as (
   "(store (frameindex i32:$valsrc) i32:$addr)";
   (transfer (memref addr:regs) 
-    (memref (+ valsrc:regs imm:valsrc:immed)));
+    (memref (+ valsrc:regs imm:valsrc:int)));
 );
 
 // Built-in pattern: STOREFI is used to determine how the backend will spill
@@ -103,7 +93,7 @@ define pattern STOREFROMFI as (
 // operand names (src and val).
 define pattern STOREFI as (
   "(store i32:$src, (frameindex i32:$val))";
-  (transfer (memref (+ val:regs imm:val:immed)) src:regs);
+  (transfer (memref (+ val:regs imm:val:int)) src:regs);
 );
 
 define pattern STORE as (
@@ -116,7 +106,7 @@ define pattern STORE as (
 // correct operand names (addr and dest).
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
-  (transfer dest:regs (memref (+ addr:regs imm:addr:immed)));
+  (transfer dest:regs (memref (+ addr:regs imm:addr:int)));
 );
 
 define pattern LOAD as (
@@ -126,27 +116,27 @@ define pattern LOAD as (
 
 define pattern GLOBALADDRESS as (
   "(globaladdr i32:$addr)";
-  (transfer a3:regs (memref (+ addr:regs imm:addr:immed)));
+  (transfer a3:regs (memref (+ addr:regs imm:addr:int)));
 );
 
 define pattern FRAMEINDEX as (
   "(frameindex i32:$addr)";
-  (transfer a3:regs (+ addr:regs imm:addr:immed));
+  (transfer a3:regs (+ addr:regs imm:addr:int));
 );
 
 define pattern CALL as (
   "(call (tglobaladdr i32:$tgt))";
-  (call imm:tgt:immed);
+  (call imm:tgt:int);
 );
 
 define pattern CALL2 as (
   "(call (texternalsymbol i32:$tgt))";
-  (call imm:tgt:immed);
+  (call imm:tgt:int);
 );
 
 define pattern ADDCONST as (
   "(add i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (+ a1:regs imm:a2:immed));
+  (transfer a3:regs (+ a1:regs imm:a2:int));
 );
 
 define pattern ADD as (
@@ -156,17 +146,17 @@ define pattern ADD as (
 
 define pattern SUBCONST as (
   "(sub i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (- a1:regs imm:a2:immed));
+  (transfer a3:regs (- a1:regs imm:a2:int));
 );
 
 define pattern SHLCONST as (
   "(shl i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (shl a1:regs imm:a2:immed));
+  (transfer a3:regs (shl a1:regs imm:a2:int));
 );
 
 define pattern SHRCONST as (
   "(srl i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (shr a1:regs imm:a2:immed));
+  (transfer a3:regs (shr a1:regs imm:a2:int));
 );
 
 define pattern SUB as (
@@ -181,32 +171,42 @@ define pattern OR as (
 
 define pattern BRCOND as (
   "(br_cc (condcode SETLT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
-  (cjump const:cond:lt (comp lhs:regs rhs:regs) imm:tgt:immed);
+  (cjump const:cond:lt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
 define pattern BRCOND2 as (
   "(br_cc (condcode SETGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
-  (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:immed);
+  (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
 define pattern BRCOND3 as (
   "(br_cc (condcode SETULT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
-  (cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:immed);
+  (cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
 define pattern BRCOND4 as (
   "(br_cc (condcode SETUGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
-  (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:immed);
+  (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND5 as (
+  "(br_cc (condcode SETNE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:ne (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND6 as (
+  "(br_cc (condcode SETEQ) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:eq (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
 define pattern BR as (
   "(br (basicblock i32:$tgt))";
-  (jump imm:tgt:immed);
+  (jump imm:tgt:int);
 );
 
 define pattern CONST as (
   "(imm i32:$a1)";
-  (transfer a2:regs imm:a1:immed);
+  (transfer a2:regs imm:a1:int);
 );
 
 // { lhs < rhs }  SR == LT
@@ -254,12 +254,12 @@ define semantic fragment SimpleAddrMode as (
 
 // Register shifted by imm 
 define semantic fragment RegShiftedAddrMode as (
-  (shl Op5:GPR imm:Op7:immed);
+  (shl Op5:GPR imm:Op7:int);
 );
 
 // Register right shifted by imm 
 define semantic fragment RegRightShiftedAddrMode as (
-  (shr Op5:GPR imm:Op7:immed);
+  (shr Op5:GPR imm:Op7:int);
 );
 
 // Register shifted right by 1 
@@ -274,7 +274,7 @@ define semantic fragment RegShifted2AddrMode as (
 
 // Immediate
 define semantic fragment ImmAddrMode as (
-  imm:Op5:immed;
+  imm:Op5:int;
 );
 
 //=======================-- Instructions definitions --=======================//
@@ -282,19 +282,23 @@ define semantic fragment ImmAddrMode as (
 // Branch instructions
 define instruction b semantic as (
   let Op1 = "" in
-    (jump imm:Op2:immed);
+    (jump imm:Op2:int);
   let Op1 = "lt" in
-    (cjump const:cond:lt SR:CPSR imm:Op2:immed);
+    (cjump const:cond:lt SR:CPSR imm:Op2:int);
   let Op1 = "gt" in
-    (cjump const:cond:gt SR:CPSR imm:Op2:immed);
+    (cjump const:cond:gt SR:CPSR imm:Op2:int);
   let Op1 = "lo" in
-    (cjump const:cond:ult SR:CPSR imm:Op2:immed);
+    (cjump const:cond:ult SR:CPSR imm:Op2:int);
   let Op1 = "hi" in
-    (cjump const:cond:ugt SR:CPSR imm:Op2:immed);
+    (cjump const:cond:ugt SR:CPSR imm:Op2:int);
+  let Op1 = "ne" in
+    (cjump const:cond:ne SR:CPSR imm:Op2:int);
+  let Op1 = "eq" in
+    (cjump const:cond:eq SR:CPSR imm:Op2:int);
 ) cost 1;
 define instruction b semantic as (
   let Op1 = "" in
-    (call imm:Op2:immed);
+    (call imm:Op2:int);
 ) cost 1;
 
 // Data processing instructions

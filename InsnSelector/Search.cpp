@@ -110,20 +110,32 @@ namespace backendgen {
     // greater data size - this means we imply that E1 is the
     // wanted expression and E2 is the implementation proposal
     if ((isOperator = E1->isOperator()) == E2->isOperator() &&
-	E1->getType() == E2->getType() &&
+	((isOperator && (E1->getType() == E2->getType())) ||
+	(!isOperator && dynamic_cast<const Operand*>(E1)->getDataType() ==
+	                dynamic_cast<const Operand*>(E2)->getDataType())) &&
 	E1->getSize() <= E2->getSize())
       {
 	// Leaf?
 	if (!isOperator) {
 	  const Constant* C1 = dynamic_cast<const Constant*>(E1);
+	  const Constant* C2 = dynamic_cast<const Constant*>(E2);
+	  if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL)) 
+	    return false;
 	  // Depending on the operand type, we need to make further checkings
 	  // Constants must be equal
-	  if (C1 != NULL) {
-	    const Constant* C2 = dynamic_cast<const Constant*>(E2);
-	    assert (C2 != NULL && "Nodes must agree in type at this stage.");
+	  if (C1 != NULL) {	    	    	    
 	    if (C1->getConstValue() != C2->getConstValue())
 	      return false;
 	  }
+	  
+	  // Immediate handling
+	  const ImmediateOperand* I1 = 
+	    dynamic_cast<const ImmediateOperand*>(E1);
+	  const ImmediateOperand* I2 = 
+	    dynamic_cast<const ImmediateOperand*>(E2);
+	  if ((I1 == NULL && I2 != NULL) || (I1 != NULL && I2 == NULL)) 
+	    return false;  
+	  
 	  // References to specific registers must be equal
 	  const Operand * O1 = dynamic_cast<const Operand*>(E1),
 	    * O2 = dynamic_cast<const Operand*>(E2);
