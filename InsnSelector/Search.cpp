@@ -850,13 +850,13 @@ namespace backendgen {
 	    }
 	  delete Transformed;
 	  continue;
-	} 
-
+	} 	
 	// Case analysis 2: This rule decomposes the tree
-	DbgIndent(CurDepth);
+	//DbgIndent(CurDepth);
+	Dbg(for (unsigned i = 0; i < CurDepth; ++i) std::cerr << "*";);
 	DbgPrint("Applying decomposing rule\n");
 	DbgIndent(CurDepth);
-	Dbg(I->Print(std::cerr));
+	Dbg(I->Print(std::cerr));	
 	DbgPrint("\n");
 
 	Tree* Transformed = NULL;
@@ -865,7 +865,7 @@ namespace backendgen {
 				 CurDepth, VR);
 	
 	//Failed
-	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
+	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {	  
 	  if (Transformed != NULL)
 	    delete Transformed;
 	  continue;
@@ -882,7 +882,7 @@ namespace backendgen {
 				   CurDepth, VR) == true)
 	  {
 	    DbgIndent(CurDepth);
-	    DbgPrint("Decomposition was successful\n");
+	    DbgPrint("Decomposition was successful\n");	    
 	    MergeSearchResults(Result, ChildResult);
 	    delete ChildResult;
 	    delete Transformed;
@@ -890,7 +890,7 @@ namespace backendgen {
 	    return Result;
 	  }
 	DbgIndent(CurDepth);
-	DbgPrint("Failed to match decomposed tree with our requisites\n");
+	DbgPrint("Failed to match decomposed tree with our requisites\n");	
 	delete ChildResult;
 	delete Transformed;			    			 
       } // end for(RuleIterator)

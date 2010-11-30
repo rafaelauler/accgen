@@ -142,9 +142,14 @@ namespace backendgen {
     // some class of storage in the processor.
     class Operand : public Node {
     public:
-      Operand (const OperandType &Type, const std::string &OpName);
+      Operand (OperandTableManager &Man, const OperandType &Type,
+	       const std::string &OpName): Manager(Man) {
+	this->Type = Type;
+	OperandName = OpName;
+	SpecificReference = false;
+      }
       virtual void print(std::ostream &S) const {	
-	S << OperandName << ":Operand" << Type.Type;  
+	S << OperandName << ":" << Manager.getTypeName(Type);  
       }
       virtual bool isOperand() const { return true; }
       virtual unsigned getType() const { return Type.Type; }
@@ -166,6 +171,7 @@ namespace backendgen {
       // case the exact reference is determined by the assembly construct, OR 
       // it refers directly to a specific register in the architecture.
       bool SpecificReference;
+      OperandTableManager &Manager;
     };
 
     // A FragOperand must be expanded by inserting a semantic
@@ -173,8 +179,9 @@ namespace backendgen {
     class FragOperand : public Operand {      
       std::list<std::string> ParameterList;
     public:
-      FragOperand(const std::string &OpName, std::list<std::string>&List): 
-	Operand(OperandType(), OpName), ParameterList(List) {}
+      FragOperand(OperandTableManager &Man, const std::string &OpName,
+		  std::list<std::string>&List): 
+	Operand(Man, OperandType(), OpName), ParameterList(List) {}
       std::list<std::string>& getParameterList() { return ParameterList; }
     };    
 
@@ -183,8 +190,11 @@ namespace backendgen {
     // information.
     class Constant : public Operand {
     public:
-      Constant (const ConstType Val, const OperandType &Type);
-      virtual void print(std::ostream &S) const { S << Value;  }
+      Constant (OperandTableManager &Man, const ConstType Val,
+		const OperandType &Type);
+      virtual void print(std::ostream &S) const { 
+	S << "const:" << Value << ":" << Manager.getTypeName(Type); 
+      }
       virtual Node* clone() const { return new Constant(*this); }
       ConstType getConstValue() const { return Value; }
     private:
@@ -343,10 +353,11 @@ namespace backendgen {
     class RegisterOperand : public Operand {
       const RegisterClass *MyRegClass;
     public:
-      RegisterOperand (const RegisterClass *RegClass,
+      RegisterOperand (OperandTableManager& Man, const RegisterClass *RegClass,
 		       const std::string &OpName);
       virtual void print(std::ostream &S)  const { 
-	S << OperandName << ":" << MyRegClass->getName() << ":" << Type.Type;
+	S << OperandName << ":" << MyRegClass->getName() << ":" 
+	  << Manager.getTypeName(Type);
       };
       virtual Node* clone() const { return new RegisterOperand(*this); }
       const RegisterClass *getRegisterClass() const;
@@ -358,7 +369,11 @@ namespace backendgen {
     // we can fiddle directly with these bits
     class ImmediateOperand : public Operand {
     public:
-      ImmediateOperand (const OperandType &Type, const std::string &OpName);
+      ImmediateOperand (OperandTableManager &Man, const OperandType &Type,
+			const std::string &OpName);
+      virtual void print(std::ostream &S) const { 
+	S << "imm:" << OperandName << ":" << Manager.getTypeName(Type); 
+      }
       virtual Node* clone() const { return new ImmediateOperand(*this); }
     };
 
@@ -409,8 +424,8 @@ namespace backendgen {
     class Operator : public Node {
     protected:
       // Constructor
-      Operator(OperatorType OpType): Node(), Children(OpType.Arity),
-				     Type(OpType)
+      Operator(OperatorTableManager &Man, OperatorType OpType):
+        Node(), Children(OpType.Arity), Type(OpType), Manager(Man)
       {
 	ReturnType.Type = 0;
 	ReturnType.Size = 0;
@@ -432,7 +447,7 @@ namespace backendgen {
 	return Children[index];
       }
       virtual void print(std::ostream &S) const {
-	S << "(Operator" << Type.Type << "Arity" << Type.Arity << " ";
+	S << "(" << Manager.getOperatorName(Type) <<  " ";
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
 	    Children[I]->print(S);
@@ -474,6 +489,7 @@ namespace backendgen {
       std::vector<Node *> Children;
       OperatorType Type;
       OperandType ReturnType;
+      OperatorTableManager &Manager;
     };  
 
     // AssignOperator is a special kind of operator that assigns
@@ -481,9 +497,9 @@ namespace backendgen {
     class AssignOperator : public Operator {
       Predicate* Pred; // Not null if this is a guarded assignment     
       // Constructor used when cloning
-      AssignOperator(OperatorType AssignType, Tree* LHS, Tree* RHS,
-		     Predicate* Pred) : 
-	Operator(AssignType), Pred(Pred) {
+      AssignOperator(OperatorTableManager& Man, OperatorType AssignType,
+		     Tree* LHS, Tree* RHS, Predicate* Pred) : 
+	Operator(Man, AssignType), Pred(Pred) {
 	Children[0] = LHS;
 	Children[1] = RHS;
       }
@@ -491,7 +507,7 @@ namespace backendgen {
     public:
       AssignOperator(OperatorTableManager& Man, Tree* LHS, Tree* RHS,
 		     Predicate* Pred) : 
-	Operator(Man.getType(AssignOpStr)), Pred(Pred) {
+	Operator(Man, Man.getType(AssignOpStr)), Pred(Pred) {
 	Children[0] = LHS;
 	Children[1] = RHS;
       }
@@ -501,7 +517,7 @@ namespace backendgen {
       }
       
       virtual Node* clone() const {
-	return new AssignOperator(Type, Children[0]->clone(),
+	return new AssignOperator(Manager, Type, Children[0]->clone(),
 				  Children[1]->clone(), 
 				  (Pred != NULL)? Pred->clone() : NULL);
       }
@@ -561,6 +577,7 @@ namespace backendgen {
       
       // Static utils - Pattern Generation
       static const Tree* genCopyRegToRegPat(OperatorTableManager& OpMan,
+					    OperandTableManager& OM,
 	RegClassManager& Man,
 	const std::string& DestRC, const std::string& Dest,
 	const std::string& SrcRC, const std::string& Src);

@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <cassert>
 
+extern backendgen::expression::OperandTableManager OperandTable;
+
 namespace backendgen {
 
 
@@ -61,8 +63,8 @@ namespace backendgen {
 
   typedef std::list<const Operand*>::iterator ConstOpIt;
 
-  static const Operand DummyOperand(OperandType(0,0,0), "dummy");
-  static const Operand MemRefOperand(OperandType(0,0,0), "mem");
+  static const Operand DummyOperand(OperandTable, OperandType(0,0,0), "dummy");
+  static const Operand MemRefOperand(OperandTable, OperandType(0,0,0), "mem");
 
   std::string Instruction::parseOperandsFmts() {
     std::string Result(OperandFmts);

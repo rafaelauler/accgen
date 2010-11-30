@@ -61,6 +61,9 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 const:int:0 => (xor Reg:regs Reg:regs);
 
+// split large immediate rule
+imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short imm:const16:byte) imm:op2:short)) AReg:regs);
+
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 
 //	  (dec {LHS:reg < RHS:regs} -> (transfer OperA:any OperB:any)
 //	  {OperA:any == OperB:any} -> AnyOperator:any)
@@ -76,6 +79,11 @@ const:int:0 => (xor Reg:regs Reg:regs);
 //  "(store (imm i32:$src), (add i32:$a1 (frameindex i32:$val)))";
 //  (transfer (memref (+ a1:regs (+ val:regs imm:val:immed))) imm:src:immed);
 //);
+
+define pattern ADDCONST as (
+  "(add i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (+ a1:regs imm:a2:int));
+);
 
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
@@ -132,11 +140,6 @@ define pattern CALL as (
 define pattern CALL2 as (
   "(call (texternalsymbol i32:$tgt))";
   (call imm:tgt:int);
-);
-
-define pattern ADDCONST as (
-  "(add i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (+ a1:regs imm:a2:int));
 );
 
 define pattern ADD as (
@@ -274,7 +277,7 @@ define semantic fragment RegShifted2AddrMode as (
 
 // Immediate
 define semantic fragment ImmAddrMode as (
-  imm:Op5:int;
+  imm:Op5:short;
 );
 
 //=======================-- Instructions definitions --=======================//

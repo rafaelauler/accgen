@@ -34,12 +34,16 @@ namespace backendgen {
       
       return Hash;
     }
+    
+    const std::string anystr ("ANY");
 
     const std::string& 
     OperandTableManager::getTypeName (const OperandType &OpType) {
+      if (OpType.Type == 0)
+	return anystr;
       // If the element does not exists, it gets created!
       // So assert it exists, otherwise it is an error to call this member
-      // function
+      // function      
       assert(ReverseTypeMap.find(OpType) != ReverseTypeMap.end() &&
 	     "Operand type must exist");
       return ReverseTypeMap[OpType];
@@ -207,7 +211,7 @@ namespace backendgen {
 				      OperatorType OpType) {
       if (OpType.Type == AssignOp)
 	return new AssignOperator(Man, NULL, NULL, NULL);
-      return new Operator(OpType);
+      return new Operator(Man, OpType);
     }
 
     void Operator::setReturnType (const OperandType &OType) {
@@ -225,13 +229,7 @@ namespace backendgen {
       return hash_chain;
     }
 
-    // Operand member functions 
-
-    Operand::Operand (const OperandType &Type, const std::string &OpName) {
-      this->Type = Type;
-      OperandName = OpName;
-      SpecificReference = false;
-    }
+    // Operand member functions     
 
     unsigned Operand::getHash(unsigned hash_chain) const {
       return hash<std::string>(OperandName, hash_chain);
@@ -239,8 +237,9 @@ namespace backendgen {
 
     // Contant member functions
 
-    Constant::Constant (const ConstType Val, const OperandType &Type):
-      Operand(Type, "C")
+    Constant::Constant (OperandTableManager& Man, const ConstType Val,
+			const OperandType &Type):
+      Operand(Man, Type, "C")
     {
       Value = Val;
     }
@@ -671,9 +670,10 @@ namespace backendgen {
 
     // RegisterOperand member functions
 
-    RegisterOperand::RegisterOperand(const RegisterClass *RegClass,
+    RegisterOperand::RegisterOperand(OperandTableManager &Man,
+				     const RegisterClass *RegClass,
 				     const std::string &OpName):
-      Operand(RegClass->getOperandType(), OpName) {
+      Operand(Man, RegClass->getOperandType(), OpName) {
       MyRegClass = RegClass;      
     }
 
@@ -682,9 +682,10 @@ namespace backendgen {
     }
 
     // ImmediateOperand member functions
-    ImmediateOperand::ImmediateOperand(const OperandType &Type, 
+    ImmediateOperand::ImmediateOperand(OperandTableManager &Man,
+				       const OperandType &Type, 
 				       const std::string &OpName):
-      Operand(Type, OpName) {}
+      Operand(Man, Type, OpName) {}
 
     // PatternManager member functions
 
@@ -704,15 +705,16 @@ namespace backendgen {
     /// Generate semantics to find instruction to perform register to
     /// register copy.
     const Tree* PatternManager::genCopyRegToRegPat(OperatorTableManager& OpMan,
-							 RegClassManager& RegMan,
-							 const std::string& DestRC,
-							 const std::string& Dest,
-							 const std::string& SrcRC,
-							 const std::string& Src) {
+						   OperandTableManager& OM,
+						   RegClassManager& RegMan,
+						   const std::string& DestRC,
+						   const std::string& Dest,
+						   const std::string& SrcRC,
+						   const std::string& Src) {
       RegisterClass *RegClass = RegMan.getRegClass(DestRC);
-      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      RegisterOperand *LHS = new RegisterOperand(OM, RegClass, Dest);
       RegisterClass *RegClassSrc = RegMan.getRegClass(SrcRC);
-      RegisterOperand *RHS = new RegisterOperand(RegClassSrc, Src);
+      RegisterOperand *RHS = new RegisterOperand(OM, RegClassSrc, Src);
       return new AssignOperator(OpMan, LHS, RHS, NULL);
     }
     
@@ -729,7 +731,7 @@ namespace backendgen {
 					const std::string& Src,
 					const std::string& Imm) {
       RegisterClass *RegClass = RegMan.getRegClass(DestRC);
-      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      RegisterOperand *LHS = new RegisterOperand(OM, RegClass, Dest);
       OperatorType Ty;
       if (isAddition)
 	Ty = OpMan.getType(AddOpStr);
@@ -737,8 +739,8 @@ namespace backendgen {
 	Ty = OpMan.getType(SubOpStr);
       Operator* RHS = Operator::BuildOperator(OpMan, Ty);
       RegisterClass *SrcRegClass = RegMan.getRegClass(SrcRC);
-      (*RHS)[0] = new RegisterOperand(SrcRegClass, Src);
-      (*RHS)[1] = new ImmediateOperand(OM.getType("int"), Imm);
+      (*RHS)[0] = new RegisterOperand(OM, SrcRegClass, Src);
+      (*RHS)[1] = new ImmediateOperand(OM, OM.getType("int"), Imm);
       return new AssignOperator(OpMan, LHS, RHS, NULL);
     }
     
@@ -750,11 +752,11 @@ namespace backendgen {
 				 const std::string& Dest,
 				 const std::string& Imm) {
       RegisterClass *RegClass = RegMan.getRegClass(DestRC);
-      RegisterOperand *LHS = new RegisterOperand(RegClass, Dest);
+      RegisterOperand *LHS = new RegisterOperand(OM, RegClass, Dest);
       OperatorType Ty;      
       Ty = OpMan.getType(NegOpStr);
       Operator* NegOp = Operator::BuildOperator(OpMan, Ty);
-      (*NegOp)[0] = new ImmediateOperand(OM.getType("int"), Imm);
+      (*NegOp)[0] = new ImmediateOperand(OM, OM.getType("int"), Imm);
       return new AssignOperator(OpMan, LHS, NegOp, NULL);
     }
 

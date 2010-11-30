@@ -607,7 +607,7 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
                     }
           | CONST COLON ID COLON NUM
                     {                       
-                      $$ = new Constant($5, OperandTable.getType($3)); 
+                      $$ = new Constant(OperandTable, $5, OperandTable.getType($3)); 
 		      free($3);
                     }
           | CONST COLON ID COLON ID
@@ -618,30 +618,31 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
 			ClearStack();
                         YYERROR;
 		      }
-                      $$ = new Constant(OperandTableManager::parseCondVal($5),
+                      $$ = new Constant(OperandTable, 
+					OperandTableManager::parseCondVal($5),
                                         OperandTable.getType($3)); 
 		      free($3);
 		      free($5);
                     }
           | ID      { 
-                      $$ = new Operand(OperandTable.getType($1), "E");
+                      $$ = new Operand(OperandTable, OperandTable.getType($1), "E");
 		      free($1);
                     }
           | IMM COLON ID COLON ID
                     {
-                      $$ = new ImmediateOperand(OperandTable.getType($5), $3);
+                      $$ = new ImmediateOperand(OperandTable, OperandTable.getType($5), $3);
 		      free($3);
 		      free($5);
                     }
           | ID COLON FRAGMENT
 	            {
 		      StrList.clear();
-                      $$ = new FragOperand($1, StrList);
+                      $$ = new FragOperand(OperandTable, $1, StrList);
 		      free($1);
                     }
           | ID COLON FRAGMENT PARAMETERS LPAREN strlist RPAREN
                     {
-                      $$ = new FragOperand($1, StrList);
+                      $$ = new FragOperand(OperandTable, $1, StrList);
                       free($1);
                       StrList.clear();
                     }
@@ -649,9 +650,10 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
                     { 
                       RegisterClass *RegClass = RegisterManager.getRegClass($3);
                       if (RegClass == NULL) 
-                        $$ = new Operand(OperandTable.getType($3), $1);       
+                        $$ = new Operand(OperandTable, OperandTable.getType($3), $1);       
                       else {
-                        RegisterOperand *RO = new RegisterOperand(RegClass, $1);
+                        RegisterOperand *RO = new RegisterOperand(OperandTable, 
+								 RegClass, $1);
                         if (RegClass->hasRegisterName($1)) {
 			  RO->setSpecificReference(true);
                         }
@@ -666,7 +668,7 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
                       NewType.Type = 0;
                       NewType.Size = 0;
 		      NewType.DataType = 0;   
-		      $$ = new Operand(NewType, $1);
+		      $$ = new Operand(OperandTable, NewType, $1);
 		      free($1);
                     }
           ;

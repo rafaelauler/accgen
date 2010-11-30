@@ -14,6 +14,9 @@
 #include <cassert>
 #include <ctime>
 
+#define INITIAL_DEPTH 13
+#define SEARCH_DEPTH 20
+
 using namespace backendgen;
 using namespace backendgen::expression;
 using std::map;
@@ -597,12 +600,12 @@ string TemplateManager::generateCallingConventions() {
 SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
 						  std::ostream &Log) {
   Search S(RuleManager, InstructionManager);
-  unsigned SearchDepth = 5;
+  unsigned SearchDepth = INITIAL_DEPTH;
   SearchResult *R = NULL;
   // Increasing search depth loop - first try with low depth to speed up
   // easy matches
   while (R == NULL || R->Instructions->size() == 0) {
-    if (SearchDepth == 15)
+    if (SearchDepth == SEARCH_DEPTH)
       break;
     Log << "  Trying search with depth " << SearchDepth << "\n";
     S.setMaxDepth(SearchDepth++);
@@ -761,7 +764,7 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
   
   // Generate instruction to move stack pointer to frame pointer
   const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	  RegisterClassManager, RCFP->getName(), FP->getName(),
+	  OperandTable, RegisterClassManager, RCFP->getName(), FP->getName(),
 	  RCSP->getName(), SP->getName());	
   Log << "\nInfering how to emit prologue...\n";
   SearchResult *SR = FindImplementation(Exp, Log);
@@ -816,7 +819,7 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   
   // Generate instruction to move stack pointer to frame pointer
   const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	  RegisterClassManager, RCSP->getName(), SP->getName(),
+	  OperandTable, RegisterClassManager, RCSP->getName(), SP->getName(),
 	  RCFP->getName(), FP->getName());	
   Log << "\nInfering how to emit epilogue...\n";
   SearchResult *SR = FindImplementation(Exp, Log);
@@ -854,8 +857,8 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
       Log << "\nNow checking if we can copy Registers "
 	  << (*I)->getName() << " to " << (*I2)->getName() << "\n";
       const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	  RegisterClassManager, (*I)->getName(), "DestReg", (*I2)->getName(),
-	  "SrcReg");
+	  OperandTable, RegisterClassManager, (*I)->getName(), "DestReg", 
+	  (*I2)->getName(), "SrcReg");
 	if (I == RegisterClassManager.getBegin() 
 	    && I2 == RegisterClassManager.getBegin())
 	  SS << "  if";
