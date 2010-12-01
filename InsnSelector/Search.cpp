@@ -119,11 +119,22 @@ namespace backendgen {
 	if (!isOperator) {
 	  const Constant* C1 = dynamic_cast<const Constant*>(E1);
 	  const Constant* C2 = dynamic_cast<const Constant*>(E2);
-	  if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL)) 
+	  if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL && 
+	    dynamic_cast<const ImmediateOperand*>(E2) == NULL)) 
 	    return false;
+	  if (C1 != NULL && dynamic_cast<const ImmediateOperand*>(E2) != NULL) {	    
+	    if (VR != NULL) {
+	      std::stringstream S;
+	      S << C1->getConstValue();
+	      return AddToVRList(VR, std::make_pair(C1->getOperandName(),
+		S.str()));
+	    } else {
+	      return false;
+	    }
+	  }
 	  // Depending on the operand type, we need to make further checkings
 	  // Constants must be equal
-	  if (C1 != NULL) {	    	    	    
+	  if (C1 != NULL && C2 != NULL) {	    	    	    
 	    if (C1->getConstValue() != C2->getConstValue())
 	      return false;
 	  }
@@ -140,11 +151,10 @@ namespace backendgen {
 	  const Operand * O1 = dynamic_cast<const Operand*>(E1),
 	    * O2 = dynamic_cast<const Operand*>(E2);
 	  assert (O1 != NULL && O2 != NULL && "Nodes must be operands");
-	  // As O2 is the implementation proposal, it must not be restrict
-	  // to a specific register if O1 also is not.
-	  // But if O2 is a specific register and O1 is not, we must add
-	  // a mapping of virtual to real register.
+	  
 	  if (O2->isSpecificReference() && !O1->isSpecificReference()) {
+	    if (!O1->acceptsSpecificReference())
+	      return false;
 	    // It will return true only if the virtual register (specified
 	    // by E1) is not already mapped to a different real reg.
 	    if (VR != NULL) {
@@ -153,12 +163,12 @@ namespace backendgen {
 	    } else {
 	      return false;
 	    }
-	  
-	    // If both are specific references, they must match ref. names
-	    if (O2->isSpecificReference() && O1->isSpecificReference() && 
-		O1->getOperandName() != O2->getOperandName()) 
-	      return false;	      
+	  	    
 	  }
+	  // If both are specific references, they must match ref. names
+	  if (O2->isSpecificReference() && O1->isSpecificReference() && 
+	      O1->getOperandName() != O2->getOperandName()) 
+	    return false;	      
 	  
 	  return true;
 	} // end if (Leaf)	

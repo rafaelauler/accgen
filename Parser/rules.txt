@@ -44,6 +44,7 @@ define operator alias    as sub => -;
 define operand int    as size 32;
 define operand mem    as size 32;
 define operand cond   as size 32;
+define operand tgtimm as size 32 like int;
 define operand regs   as size 32 like int;
 define operand short  as size 16 like int;
 define operand byte   as size 8  like int;
@@ -52,7 +53,7 @@ define operand bit    as size 1  like int;
 
 //============================-- Rules --=====================================//
 
-AnyOperator:any => (dec (transfer AReg:regs AnyOperator:any) AReg:regs);
+AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
 
 AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
@@ -62,7 +63,8 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 const:int:0 => (xor Reg:regs Reg:regs);
 
 // split large immediate rule
-imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short imm:const16:byte) imm:op2:short)) AReg:regs);
+imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs);
+imm:op:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) imm:op2:byte)) AReg:regs);
 
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 
 //	  (dec {LHS:reg < RHS:regs} -> (transfer OperA:any OperB:any)
@@ -82,18 +84,18 @@ imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short imm:const16:byte) i
 
 define pattern ADDCONST as (
   "(add i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (+ a1:regs imm:a2:int));
+  (transfer a3:regs (+ a1:regs imm:a2:tgtimm));
 );
 
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
-  (transfer (memref (+ val:regs imm:val:int)) imm:src:int);
+  (transfer (memref (+ val:regs imm:val:tgtimm)) imm:src:tgtimm);
 );
 
 define pattern STOREFROMFI as (
   "(store (frameindex i32:$valsrc) i32:$addr)";
   (transfer (memref addr:regs) 
-    (memref (+ valsrc:regs imm:valsrc:int)));
+    (memref (+ valsrc:regs imm:valsrc:tgtimm)));
 );
 
 // Built-in pattern: STOREFI is used to determine how the backend will spill
@@ -101,7 +103,7 @@ define pattern STOREFROMFI as (
 // operand names (src and val).
 define pattern STOREFI as (
   "(store i32:$src, (frameindex i32:$val))";
-  (transfer (memref (+ val:regs imm:val:int)) src:regs);
+  (transfer (memref (+ val:regs imm:val:tgtimm)) src:regs);
 );
 
 define pattern STORE as (
@@ -114,7 +116,7 @@ define pattern STORE as (
 // correct operand names (addr and dest).
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
-  (transfer dest:regs (memref (+ addr:regs imm:addr:int)));
+  (transfer dest:regs (memref (+ addr:regs imm:addr:tgtimm)));
 );
 
 define pattern LOAD as (
@@ -129,7 +131,7 @@ define pattern GLOBALADDRESS as (
 
 define pattern FRAMEINDEX as (
   "(frameindex i32:$addr)";
-  (transfer a3:regs (+ addr:regs imm:addr:int));
+  (transfer a3:regs (+ addr:regs imm:addr:tgtimm));
 );
 
 define pattern CALL as (
@@ -149,17 +151,17 @@ define pattern ADD as (
 
 define pattern SUBCONST as (
   "(sub i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (- a1:regs imm:a2:int));
+  (transfer a3:regs (- a1:regs imm:a2:tgtimm));
 );
 
 define pattern SHLCONST as (
   "(shl i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (shl a1:regs imm:a2:int));
+  (transfer a3:regs (shl a1:regs imm:a2:tgtimm));
 );
 
 define pattern SHRCONST as (
   "(srl i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (shr a1:regs imm:a2:int));
+  (transfer a3:regs (shr a1:regs imm:a2:tgtimm));
 );
 
 define pattern SUB as (
@@ -230,6 +232,8 @@ define registers GPR:regs as (
 
 //===========================-- ABI stuff --==================================//
 
+redefine operand tgtimm size to 16;
+
 define abi as (
   define callee save registers as (r4 r5 r6 r7);
   define reserved registers as    (r9 r13 r14 r15);
@@ -257,12 +261,12 @@ define semantic fragment SimpleAddrMode as (
 
 // Register shifted by imm 
 define semantic fragment RegShiftedAddrMode as (
-  (shl Op5:GPR imm:Op7:int);
+  (shl Op5:GPR imm:Op7:tgtimm);
 );
 
 // Register right shifted by imm 
 define semantic fragment RegRightShiftedAddrMode as (
-  (shr Op5:GPR imm:Op7:int);
+  (shr Op5:GPR imm:Op7:tgtimm);
 );
 
 // Register shifted right by 1 
@@ -277,7 +281,7 @@ define semantic fragment RegShifted2AddrMode as (
 
 // Immediate
 define semantic fragment ImmAddrMode as (
-  imm:Op5:short;
+  imm:Op5:tgtimm;
 );
 
 //=======================-- Instructions definitions --=======================//

@@ -49,6 +49,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return DEFINE;
 }
 
+<INITIAL>"redefine" {
+  yylval->num = 0;
+  return REDEFINE;
+}
+
 <INITIAL>"semantic" {
   yylval->num = 0;
   return SEMANTIC;
@@ -67,6 +72,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
 <INITIAL>"abi" {
   yylval->num = 0;
   return ABI;
+}
+
+<INITIAL>"to" {
+  yylval->num = 0;
+  return TO;
 }
 
 <INITIAL>"callee" {
@@ -329,6 +339,11 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return ASSIGN;
 }
 
+<INITIAL>"^" {
+  yylval->num = 0;
+  return ASTERISK;
+}
+
 <INITIAL>{DIGIT}+ {
 
   /* Some patterns */
@@ -347,7 +362,7 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return ID;
 }
 
-<INITIAL>[^ \t\n\r\"\,\(\)\:\;\/\{\}]+ {
+<INITIAL>[^ \t\n\r\"\,\(\)\:\;\/\{\}\^]+ {
   yylval->str = strdup(yytext);
   return OPERATOR;
 }

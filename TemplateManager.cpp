@@ -14,8 +14,8 @@
 #include <cassert>
 #include <ctime>
 
-#define INITIAL_DEPTH 13
-#define SEARCH_DEPTH 20
+#define INITIAL_DEPTH 5
+#define SEARCH_DEPTH 25
 
 using namespace backendgen;
 using namespace backendgen::expression;
@@ -597,11 +597,22 @@ string TemplateManager::generateCallingConventions() {
   return SS.str();
 }
 
+class UpdateSizeFunctor {
+  public:
+    bool operator() (Tree* Element) {
+      Operand* O = dynamic_cast<Operand *>(Element);
+      O->updateSize();
+      return true;
+    }
+};
+
 SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
 						  std::ostream &Log) {
   Search S(RuleManager, InstructionManager);
   unsigned SearchDepth = INITIAL_DEPTH;
   SearchResult *R = NULL;
+  Tree* _Exp = const_cast<Tree*>(Exp);
+  ApplyToLeafs<Tree*,Operator*,UpdateSizeFunctor>(_Exp, UpdateSizeFunctor());
   // Increasing search depth loop - first try with low depth to speed up
   // easy matches
   while (R == NULL || R->Instructions->size() == 0) {

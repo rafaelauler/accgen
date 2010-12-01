@@ -71,11 +71,11 @@ void yyerror(char *error);
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
 %token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
-%token<num> AUXILIAR
+%token<num> AUXILIAR ASTERISK REDEFINE TO
 
 %type<treenode> exp operator;
 %type<str> oper;
-%type<num> explist convtype strlist comparator;
+%type<num> explist convtype strlist comparator srindicator;
 
 %%
 
@@ -304,6 +304,12 @@ operanddef: DEFINE OPERAND ID AS SIZE NUM SEMICOLON
                OperandTable.setCompatible($3, $8);
 	       free($3);
 	       free($8);
+             }
+	    | REDEFINE OPERAND ID SIZE TO NUM SEMICOLON
+             {
+	       OperandType NewType = OperandTable.getType($3); 
+	       free($3);
+               OperandTable.updateSize(NewType, $6);
              }
           ;
 
@@ -646,7 +652,7 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
                       free($1);
                       StrList.clear();
                     }
-          | ID COLON ID
+          | ID COLON ID srindicator
                     { 
                       RegisterClass *RegClass = RegisterManager.getRegClass($3);
                       if (RegClass == NULL) 
@@ -658,6 +664,9 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
 			  RO->setSpecificReference(true);
                         }
                         $$ = RO;
+		      }
+		      if ($4 == 1) {
+		        dynamic_cast<Operand *>($$)->setAcceptsSpecificReference(true);
 		      }
 		      free($1);
 		      free($3);
@@ -672,6 +681,9 @@ exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist
 		      free($1);
                     }
           ;
+
+srindicator: /* empty */ { $$ = 0; }
+            |  ASTERISK  { $$ = 1; }
 
 
 operator: OPERATOR      { 

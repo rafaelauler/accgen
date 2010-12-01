@@ -147,20 +147,31 @@ namespace backendgen {
 	this->Type = Type;
 	OperandName = OpName;
 	SpecificReference = false;
+	AcceptsSpecificReference = false;
       }
       virtual void print(std::ostream &S) const {	
 	S << OperandName << ":" << Manager.getTypeName(Type);  
       }
       virtual bool isOperand() const { return true; }
       virtual unsigned getType() const { return Type.Type; }
-      virtual unsigned getSize() const { return Type.Size; }
+      virtual unsigned getSize() const {
+	return Type.Size;
+      }
       virtual Node* clone() const { return new Operand(*this); }
       virtual unsigned getHash(unsigned hash_chain) const;
+      void updateSize() {
+	Type = Manager.getType(Manager.getTypeName(Type));
+      }
       const std::string& getOperandName() const {return OperandName;}
-      const OperandType& getOperandType() const {return Type;}
       unsigned getDataType() const { return Type.DataType; }
       bool isSpecificReference() const { return SpecificReference; }
       void setSpecificReference(bool Val) {SpecificReference = Val; }
+      void setAcceptsSpecificReference(bool Val) {
+	AcceptsSpecificReference = Val;
+      }
+      bool acceptsSpecificReference() const {
+	return AcceptsSpecificReference;
+      }
       void changeOperandName(const std::string &NewName) {
 	OperandName = NewName;
       }
@@ -171,6 +182,7 @@ namespace backendgen {
       // case the exact reference is determined by the assembly construct, OR 
       // it refers directly to a specific register in the architecture.
       bool SpecificReference;
+      bool AcceptsSpecificReference;
       OperandTableManager &Manager;
     };
 
