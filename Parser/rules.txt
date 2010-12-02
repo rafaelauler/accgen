@@ -63,7 +63,8 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 const:int:0 => (xor Reg:regs Reg:regs);
 
 // split large immediate rule
-imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs);
+imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
+( op1 binds to op using "op1 = op >> 16"; );
 imm:op:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) imm:op2:byte)) AReg:regs);
 
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 

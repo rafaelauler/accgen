@@ -916,6 +916,17 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 //              ** Instruction Scheduler Phase **
 //              *********************************
 
+namespace {
+inline bool ExtractConstValue(const std::string &N, int *ConstVal) {
+  const std::string conststr("CONST<"); 
+  if (N.compare(0,6,conststr,0,6)) {    
+    *ConstVal = atoi(N.substr(7).c_str());
+    return true;
+  }
+  return false;
+}
+}
+
 /// This function translates a SearchResult record to C++
 
 /// generateEmitCode is used for building patterns in Instruction Selection
@@ -1082,6 +1093,15 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	++i;
 	continue;
       }
+      // Test to see if this is an immediate operand bound to a const      
+      int ConstVal = 0;
+      if (dynamic_cast<const ImmediateOperand*>(Element) &&
+	  ExtractConstValue(*NI, &ConstVal)) {
+	SSOperands << ".addImm("<< ConstVal << ")";
+	++NI;
+	++i;
+      }
+      
       // Not a scratch register operand... 
       assert (0 && "Non-scratch operands must be defined in DefList");
     }    

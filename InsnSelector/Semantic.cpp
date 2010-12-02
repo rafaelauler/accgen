@@ -236,12 +236,16 @@ namespace backendgen {
     }
 
     // Contant member functions
+    unsigned Constant::SeqNum = 0;
 
     Constant::Constant (OperandTableManager& Man, const ConstType Val,
 			const OperandType &Type):
       Operand(Man, Type, "C")
     {
+      std::stringstream SS;
       Value = Val;
+      SS << "CONST_" << SeqNum++;
+      this->OperandName = SS.str();
     }
 
     // Register member functions

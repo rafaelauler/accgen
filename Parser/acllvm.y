@@ -41,6 +41,8 @@ std::stack<Semantic> SemanticStack;
 // Stack used to parse operands bindings (let ... operator) in instructions
 // semantics
 std::stack<ABinding> BindingsStack;
+// Stack used to parse operands transformations bindings
+OperandTransformationList OpTransStack;
 // Register stack used to process register lists, when defining register classes
 std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
@@ -71,7 +73,7 @@ void yyerror(char *error);
 %token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
 %token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
-%token<num> AUXILIAR ASTERISK REDEFINE TO
+%token<num> AUXILIAR ASTERISK REDEFINE TO BINDS USING
 
 %type<treenode> exp operator;
 %type<str> oper;
@@ -528,7 +530,25 @@ ruledef:  exp EQUIVALENCE exp SEMICOLON
              {
                RuleManager.createRule($1, $3, false);
              }
+          | exp LEADSTO exp LPAREN optranslist RPAREN SEMICOLON
+             {	       
+               RuleManager.createRule($1, $3, false, OpTransStack);
+	       OpTransStack.clear();
+             }
           ;
+
+optranslist: /* empty */
+             | optranslist optranselement
+             ;
+
+optranselement: ID BINDS TO ID USING QUOTEDSTR SEMICOLON 
+                {	
+		  OpTransStack.push_front(OperandTransformation($1, $4, $6));
+		  free($1);
+		  free($4);
+		  free($6);
+                }
+                ;
 
 /* Expressions */
 

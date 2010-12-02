@@ -84,7 +84,8 @@ inline unsigned ExtractOperandNumber(const std::string& OpName) {
 inline bool HasOperandNumber(const expression::Operand* Op) {
   if (Op->isSpecificReference())
     return false;
-
+  if (dynamic_cast<const expression::Constant*>(Op))
+    return false;
   const std::string& OpName = Op->getOperandName();
   std::string::size_type idx;
   idx = OpName.find_first_of("0123456789");

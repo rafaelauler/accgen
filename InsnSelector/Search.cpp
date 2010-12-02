@@ -240,6 +240,7 @@ namespace backendgen {
     OperandsDefs = new OperandsDefsType();
     RulesApplied = new RulesAppliedList();
     VirtualToReal = new VirtualToRealMap();
+    OpTrans = new OpTransLists();
   }
 
   SearchResult::~SearchResult() {
@@ -252,6 +253,7 @@ namespace backendgen {
     delete OperandsDefs;
     delete RulesApplied;
     delete VirtualToReal;
+    delete OpTrans;
   }
 
   // Removes names from OperandsDefs list that are already assigned
@@ -395,12 +397,27 @@ namespace backendgen {
     MaxDepth = 10; // default search depth, if none specified this will be
                    // used
   }
+  
+  inline bool CheckForConstInVRList(VirtualToRealMap *VR, 
+				    const std::string &Name) {
+    VirtualToRealMap::iterator I, E;
+    for (I = VR->begin(), E = VR->end(); I != E; ++I) {
+      if (I->first == Name) {
+	break;
+      }
+    }
+    // Not found
+    if (I == VR->end())
+      return false;
+    VR->erase(I);
+    return true;
+  }
 
   // This auxiliary function searches for leafs in an expression and
   // gets their names and put they in a list.
   // With this information, we know what names to use as operands
   // of instructions.
-  NameListType* ExtractLeafsNames(const Tree* Exp) {	
+  NameListType* ExtractLeafsNames(const Tree* Exp, VirtualToRealMap *VR) {
     // Sanity check
     if (Exp == NULL)
       return NULL;
@@ -409,9 +426,19 @@ namespace backendgen {
 
     // A leaf
     if (Exp->isOperand()) {
-      // Constants don't have names, ignore them
-      if (dynamic_cast<const Constant*>(Exp)) 
+      // Constants may be emitted as operands in special cases identified
+      // with help of VirtualToRealMap.
+      const Constant* CExp;
+      if ((CExp = dynamic_cast<const Constant*>(Exp)) != NULL) {
+	if (!CheckForConstInVRList(VR, CExp->getOperandName())) 
+	  return Result;
+	// This constant was bound to an immediate and must be emmited as 
+	// operand
+	std::stringstream SS;
+	SS << "CONST<" << CExp->getConstValue() << ">";
+	Result->push_back(SS.str());
 	return Result;
+      }
       // We should not expect fragments to be present here
       assert(dynamic_cast<const FragOperand*>(Exp) == NULL &&
 	     "Unexpected node type.");
@@ -425,18 +452,18 @@ namespace backendgen {
     const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Exp);
       if (AO != NULL && AO->getPredicate() != NULL) {
 	NameListType* ChildResult = ExtractLeafsNames
-	  (AO->getPredicate()->getLHS());
+	  (AO->getPredicate()->getLHS(), VR);
 	assert (ChildResult != NULL && "Must return a valid pointer");
 	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;
-	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS());
+	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS(), VR);
 	assert (ChildResult != NULL && "Must return a valid pointer");
 	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;	       
       }
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
-	NameListType* ChildResult = ExtractLeafsNames((*O)[I]);
+	NameListType* ChildResult = ExtractLeafsNames((*O)[I], VR);
 	assert (ChildResult != NULL && "Must return a valid pointer");
 	Result->splice(Result->end(), *ChildResult);
 	delete ChildResult;
@@ -539,6 +566,8 @@ namespace backendgen {
 				      *(Source->Instructions));
     Destination->RulesApplied->splice(Destination->RulesApplied->begin(),
 				      *(Source->RulesApplied));    
+    Destination->OpTrans->splice(Destination->OpTrans->begin(),
+				 *(Source->OpTrans));    
     Destination->VirtualToReal->splice(Destination->VirtualToReal->begin(),
 				      *(Source->VirtualToReal));
     // Now merge cost
@@ -660,7 +689,8 @@ namespace backendgen {
       Result->Cost = 0;
       delete Result->VirtualToReal;
       Result->VirtualToReal = VirtualBindings;
-      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed));
+      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed,
+							   VirtualBindings));
       return true;
     }
     delete VirtualBindings;
@@ -795,7 +825,8 @@ namespace backendgen {
       Result->Cost = 0;
       delete Result->VirtualToReal;
       Result->VirtualToReal = VirtualBindings;
-      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Expression));
+      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Expression,
+							  VirtualBindings));
       return Result;
     }      
     delete VirtualBindings;
@@ -853,9 +884,10 @@ namespace backendgen {
 	  // and adapt the children nodes).
 	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
 				     CurDepth, VR) == true)
-	    {
-	      delete Transformed;
+	    {	      
 	      Result->RulesApplied->push_back(I->RuleID);
+	      Result->OpTrans->push_back(I->OpTransList);
+	      delete Transformed;
 	      return Result;
 	    }
 	  delete Transformed;
@@ -961,7 +993,8 @@ namespace backendgen {
 		delete Result->VirtualToReal;
 		Result->VirtualToReal = VirtualBindings;
 		UpdateCurrentOperandDefinition(Result, 
-					       ExtractLeafsNames(Expression));
+					       ExtractLeafsNames(Expression,
+						VirtualBindings));
 		break;
 	      } else {
 	      delete VirtualBindings;

@@ -255,6 +255,16 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return LET;
 }
 
+<INITIAL>"binds" {
+  yylval->num = 0;
+  return BINDS;
+}
+
+<INITIAL>"using" {
+  yylval->num = 0;
+  return USING;
+}
+
 <INITIAL>";" {
 
   /* Some small tokens */

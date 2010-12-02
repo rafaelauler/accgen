@@ -43,7 +43,15 @@ namespace backendgen {
 
   // Constructor
   Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned ID):
-    LHS(LHS), RHS(RHS), Equivalence(Equivalence), RuleID(ID)
+    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(ID),OpTransList()
+  {
+    Composition = FindOperator(LHS, DecompOp);
+    Decomposition = FindOperator(RHS, DecompOp);
+  }
+  
+  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned ID,
+	     OperandTransformationList &OList):
+    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(ID),OpTransList(OList)
   {
     Composition = FindOperator(LHS, DecompOp);
     Decomposition = FindOperator(RHS, DecompOp);
@@ -390,6 +398,17 @@ namespace backendgen {
 				       Tree* RHS,
 				       bool Equivalence) {
     Rule newRule(LHS, RHS, Equivalence, CurrentRuleNumber++);
+
+    Rules.push_back(newRule);
+
+    return true;
+  }
+  
+  bool TransformationRules::createRule(expression::Tree* LHS, 
+				       expression::Tree* RHS,
+				       bool Equivalence,
+				       OperandTransformationList &OList) {
+    Rule newRule(LHS, RHS, Equivalence, CurrentRuleNumber++, OList);
 
     Rules.push_back(newRule);
 

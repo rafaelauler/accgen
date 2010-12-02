@@ -36,6 +36,7 @@ namespace backendgen {
   // instruction that matched our purposes in the search. (Remember
   // an instruction may have many semantic trees describing its behaviour).
   typedef std::list<std::pair<const Instruction*, SemanticIterator> > InstrList;
+  typedef std::list<OperandTransformationList> OpTransLists;
 
   // Our functor (unary predicate) to decide if an element is member
   // of a VirtualToReal list
@@ -59,6 +60,7 @@ namespace backendgen {
     CostType Cost;
     OperandsDefsType *OperandsDefs;    
     RulesAppliedList *RulesApplied;
+    OpTransLists *OpTrans;
     VirtualToRealMap *VirtualToReal;
     SearchResult();
     ~SearchResult();

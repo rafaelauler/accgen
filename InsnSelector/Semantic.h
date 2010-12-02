@@ -211,6 +211,7 @@ namespace backendgen {
       ConstType getConstValue() const { return Value; }
     private:
       ConstType Value;
+      static unsigned SeqNum;
     };
 
     // Defines a register

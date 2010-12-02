@@ -15,6 +15,18 @@
 #include <list>
 
 namespace backendgen {  
+  // Used to express a binding between a LHS and a RHS operand, and how llvmbe
+  // can transform one into another (using TransformExpression).
+  struct OperandTransformation {
+    std::string LHSOperand, RHSOperand, TransformExpression;
+    
+    OperandTransformation(const std::string &L, const std::string &R,
+			  const std::string &TE):
+    LHSOperand(L), RHSOperand(R), TransformExpression(TE)
+    {}
+  };
+  
+  typedef std::list<OperandTransformation> OperandTransformationList;
 
   // A Rule represents a given transformation
   struct Rule {  
@@ -34,8 +46,11 @@ namespace backendgen {
     bool Decomposition;
     // If applying the inverse of this rule can be used to decompose
     bool Composition;
+    OperandTransformationList OpTransList;
     Rule(expression::Tree* LHS, expression::Tree* RHS, bool Equivalence,
 	 unsigned ID);
+    Rule(expression::Tree* LHS, expression::Tree* RHS, bool Equivalence,
+	 unsigned ID, OperandTransformationList &OList);
     std::list<expression::Tree*>* Decompose(const expression::Tree* Expression)
     const;
     bool ForwardMatch(const expression::Tree* Expression) const;
@@ -51,6 +66,8 @@ namespace backendgen {
   public:
     bool createRule(expression::Tree* LHS, expression::Tree* RHS,
 		    bool Equivalence);
+    bool createRule(expression::Tree* LHS, expression::Tree* RHS,
+		    bool Equivalence, OperandTransformationList &OList);
     void print(std::ostream &S);
     TransformationRules() : CurrentRuleNumber(1) {}
     ~TransformationRules();
