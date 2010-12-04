@@ -319,31 +319,6 @@ IDENT [a-zA-Z][a-zA-Z0-9]*
   return EQUIVALENCE;
 }
 
-<INITIAL>"==" {
-  yylval->num = EqualityComp;
-  return EQUALS;
-}
-
-<INITIAL>"<" {
-  yylval->num = LessThanComp;
-  return LESS;
-}
-
-<INITIAL>">" {
-  yylval->num = GreaterThanComp;
-  return GREATER;
-}
-
-<INITIAL>"<=" {
-  yylval->num = LessOrEqualComp;
-  return LESSOREQUAL;
-}
-
-<INITIAL>">=" {
-  yylval->num = GreaterOrEqualComp;
-  return GREATEROREQUAL;
-}
-
 <INITIAL>"=" {
   yylval->num = 0;
   return ASSIGN;

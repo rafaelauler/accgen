@@ -70,14 +70,14 @@ void yyerror(char *error);
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
-%token<num> CALLING FRAGMENT EQUALS LESS GREATER LESSOREQUAL GREATEROREQUAL
+%token<num> CALLING FRAGMENT 
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
 %token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
 %token<num> AUXILIAR ASTERISK REDEFINE TO BINDS USING
 
 %type<treenode> exp operator;
 %type<str> oper;
-%type<num> explist convtype strlist comparator srindicator;
+%type<num> explist convtype strlist srindicator;
 
 %%
 
@@ -557,7 +557,7 @@ optranselement: ID BINDS TO ID USING QUOTEDSTR SEMICOLON
 
 /* Expressions */
 
-comparator: EQUALS | LESS | GREATER | LESSOREQUAL | GREATEROREQUAL;
+//comparator: EQUALS | LESS | GREATER | LESSOREQUAL | GREATEROREQUAL;
 
 strlist:   /* empty */ {}
           | strlist ID { StrList.push_back($2); free($2); }
@@ -567,31 +567,7 @@ explist:  /* empty */ {}
           | explist exp  { Stack.push($2); }         
           ; 
 
-exp:      LBRACE exp comparator exp RBRACE LEADSTO2 LPAREN operator explist 
-          RPAREN
-                    {
-		      AssignOperator *Op = dynamic_cast<AssignOperator*>($8);
-		      if (Op == NULL) {
-			std::cerr << "Line " << LineNumber << ": Using a "
-			       << "guarded assignment in something that is not "
-			       << "an assignment.\n";
-			ClearStack();
-			YYERROR;
-		      }
-		      if (Stack.size() < 2) {
-			std::cerr << "Line " << LineNumber << ": Invalid number"
-				  << " of operands for assignment operator.\n";
-			ClearStack();
-			YYERROR;
-		      }
-		      (*dynamic_cast<Operator*>($8))[1] = Stack.top();
-		      Stack.pop();
-		      (*dynamic_cast<Operator*>($8))[0] = Stack.top();
-		      Stack.pop();
-                      Op->setPredicate(new Predicate($3, $2, $4));
-		      $$ = $8;
-                    }
-          | LPAREN operator explist RPAREN 
+exp:      LPAREN operator explist RPAREN 
                     {
                       int i = dynamic_cast<Operator*>($2)->getArity();         
 	              if (i > Stack.size())

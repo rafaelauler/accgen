@@ -142,60 +142,6 @@ namespace backendgen {
 	  return Result;
 	}
 	
-	// Now we know we are handling with operators
-	// See if this is a guarded assignment
-	const AssignOperator *AO1 = dynamic_cast<const AssignOperator*>(R),
-	  *AO2 = dynamic_cast<const AssignOperator*>(E);
-	assert ((AO1 == NULL) == (AO2 == NULL) &&
-		"Nodes must agree with type at this stage");
-	if (AO1 != NULL) {
-	  // If they don't agree with having a predicate, they're different
-	  // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
-	  if ((AO1->getPredicate() != NULL && AO2->getPredicate() == NULL) ||
-	      (AO1->getPredicate() == NULL && AO2->getPredicate() != NULL) ) {
-	    if (!JustCompare) delete Result;
-	    return NULL;
-	  }
-	  if (AO1->getPredicate()) {
-	    // Check if the comparators for the guarded assignments are equal
-	    if (AO1->getPredicate()->getComparator() != 
-		AO2->getPredicate()->getComparator()) {
-	      if (!JustCompare) delete Result;
-	      return NULL;
-	    }
-	    // Now check if the expressions being compared are equal
-	    AnnotatedTreeList *ChildResult =
-	      MatchExpByRule<JustCompare>(AO1->getPredicate()->getLHS(), 
-					  AO2->getPredicate()->getLHS());
-	    if (JustCompare) {
-	      if (ChildResult == 0)
-	        return 0;	      		
-	    } else {
-	      if (ChildResult == NULL) {
-		delete Result;
-		return NULL;
-	      }
-	      Result->merge(*ChildResult);
-	      delete ChildResult;
-	    }
-	    ChildResult = MatchExpByRule<JustCompare>(AO1->getPredicate()
-	  					      ->getRHS(),
-						      AO2->getPredicate()
-						      ->getRHS());
-	    if (JustCompare) {
-	      if (ChildResult == 0)
-	        return 0;	      		
-	    } else {
-	      if (ChildResult == NULL) {
-		delete Result;
-		return NULL;
-	      }
-	      Result->merge(*ChildResult);
-	      delete ChildResult;
-	    }
-	  }
-	}
-
 	// Now we know we are handling with operators and may safely cast
 	// and analyze its children
 	const Operator *RO = dynamic_cast<const Operator*>(R),
@@ -257,12 +203,7 @@ namespace backendgen {
   // similar names with the same generated names.
   void SubstituteLeafs(Tree** T, AnnotatedTreeList* List,
 		       const OperandTransformationList& OpTransList) {
-    if ((*T)->isOperator()) {
-      AssignOperator *AO = dynamic_cast<AssignOperator*>(*T);
-      if (AO != NULL && AO->getPredicate() != NULL) {
-	  SubstituteLeafs(AO->getPredicate()->getLHSAddr(), List, OpTransList);
-	  SubstituteLeafs(AO->getPredicate()->getRHSAddr(), List, OpTransList);
-      }
+    if ((*T)->isOperator()) {      
       Operator *O = dynamic_cast<Operator*>(*T);
       for (int I = 0, E = O->getArity(); I != E; ++I)
 	{
@@ -378,6 +319,7 @@ namespace backendgen {
 	if (I->LHSOperand == I2->first) {
 	  const Operand* Node = dynamic_cast<const Operand*>(I2->second);
 	  assert (Node != NULL && "OpTransform. rule must refer to operand");	  
+	  //BUG: Dangerous! May cause infinite loop
 	  I->TransformExpression = 
 	    I->PatchTransformExpression(Node->getOperandName());	    
 	  I->LHSOperand = Node->getOperandName();

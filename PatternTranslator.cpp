@@ -216,11 +216,6 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
     for (int I = O->getArity() - 1, E = -1; I != E; --I) {
       Queue.push_front((*O)[I]);
     }
-    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Element);
-    if (AO != NULL && AO->getPredicate() != NULL) {
-      Queue.push_front(AO->getPredicate()->getRHS());
-      Queue.push_front(AO->getPredicate()->getLHS());      
-    }
   }
   // Remove requested nodes
   unsigned E = OperandsIndexes.size(), I = 0;
@@ -623,7 +618,8 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
     }
     // Else, check if this operand is bound to another via transformation rules
     OT = findOperandTransformation(OTL, *N->OpName);
-    Res = findPredecessor(LLVMDAG, OT->LHSOperand, &Resp);
+    if (OT != NULL)
+      Res = findPredecessor(LLVMDAG, OT->LHSOperand, &Resp);
   }
   if (Res == NULL) {
     // Not found as predecessor. It must be a temporary register.      

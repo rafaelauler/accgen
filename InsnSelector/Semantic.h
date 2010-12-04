@@ -57,36 +57,7 @@ namespace backendgen {
     }
   };
 
-  namespace expression {
-
-    // These comparator types are used in a predicate to compare two
-    // expressions and evaluate if the guarded assignment is valid.
-    enum ComparatorTypes {EqualityComp=1, LessThanComp, GreaterThanComp,
-			  LessOrEqualComp, GreaterOrEqualComp};
-
-    // This class represents a predicate in a guarded assignment.
-    // The predicate must be true in order to the guarded expression be
-    // computed.
-    class Predicate {
-      Tree *LHS, *RHS;
-      unsigned Comparator;
-    public:
-      Predicate(unsigned Comparator, Tree *LHS, Tree *RHS) :
-	LHS(LHS), RHS(RHS), Comparator(Comparator) {}
-      ~Predicate() {
-	delete LHS;
-	delete RHS;
-      }
-      Predicate* clone() const { 
-	return new Predicate(Comparator, (LHS == NULL)? NULL : LHS->clone(),
-			     (RHS == NULL)? NULL : RHS->clone());
-      }
-      Tree *getLHS() const { return LHS; }
-      Tree *getRHS() const { return RHS; }
-      Tree **getLHSAddr() { return &LHS; }
-      Tree **getRHSAddr() { return &RHS; }
-      unsigned getComparator() const { return Comparator; }
-    };
+  namespace expression {    
 
     // We may have several operand types, albeit some predefined
     // values exist.
@@ -503,70 +474,7 @@ namespace backendgen {
       OperatorType Type;
       OperandType ReturnType;
       OperatorTableManager &Manager;
-    };  
-
-    // AssignOperator is a special kind of operator that assigns
-    // a value computed by RHS expression to the operand in LHS.
-    class AssignOperator : public Operator {
-      Predicate* Pred; // Not null if this is a guarded assignment     
-      // Constructor used when cloning
-      AssignOperator(OperatorTableManager& Man, OperatorType AssignType,
-		     Tree* LHS, Tree* RHS, Predicate* Pred) : 
-	Operator(Man, AssignType), Pred(Pred) {
-	Children[0] = LHS;
-	Children[1] = RHS;
-      }
-
-    public:
-      AssignOperator(OperatorTableManager& Man, Tree* LHS, Tree* RHS,
-		     Predicate* Pred) : 
-	Operator(Man, Man.getType(AssignOpStr)), Pred(Pred) {
-	Children[0] = LHS;
-	Children[1] = RHS;
-      }
-
-      virtual ~AssignOperator() {
-	delete Pred;
-      }
-      
-      virtual Node* clone() const {
-	return new AssignOperator(Manager, Type, Children[0]->clone(),
-				  Children[1]->clone(), 
-				  (Pred != NULL)? Pred->clone() : NULL);
-      }
-    enum ComparatorTypes {EqualityComp=1, LessThanComp, GreaterThanComp,
-			  LessOrEqualComp, GreaterOrEqualComp};
-
-      virtual void print(std::ostream& S) const {
-	if (Pred != NULL) {
-	  S << "{";
-	  Pred->getLHS()->print(S);
-	  switch (Pred->getComparator()) {
-	  case EqualityComp: S << " == ";
-	    break;
-	  case LessThanComp: S << " < ";
-	    break;
-	  case GreaterThanComp: S << " > ";
-	    break;
-	  case LessOrEqualComp: S << " <= ";
-	    break;
-	  case GreaterOrEqualComp: S << " >= ";
-	    break;
-	  default: break;
-	  }
-	  Pred->getRHS()->print(S);
-	  S << "} -> ";
-	}
-	Operator::print(S);
-      }
-
-      Predicate* getPredicate() const {
-	return Pred;
-      }
-      void setPredicate(Predicate *p) {
-	Pred = p;
-      }
-    };
+    };     
 
     struct PatternElement {
       std::string Name;

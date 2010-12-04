@@ -63,11 +63,14 @@ AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 const:int:0 => (xor Reg:regs Reg:regs);
 
 // split large immediate rule
-imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
-( op binds to op1 using "op >> 16";
-  op binds to op2 using "op & 0xFFFF";
+imm:oper:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
+( oper binds to op1 using "oper >> 16";
+  oper binds to op2 using "oper & 0xFFFF";
 );
-imm:op:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) imm:op2:byte)) AReg:regs);
+imm:oper:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) imm:op2:byte)) AReg:regs)
+( oper binds to op1 using "oper >> 8";
+  oper binds to op2 using "oper & 0xFF";
+);
 
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 
 //	  (dec {LHS:reg < RHS:regs} -> (transfer OperA:any OperB:any)
@@ -235,7 +238,7 @@ define registers GPR:regs as (
 
 //===========================-- ABI stuff --==================================//
 
-redefine operand tgtimm size to 16;
+redefine operand tgtimm size to 8;
 
 define abi as (
   define callee save registers as (r4 r5 r6 r7);

@@ -270,14 +270,7 @@ operand or memory reference.");
 	// Other types of operands are uninteresting
 	if (Op != NULL) 
 	  continue;	
-	
-	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
-	// If we have an assignment operator, includes the operands contained
-	// in guarded statements
-	if (AO != NULL && AO->getPredicate() != NULL) {
-	  Queue.push_back(AO->getPredicate()->getLHS());
-	  Queue.push_back(AO->getPredicate()->getRHS());
-	}
+		
 	// Otherwise we have an operator
 	const Operator* O = dynamic_cast<const Operator*>(Element);
 	assert (O != NULL && "Unexpected tree node type");
@@ -336,14 +329,7 @@ operand or memory reference.");
 	// Operands are uninteresting here
 	if (Op != NULL) 
 	  continue;	
-	
-	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
-	// If we have an assignment operator, includes the operands contained
-	// in guarded statements
-	if (AO != NULL && AO->getPredicate() != NULL) {
-	  Queue.push_back(AO->getPredicate()->getLHS());
-	  Queue.push_back(AO->getPredicate()->getRHS());
-	}
+		
 	// We have an operator	
 	assert (O != NULL && "Unexpected tree node type");
 	for (int I = 0, E = O->getArity(); I != E; ++I) {
@@ -414,13 +400,6 @@ operand or memory reference.");
 	if (Op != NULL) 
 	  continue;	
 	
-	const AssignOperator *AO = dynamic_cast<const AssignOperator*>(Element);
-	// If we have an assignment operator, includes the operands contained
-	// in guarded statements
-	if (AO != NULL && AO->getPredicate() != NULL) {
-	  Queue.push_back(AO->getPredicate()->getLHS());
-	  Queue.push_back(AO->getPredicate()->getRHS());
-	}
 	// Otherwise we have an operator
 	const Operator* O = dynamic_cast<const Operator*>(Element);
 	assert (O != NULL && "Unexpected tree node type");
@@ -468,11 +447,6 @@ operand or memory reference.");
       // Otherwise we have an operator
       const Operator* O = dynamic_cast<const Operator*>(Element);
       assert (O != NULL && "Unexpected tree node type");
-      const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Element);
-      if (AO != NULL && AO->getPredicate() != NULL) {
-	Queue.push_back(AO->getPredicate()->getLHS());
-	Queue.push_back(AO->getPredicate()->getRHS());
-      }
       for (int I = 0, E = O->getArity(); I != E; ++I) {
 	Queue.push_back((*O)[I]);
       }

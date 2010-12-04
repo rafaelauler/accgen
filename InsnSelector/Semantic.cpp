@@ -208,9 +208,7 @@ namespace backendgen {
 
     // Operator member functions
     Operator* Operator::BuildOperator(OperatorTableManager &Man,
-				      OperatorType OpType) {
-      if (OpType.Type == AssignOp)
-	return new AssignOperator(Man, NULL, NULL, NULL);
+				      OperatorType OpType) {      
       return new Operator(Man, OpType);
     }
 
@@ -719,7 +717,11 @@ namespace backendgen {
       RegisterOperand *LHS = new RegisterOperand(OM, RegClass, Dest);
       RegisterClass *RegClassSrc = RegMan.getRegClass(SrcRC);
       RegisterOperand *RHS = new RegisterOperand(OM, RegClassSrc, Src);
-      return new AssignOperator(OpMan, LHS, RHS, NULL);
+      Operator* Assign = Operator::BuildOperator(OpMan,
+						 OpMan.getType(AssignOpStr));
+      (*Assign)[0] = LHS;
+      (*Assign)[1] = RHS;
+      return Assign;
     }
     
     /// Generate semantics to find instruction to perform addition
@@ -744,8 +746,12 @@ namespace backendgen {
       Operator* RHS = Operator::BuildOperator(OpMan, Ty);
       RegisterClass *SrcRegClass = RegMan.getRegClass(SrcRC);
       (*RHS)[0] = new RegisterOperand(OM, SrcRegClass, Src);
-      (*RHS)[1] = new ImmediateOperand(OM, OM.getType("int"), Imm);
-      return new AssignOperator(OpMan, LHS, RHS, NULL);
+      (*RHS)[1] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
+      Operator* Assign = Operator::BuildOperator(OpMan,
+						 OpMan.getType(AssignOpStr));
+      (*Assign)[0] = LHS;
+      (*Assign)[1] = RHS;
+      return Assign;
     }
     
     const Tree*
@@ -760,8 +766,12 @@ namespace backendgen {
       OperatorType Ty;      
       Ty = OpMan.getType(NegOpStr);
       Operator* NegOp = Operator::BuildOperator(OpMan, Ty);
-      (*NegOp)[0] = new ImmediateOperand(OM, OM.getType("int"), Imm);
-      return new AssignOperator(OpMan, LHS, NegOp, NULL);
+      (*NegOp)[0] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
+      Operator* Assign = Operator::BuildOperator(OpMan,
+						 OpMan.getType(AssignOpStr));
+      (*Assign)[0] = LHS;
+      (*Assign)[1] = NegOp;
+      return Assign;
     }
 
     PatternManager::Iterator PatternManager::begin() {

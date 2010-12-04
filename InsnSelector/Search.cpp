@@ -95,6 +95,66 @@ namespace backendgen {
   }
 
   // Miscellaneous auxiliary functions
+  
+  // Special comparison function used in TransformationCache in order to assert
+  // that two trees are identical
+  bool CacheExactCompare(const Tree*E1, const Tree *E2) {
+    bool isOperator;
+    // Notes: We match if E2 implements the same operation with
+    // greater data size - this means we imply that E1 is the
+    // wanted expression and E2 is the implementation proposal
+    if ((isOperator = E1->isOperator()) == E2->isOperator() 
+	&& E1->getType() == E2->getType()
+	&& E1->getSize() <= E2->getSize()) 
+    {
+      //Leaf
+      if (!isOperator) {
+	// Constant
+	const Constant* C1 = dynamic_cast<const Constant*>(E1);
+	const Constant* C2 = dynamic_cast<const Constant*>(E2);
+	if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL))
+	  return false;
+	if (C1 != NULL) {	    	    	    
+	   if (C1->getConstValue() != C2->getConstValue())
+	     return false;
+	   else
+	     return true;
+	}
+	// Immediate 
+	const ImmediateOperand* I1 = 
+	  dynamic_cast<const ImmediateOperand*>(E1);
+	const ImmediateOperand* I2 = 
+	  dynamic_cast<const ImmediateOperand*>(E2);
+	if ((I1 == NULL && I2 != NULL) || (I1 != NULL && I2 == NULL)) 
+	  return false;  
+	if (I1 != NULL)
+	  return true;
+	// Register
+	const Operand * O1 = dynamic_cast<const Operand*>(E1),
+	    * O2 = dynamic_cast<const Operand*>(E2);
+	if ((O1 == NULL && O2 != NULL) || (O1 != NULL && O2 == NULL)) 
+	  return false;  
+	// If both are specific references, they must match ref. names
+	if (O1->isSpecificReference() && 
+	    O1->getOperandName() != O2->getOperandName()) 
+	  return false;	 	
+	return true;
+      }
+      // Operator
+      bool match = true;	
+      // and analyze its children
+      const Operator *O1 = dynamic_cast<const Operator*>(E1),
+	*O2 = dynamic_cast<const Operator*>(E2);
+      for (int I = 0, E = O1->getArity(); I != E; ++I) {
+	if (!CacheExactCompare((*O1)[I], (*O2)[I])) {
+	  match = false;
+	  break;
+	}
+      }
+      return match;
+    }
+    return false;
+  }
 
   // This template is extensively used in the Search algorithm to 
   // conclude if two expressions are equal. If the template is instantiated
@@ -176,33 +236,7 @@ namespace backendgen {
 	if (JustTopLevel)
 	  return true;
 
-	// Now we know we are handling with operators
-	// See if this is a guarded assignment
-	const AssignOperator *AO1 = dynamic_cast<const AssignOperator*>(E1),
-	  *AO2 = dynamic_cast<const AssignOperator*>(E2);
-	assert ((AO1 == NULL) == (AO2 == NULL) &&
-		"Nodes must agree with type at this stage");
-	if (AO1 != NULL) {
-	  // If they don't agree with having a predicate, they're different
-	  // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
-	  if ((AO1->getPredicate() != NULL && AO2->getPredicate() == NULL) ||
-	      (AO1->getPredicate() == NULL && AO2->getPredicate() != NULL) )
-	    return false;
-	  if (AO1->getPredicate()) {
-	    // Check if the comparators for the guarded assignments are equal
-	    if (AO1->getPredicate()->getComparator() != 
-		AO2->getPredicate()->getComparator())
-	      return false;
-	    // Now check if the expressions being compared are equal
-	    if (!Compare<false>(AO1->getPredicate()->getLHS(), 
-				AO2->getPredicate()->getLHS(), VR))
-	      return false;
-	    if (!Compare<false>(AO1->getPredicate()->getRHS(), 
-				AO2->getPredicate()->getRHS(), VR))
-	      return false;
-	  }
-	}
-
+	// Now we know we are handling with operators	
 	bool match = true;	
 	// and analyze its children
 	const Operator *O1 = dynamic_cast<const Operator*>(E1),
@@ -368,7 +402,6 @@ namespace backendgen {
     return;
   }
 
-  //BUG: Lookup gives FALSE POSITIVES when two operands have different sizes!
   inline TransformationCache::CacheEntry* TransformationCache::LookUp
   (const Tree* Exp, const Tree* Target, unsigned Depth) const {
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
@@ -380,10 +413,8 @@ namespace backendgen {
     for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
 	 I != E; ++I) {
       CacheEntry &Entry = *I;
-      //BUG: Do not use COMPARE because compare is not a perfect match,
-      //it may have size mismatches
-      if (Compare<false>(Entry.LHS, Exp, NULL) && 
-	  Compare<false>(Target, Entry.RHS, NULL) &&
+      if (CacheExactCompare(Entry.LHS, Exp) && 
+	  CacheExactCompare(Target, Entry.RHS) &&
 	  Depth <= Entry.Depth)
 	return &Entry;
     }
@@ -451,19 +482,7 @@ namespace backendgen {
     }
 
     // An operator
-    const Operator* O = dynamic_cast<const Operator*>(Exp);
-    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Exp);
-      if (AO != NULL && AO->getPredicate() != NULL) {
-	NameListType* ChildResult = ExtractLeafsNames
-	  (AO->getPredicate()->getLHS(), VR);
-	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->splice(Result->end(), *ChildResult);
-	delete ChildResult;
-	ChildResult = ExtractLeafsNames(AO->getPredicate()->getRHS(), VR);
-	assert (ChildResult != NULL && "Must return a valid pointer");
-	Result->splice(Result->end(), *ChildResult);
-	delete ChildResult;	       
-      }
+    const Operator* O = dynamic_cast<const Operator*>(Exp);    
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	NameListType* ChildResult = ExtractLeafsNames((*O)[I], VR);
@@ -485,11 +504,6 @@ namespace backendgen {
     delete List;
   }
 
-  // Extracts a predicate primary operator type
-  inline unsigned PrimaryOperatorType(const Predicate* Pred) {
-    return Pred->getComparator() + 5000;
-  }
-
   // Extracts an expression's primary operator type
   inline unsigned PrimaryOperatorType (const Tree* Expression)
   {
@@ -497,13 +511,7 @@ namespace backendgen {
       return 0;
 
     const Operator* O = dynamic_cast<const Operator*>(Expression);
-    if (O->getType() == AssignOp) {
-      const AssignOperator* AO = dynamic_cast<const AssignOperator*>
-      	(Expression);      
-      assert(AO != NULL && "AssignOp not in a AssignOperator type");
-      // Ignores the predicate currently, for heuristic reasons
-      //if (AO->getPredicate() != NULL)
-      //	return PrimaryOperatorType(AO->getPredicate());
+    if (O->getType() == AssignOp) {      
       return PrimaryOperatorType((*O)[1]);
     }    
 
@@ -701,52 +709,7 @@ namespace backendgen {
     // Now check for guarded assignments before delving into each children
     // of this operator
     SearchResult* TempResults = new SearchResult();
-
-    const AssignOperator* AO = dynamic_cast<const AssignOperator*>(Transformed);
-    const AssignOperator* AOIns = 
-      dynamic_cast<const AssignOperator*>(InsnSemantic);
-    if (AO != NULL) {
-      // If they don't agree with having a predicate, they're different
-      // AO->getPredicate() == NULL xor AOIns->getPredicate() == NULL
-      if ((AO->getPredicate() != NULL && AOIns->getPredicate() == NULL) ||
-	  (AO->getPredicate() == NULL && AOIns->getPredicate() != NULL) ) {
-	delete TempResults;
-	return false;
-      }
-      //If both have a predicate
-      if (AO->getPredicate() != NULL) {
-	// Check the comparator
-	if (AO->getPredicate()->getComparator() != AOIns->getPredicate()
-	    ->getComparator()) {
-	  delete TempResults;
-	  return false;
-	}
-	// Check expressions being compared (involve recursive calls)
-	SearchResult* SR_LHS = 
-	  TransformExpression(AO->getPredicate()->getLHS(), 
-			      AOIns->getPredicate()->getLHS(), CurDepth+1, VR);
-	// Failed to prove LHSs equal
-	if (SR_LHS->Cost == INT_MAX) {
-	  delete TempResults;
-	  delete SR_LHS;
-	  return false;
-	}
-	MergeSearchResults(TempResults, SR_LHS);
-	delete SR_LHS;
-	SearchResult* SR_RHS =
-	  TransformExpression(AO->getPredicate()->getRHS(), 
-			      AOIns->getPredicate()->getRHS(), CurDepth+1, VR);
-	// Failed to prove RHSs equal
-	if (SR_RHS->Cost == INT_MAX) {
-	  delete TempResults;
-	  delete SR_RHS;
-	  return false;
-	}
-	MergeSearchResults(TempResults, SR_RHS);
-	delete SR_RHS;
-      }// end if both have a predicate
-    }// end if they are assignop
-
+    
     // Now for every operator, prove their children equal
     const Operator* O = dynamic_cast<const Operator*>(Transformed);
     const Operator* OIns = dynamic_cast<const Operator*>(InsnSemantic);
