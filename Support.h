@@ -14,6 +14,16 @@
 #include <sstream>
 
 namespace backendgen {
+  
+inline void generateIdent(std::ostream& O, unsigned ident) {
+  for (unsigned i = 0; i < ident; ++i)
+    O << " ";
+}
+inline std::string generateIdent(unsigned ident) {
+  std::string S;
+  S.append(ident, ' ');
+  return S;
+}
 
 template<class T, class OP, class Function>
 bool ApplyToLeafs(T root, Function f) {

@@ -101,6 +101,20 @@ namespace {
     return SS.str();
   }
   
+  string MatchShortImm(const string &N, const string &S) {    
+    stringstream SS;
+    unsigned size = 16;
+    unsigned mask = 0;
+    for (unsigned i = 0; i < size; i++) {
+      mask = (mask << 1) | 1;
+    }
+    mask = ~mask;
+    SS << "(((unsigned) cast<ConstantSDNode>(" 
+	      << N
+	      << ")->getZExtValue()) & " << mask << "U) == 0";
+    return SS.str();
+  }
+  
   string MatchTgtImm(const string &N, const string &S) {    
     stringstream SS;
     unsigned size = OperandTable.getType("tgtimm").Size;
@@ -115,7 +129,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 19;
+  const unsigned NodeNamesSz = 20;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -128,6 +142,7 @@ namespace {
 			       "ret",
 			       "frameindex",
 			       "imm",
+			       "shortimm",
 			       "tgtimm",
 			       "texternalsymbol",
 			       "tglobaladdr",
@@ -150,6 +165,7 @@ namespace {
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
 			       "ISD::Constant",
+			       "ISD::Constant",
 			       "ISD::TargetExternalSymbol",
 			       "ISD::TargetGlobalAddress",
 			       "ISD::GlobalAddress",
@@ -170,6 +186,7 @@ namespace {
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
 			      GetConstant, // imm
+			      GetConstant, // shortimm
 			      GetConstant, // tgtimm
 			      NULL, // texternalsymbol
 			      NULL, // tglobaladdr
@@ -191,6 +208,7 @@ namespace {
 				  NULL, // ret
 				  NULL, // frameindex
 				  NULL, // imm
+				  MatchShortImm, //shortimm
 				  MatchTgtImm, // tgtimm
 				  NULL, // texternalsymbol
 				  NULL, // tglobaladdr
@@ -212,6 +230,7 @@ namespace {
 			       true,  // ret
 			       false, // frameindex
 			       false, // imm
+			       false, // shortimm
 			       false, // tgtimm
 			       false, // texternalsymbol
 			       false, // tglobaladdr
@@ -233,6 +252,7 @@ namespace {
 			  true,  // ret
 			  false, // frameindex
 			  false, // imm
+			  false, // shortimm
 			  false, // tgtimm
 			  false, // texternalsymbol
 			  false, // tglobaladdr
@@ -254,6 +274,7 @@ namespace {
 			    true,  // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // shortimm
 			    false, // tgtimm
 			    false, // texternalsymbol
 			    false, // tglobaladdr
@@ -275,6 +296,7 @@ namespace {
 			    false, // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // shortimm
 			    false, // tgtimm
 			    false, // texternalsymbol
 			    false, // tglobaladdr

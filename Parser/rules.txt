@@ -72,13 +72,6 @@ imm:oper:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) im
   oper binds to op2 using "oper & 0xFF";
 );
 
-//{LHS:regs < RHS:regs} -> AnyOperator:any => 
-//	  (dec {LHS:reg < RHS:regs} -> (transfer OperA:any OperB:any)
-//	  {OperA:any == OperB:any} -> AnyOperator:any)
-// {AReg:regs == const:int:1} ->
-// (transfer OperA:any OperB:any) <=> (dec (transfer AReg:regs const:int:1) 
-// (transfer OperA:any OperB:any));
-
 //=========================-- LLVM Patterns --================================//
 
 // It is important to order similar patterns, most restrictive first.
@@ -112,6 +105,12 @@ define pattern STOREFI as (
   (transfer (memref (+ val:regs imm:val:tgtimm)) src:regs);
 );
 
+// Built-in pattern: STOREADD is used to help handle large frameindexes
+define pattern STOREADD as (
+  "(store i32:$src, (add i32:$reg1, i32:$reg2))";
+  (transfer (memref (+ reg1:regs reg2:regs)) src:regs);
+);
+
 define pattern STORE as (
   "(store i32:$src, i32:$addr)";
   (transfer (memref addr:regs) src:regs);
@@ -123,6 +122,12 @@ define pattern STORE as (
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
   (transfer dest:regs (memref (+ addr:regs imm:addr:tgtimm)));
+);
+
+// Built-in pattern: LOADADD is used to help handle large frameindexes
+define pattern LOADADD as (
+  "(load (add i32:$reg1, i32:$reg2))";
+  (transfer dest:regs (memref (+ reg1:regs reg2:regs)));
 );
 
 define pattern LOAD as (
@@ -215,7 +220,16 @@ define pattern BR as (
   (jump imm:tgt:int);
 );
 
-define pattern CONST as (
+// Built-in pattern: CONST16 is used to load a 16-bit immediate when ordinary
+// patterns cannot, or when generating code that creates large immediates.
+define pattern CONST16 as (
+  "(shortimm i32:$a1)";
+  (transfer a2:regs imm:a1:short);
+);
+
+// Built-in pattern: CONST32 is used to load large immediates (32-bit), similar
+// to CONST16, but 32-bit in size.
+define pattern CONST32 as (
   "(imm i32:$a1)";
   (transfer a2:regs imm:a1:int);
 );

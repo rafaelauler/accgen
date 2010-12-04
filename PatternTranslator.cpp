@@ -956,6 +956,9 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
   if (Root->NumOperands > 0) {
     S << ")" << endl;
   }
+  } else if (InfoMan->getInfo(*Root->OpName)->MatchNode) {
+    S << "if (" << InfoMan->getInfo(*Root->OpName)->MatchNode("N", "") 
+      << ")" << endl;
   }
     
   S << "  return " << EmitFuncName << "(Op);" << endl;
@@ -1146,8 +1149,7 @@ inline bool MIHandleTransformation(const OpTransLists* OTL,
     StringMap::const_iterator CI = Defs.find(name);
     //while (string::size_type i = trans.find(rhs))
     //  trans.erase(i, i+rhs.size());    
-    stringstream tmp;
-    tmp << ".add" << CI->second << "(" <<  Exp;        
+    SSOperands << ".add" << CI->second << "(" <<  Exp;        
     SSOperands << ")";	
     delete L;
     return true;
@@ -1318,11 +1320,6 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 }
 
 namespace {
-inline void generateIdent(std::ostream& O, unsigned ident) {
-  for (unsigned i = 0; i < ident; ++i)
-    O << " ";
-}
-
 // Used in genIdentifyMI, see more details at local var Levels.
 struct Level {
   stringstream *decl, *cond, *action;
@@ -1335,10 +1332,12 @@ struct Level {
 /// of code generation. If the identification is positive and DefsMap is
 /// populated, it also generates code to extract the pattern operands, 
 /// storing them in the variable names defines in the DefsMap.
+/// The argument ErasePatt can be used to control whether the identified
+/// instructions should be erased, once the pattern is confirmed.
 
 // Expects the MachineInstr containing the root instruction of the pattern
 // to be in scope with the name "pMI".
-// Expects the function "findNearestDef" to be in scope, returning a
+// Expects the function "findNearestDefBefore" to be in scope, returning a
 // MachineInstr that defines a requested virtual register.
 
 //TODO: HANDLE CHAIN
@@ -1348,7 +1347,8 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 					LiteralMap *LMap,
 					const string &Action,
 					const std::string &MI,
-					unsigned ident) {  
+					unsigned ident,
+					bool ErasePatt) {  
   // This list stores, for each level of comparison, a pair containing code
   // that positively identifies a portion of the pattern and its respective
   // necessary declarations in order to execute the comparison (if statement).
@@ -1364,7 +1364,14 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
   CurLevel->decl = new stringstream();
   CurLevel->cond = new stringstream();
   stringstream FinalAction;
+  stringstream RemoveAction;
   unsigned curIdent = ident;
+  // If we should delete the pattern once identified, schedule erase code to
+  // run for the root as a final action;
+  if (ErasePatt) {
+    generateIdent(FinalAction, curIdent);
+    RemoveAction << CurLevel->instr << "->eraseFromParent();" << endl;
+  }
     
   map<string, Level *> DeclaredVirtuals;  
     
@@ -1400,7 +1407,7 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 		    << "->getOpcode() == __arch__`'::" 
 		    << I->first->getLLVMName() << " ";                
     }
-    // We need to discover how this is instruction is declared. In order to
+    // We need to discover how this instruction is declared. In order to
     // do this, we traverse the operand list, find the defined reg name
     // and infer the name of the variable used to declare this instruction.
     if (DefOperand != NULL) {      
@@ -1432,10 +1439,18 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 	    // this pattern.
 	    assert(DeclaredVirtuals.find(*NI) != DeclaredVirtuals.end() 
 	           && "Multiple defs patterns not implemented!");
+	    // If this pattern should be erased once found, emit erase calls
+	    // as final action
+	    if (ErasePatt) {
+	      generateIdent(FinalAction, curIdent);
+	      RemoveAction << CurLevel->instr << "->eraseFromParent();" << endl;
+	    }
 	  }	  
 	  found = true;
 	  break;
 	}
+	if (Element->getType() != 0)
+	  ++NI;
       }      
       assert ((CurLevel == Levels.begin() || found) 
 	      && "DefOperand not found!");
@@ -1527,8 +1542,8 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 	                 << "->getOperand(" << i << ").isReg()) ? (int)" 
 	                 << CurLevel->instr << "->getOperand(" << i 
 	                 << ").getReg() : -1;" <<  endl;	  
-	  *CurLevel->action << "const MachineInstr* " << *NI 
-	                   << "_MI = findNearestDef(" 
+	  *CurLevel->action << "MachineInstr* " << *NI 
+	                   << "_MI = findNearestDefBefore(" 
 	                    << CurLevel->instr << "," << *NI
 	                   << ");" << endl;
 	}
@@ -1571,6 +1586,8 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
     delete I->cond;
   }
   SS << FinalAction.str();
+  if (ErasePatt)
+    SS << RemoveAction.str();
   generateIdent(SS, curIdent);
   SS << Action << endl;
   
@@ -1580,4 +1597,124 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
     SS << "}" << endl;
   }  
   return SS.str();
+}
+
+inline bool ReachedRoot(InstrList* L, InstrList::iterator I) {
+  ++I;
+  if (I == L->end())
+    return true;
+  return false;
+}
+
+struct NoDefException{};
+
+inline const std::string& ExtractDefOperandName(NameListType* OpNames, 
+					 CnstOperandsList* AllOps,
+					 const Operand* DefOperand) {
+  NameListType::const_iterator NI = OpNames->begin();
+  for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+	E2 = AllOps->end(); I2 != E2; ++I2) {
+    const Operand *Element = *I2;     
+    if (reinterpret_cast<const void*>(Element) == 
+	reinterpret_cast<const void*>(DefOperand)) {
+	return *NI;
+      }
+    if (Element->getType() != 0)
+      ++NI;
+  }
+  throw NoDefException();
+}
+
+/// This member function emits C++ code to find the root of a given pattern
+/// in MachineInstrs format, given a pattern operand. The code starts at the
+/// pattern operand (MI that has this operand) and ends with the root MI, if
+/// possible.
+
+// Expects the function "findNearestDefAfter" to be in scope, returning a
+// MachineInstr that defines a requested virtual register.
+// TODO: handle chain
+string PatternTranslator::genFindMIPatRoot(SearchResult *SR, 
+					   const string& InitialMI,
+					   const string& OperandName,					   
+					   unsigned ident)
+{
+  bool FoundStart = false, FoundRoot = false;
+  stringstream Code;
+  unsigned count = 1;
+  string curDefName;
+  generateIdent(Code,ident);
+  Code << "MachineInstr* MI1 = " << InitialMI << ";" << endl;
+  generateIdent(Code,ident);
+  Code << "MachineInstr* MIRoot = NULL;" << endl;
+  OperandsDefsType::iterator OI = SR->OperandsDefs->begin();
+  for (InstrList::iterator I = SR->Instructions->begin(),
+	 E = SR->Instructions->end(); I != E; ++I) {    
+    NameListType* OpNames = *(OI++);
+    CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
+    CnstOperandsList* Outs = I->first->getOuts();
+    assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");    
+    const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
+    if (DefOperand == NULL && !ReachedRoot(SR->Instructions, I)) {
+      // This insn does not have a definition and is not the root, so
+      // there is no possible way we can identify this pattern because there
+      // are instructions in the pattern that can't be reached via root!    
+      assert(0 && "Multiple defs patterns not implemented!");
+    }
+    if (!FoundStart) {      
+     for (NameListType::const_iterator NI = OpNames->begin(), 
+	   NE = OpNames->end(); NI != NE; ++NI) {
+       if (*NI == OperandName) {
+	 FoundStart = true;
+	 break;
+       }
+     }
+     if (!FoundStart)
+       continue;
+     else {
+       if (ReachedRoot(SR->Instructions, I)) {
+	  generateIdent(Code, ident);
+	  Code << "MIRoot = MI" << count << ";" << endl;	
+	  FoundRoot = true;
+	} else {
+	  curDefName = ExtractDefOperandName(OpNames, AllOps, DefOperand);
+	}
+	count++;
+	continue;
+     }
+    }    
+    bool FoundDef = false;
+    for (NameListType::const_iterator NI = OpNames->begin(), 
+	 NE = OpNames->end(); NI != NE; ++NI) {
+      if (*NI == curDefName) {
+	FoundDef = true;
+	break;
+      }
+    }
+    if (!FoundDef)
+      continue;
+    
+    generateIdent(Code, ident);
+    Code << "if (MI" << count-1 << " != NULL) {" << endl;
+    ident += 2;
+    generateIdent(Code, ident);
+    Code << "MachineInstr* MI" << count << " = ";
+    Code << "findNearestDefAfter(MI" << count-1 << ", MI" << count-1
+         << "->getOperand(0).getReg());" << endl;    
+    if (ReachedRoot(SR->Instructions, I)) {
+      generateIdent(Code, ident);
+      Code << "MIRoot = MI" << count << ";" << endl;
+      FoundRoot = true;
+    } else {
+      curDefName = ExtractDefOperandName(OpNames, AllOps, DefOperand);
+    }
+    count++;
+  }
+  assert (FoundStart && "Invalid OperandName for this pattern");
+  assert (FoundRoot && "Operand doesn't reach root!");
+  for (unsigned i = count; i > 2; --i) {
+    ident -= 2;
+    generateIdent(Code, ident);
+    Code << "}" << endl;
+  }
+  return Code.str();
 }

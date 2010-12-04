@@ -52,6 +52,11 @@ class TemplateManager {
     // LoadFromStackSlotSR is a pattern with operands addr, used to load from
     // frameindex "addr" to a register "dest".
     SearchResult * LoadFromStackSlotSR;
+    // Patterns showing how large constants are handled in target machine
+    SearchResult * LoadConst16SR;
+    SearchResult * LoadConst32SR;
+    SearchResult * StoreAddSR;
+    SearchResult * LoadAddSR;
     // A list of patterns of move instructions, between each pair of possible
     // register class
     MoveListTy MoveRegToRegList;
@@ -71,7 +76,11 @@ class TemplateManager {
   std::string generatePrintLiteral();
   std::string generateStoreRegToStackSlot();
   std::string generateIsStoreToStackSlot();
-  std::string generateLoadRegFromStackSlot();  
+  std::string generateLoadRegFromStackSlot();
+  std::string generateTgtImmMask();
+  std::string generateFISwitchTo16Bit();
+  std::string generateFISwitchTo32Bit();
+  std::string generateFISwitchToNBit(SearchResult*);
   std::string generateIsLoadFromStackSlot();
   std::string generateEliminateCallFramePseudo(std::ostream &Log,
 					       bool isPositive);

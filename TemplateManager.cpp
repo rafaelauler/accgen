@@ -130,6 +130,12 @@ void TemplateManager::CreateM4File()
   O << generateIsLoadFromStackSlot() << "')m4_dnl\n";  
   O << "m4_define(`__is_store_to_stack_slot__',`";
   O << generateIsStoreToStackSlot() << "')m4_dnl\n";    
+  O << "m4_define(`__masktgtimm__',`";
+  O << generateTgtImmMask() << "')m4_dnl\n";    
+  O << "m4_define(`__change_fi_to_32_bit__',`";
+  O << generateFISwitchTo32Bit() << "')m4_dnl\n";    
+  O << "m4_define(`__change_fi_to_16_bit__',`";
+  O << generateFISwitchTo16Bit() << "')m4_dnl\n";    
   
   // Print literals are only available AFTER all pattern
   // generation inference!
@@ -687,7 +693,7 @@ string TemplateManager::generateIsStoreToStackSlot() {
   SS << "  unsigned src;" << endl;      
   SS << PatTrans.genIdentifyMI(InferenceResults.StoreToStackSlotSR, Defs,
 			       &LMap, "FrameIndex = val;\n"
-    "return src;");  
+    "return src;", "pMI");  
   SS << endl;
   return SS.str();
 }
@@ -713,6 +719,112 @@ string TemplateManager::generateLoadRegFromStackSlot() {
   return SS.str();
 }
 
+string TemplateManager::generateTgtImmMask() {
+  stringstream SS;
+  unsigned size = OperandTable.getType("tgtimm").Size;
+  unsigned mask = 0;
+  for (unsigned i = 0; i < size; i++) {
+    mask = (mask << 1) | 1;
+  }
+  mask = ~mask;
+  SS << mask;
+  return SS.str();
+}
+
+string TemplateManager::generateFISwitchTo16Bit() {
+  assert(InferenceResults.LoadConst16SR != NULL &&
+         "generateSimplePatterns() must run before");
+  return generateFISwitchToNBit(InferenceResults.LoadConst16SR);
+}
+
+string TemplateManager::generateFISwitchTo32Bit() {
+  assert(InferenceResults.LoadConst16SR != NULL &&
+         "generateSimplePatterns() must run before");
+  return generateFISwitchToNBit(InferenceResults.LoadConst32SR);
+}
+
+/// This member function generated C++ code to identify a frameindex pattern,
+/// whether it is Store or Load, delete it and substitute for another pattern
+/// capable of handling large immediates. The param LoadConstPatt should
+/// contain the implementation of Constant Load adequate to the number of bits
+/// of the immediate.
+// Assumptions: bool Patched is in scope, so it can inform if the patch was
+//   successful. Input parameters spOffset and AuxReg, containing the large
+//   immediate offset and the auxiliar register for base-offset addressing
+//   should also be in scope.
+string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
+  StringMap Defs;
+	 
+  stringstream SS;
+  // Guess a load
+  SS << generateIdent(6) << "unsigned a1 = spOffset;" << endl;
+  SS << generateIdent(6) << "unsigned a2;" << endl;
+  SS << generateIdent(6) << "bool isLoad = false;" << endl;
+  SS << generateIdent(6) << "unsigned dest;" << endl;   
+  SS << PatTrans.genFindMIPatRoot(InferenceResults.LoadFromStackSlotSR, "MI",
+				  "addr", 6);  
+  SS << generateIdent(6) << "if (MIRoot != NULL) {" << endl;
+  Defs["addr"] = "FrameIndex";
+  Defs["dest"] = "Reg";  
+  SS << generateIdent(8) << "int addr;" << endl;  
+  SS << PatTrans.genIdentifyMI(InferenceResults.LoadFromStackSlotSR, Defs,
+			       &LMap, "isLoad = true;", "MIRoot", 8, true); 
+  SS << generateIdent(6) << "} // end if (MIRoot != NULL)" << endl;
+  SS << generateIdent(6) << "if (isLoad) {" << endl;
+  // Emit 16bit const load
+  Defs.clear();
+  Defs["a1"] = "Imm";   
+  SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 8, NULL, "MBB", "I",
+			   "TII.get");
+  // Emit generic load
+  Defs.clear();
+  Defs["reg1"] = "Reg";
+  Defs["reg2"] = "Reg";
+  SS << generateIdent(8) << "unsigned reg1 = AuxReg;" << endl;
+  SS << generateIdent(8) << "unsigned reg2 = a2;" << endl;
+  SS << PatTrans.genEmitMI(InferenceResults.LoadAddSR, Defs, &LMap, true,
+			   false, &AuxiliarRegs, 8, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(8) << "Patched = true;" << endl;
+  SS << generateIdent(6) << "} // end if (isLoad)" << endl;  
+  SS << generateIdent(6) << "else {" << endl;  
+  
+  // Guess a store
+  SS << generateIdent(8) << "bool idStore = false;";
+  SS << generateIdent(8) << "unsigned src;";
+  SS << PatTrans.genFindMIPatRoot(InferenceResults.StoreToStackSlotSR, "MI",
+				  "val", 8);
+  SS << generateIdent(8) << "if (MIRoot != NULL) {" << endl;
+  Defs.clear();
+  Defs["src"] = "Reg";  
+  Defs["val"] = "FrameIndex";
+  SS << generateIdent(8) << "int val;" << endl;
+  SS << PatTrans.genIdentifyMI(InferenceResults.StoreToStackSlotSR, Defs,
+			       &LMap, "idStore = true;", "MIRoot", 10, true);
+  SS << generateIdent(8) << "} // end if (MIRoot != NULL)" << endl;
+  SS << generateIdent(8) << "if (idStore) {" << endl;
+  // Emit 16bit const load
+  Defs.clear();
+  Defs["a1"] = "Imm";
+  SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 10, NULL, "MBB", "I",
+			   "TII.get");
+  // Emit generic store
+  Defs.clear();
+  Defs["reg1"] = "Reg";
+  Defs["reg2"] = "Reg";
+  SS << generateIdent(10) << "unsigned reg1 = AuxReg;" << endl;
+  SS << generateIdent(10) << "unsigned reg2 = a2;" << endl;
+  SS << PatTrans.genEmitMI(InferenceResults.StoreAddSR, Defs, &LMap, true, 
+			   false, &AuxiliarRegs, 10, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(10) << "Patched = true;" << endl;
+  SS << generateIdent(8) << "} // end if (idStore)" << endl;
+  SS << generateIdent(6) << "} // end else (isLoad)" << endl;  
+  return SS.str();
+}
+
 // REQUIRES: generateSimplePatterns() must be run before, so the pattern
 // inference results (in TemplateManager::InferenceResults) are present.
 string TemplateManager::generateIsLoadFromStackSlot() {
@@ -725,7 +837,7 @@ string TemplateManager::generateIsLoadFromStackSlot() {
   SS << "  unsigned dest;" << endl;      
   SS << PatTrans.genIdentifyMI(InferenceResults.LoadFromStackSlotSR, Defs,
 			       &LMap, "FrameIndex = addr;\n"
-    "return dest;");  
+    "return dest;", "pMI");  
   SS << endl;
   return SS.str();
 }
@@ -1029,6 +1141,14 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.StoreToStackSlotSR = SR;
     else if (I->Name == "LOADFI")
       InferenceResults.LoadFromStackSlotSR = SR;
+    else if (I->Name == "CONST16")
+      InferenceResults.LoadConst16SR = SR;
+    else if (I->Name == "CONST32")
+      InferenceResults.LoadConst32SR = SR;
+    else if (I->Name == "STOREADD")
+      InferenceResults.StoreAddSR = SR;
+    else if (I->Name == "LOADADD")
+      InferenceResults.LoadAddSR = SR;
     else
       delete SR;
   }    
@@ -1045,7 +1165,14 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	 "Missing built-in pattern STOREFI");
   assert(InferenceResults.LoadFromStackSlotSR != NULL && 
 	 "Missing built-in pattern LOADFI");  
-    
+  assert(InferenceResults.LoadConst16SR != NULL && 
+	 "Missing built-in pattern CONST16");  
+  assert(InferenceResults.LoadConst32SR != NULL && 
+	 "Missing built-in pattern CONST32");  
+  assert(InferenceResults.StoreAddSR != NULL && 
+	 "Missing built-in pattern STOREADD");    
+  assert(InferenceResults.LoadAddSR != NULL && 
+	 "Missing built-in pattern LOADADD");  
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  

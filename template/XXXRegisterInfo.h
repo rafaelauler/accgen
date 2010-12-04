@@ -43,6 +43,8 @@ struct __arch__`'RegisterInfo : public __arch__`'GenRegisterInfo {
                                      MachineBasicBlock::iterator I) const;
 
   /// Stack Frame Processing Methods
+  bool handleLargeOffset(MachineInstr* MI, int spOffset, unsigned AuxReg,
+			 MachineBasicBlock::iterator I) const;
   void eliminateFrameIndex(MachineBasicBlock::iterator II,
                            int SPAdj, RegScavenger *RS = NULL) const;
 

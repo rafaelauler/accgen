@@ -60,6 +60,46 @@ const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock 
   }
   return BestFit;
 }
+MachineInstr* findNearestDefBefore(MachineInstr* MI, unsigned Reg) {
+  //const MachineFunction* MF = MI->getParent()->getParent();  
+  MachineBasicBlock *I = MI->getParent();
+  MachineInstr* NearestDef = NULL;  
+  bool found = false;
+  //for (MachineFunction::iterator I = MF->begin(), E = MF->end();
+  //     I != E && !found; ++ I) {
+    for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (I2->isIdenticalTo(MI)) {
+	found = true;
+	break;
+      }
+      if (I2->findRegisterDefOperandIdx(Reg) != -1)
+	NearestDef = &*I2;
+    }
+  //}
+  return NearestDef;
+}
+MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
+  //const MachineFunction* MF = MI->getParent()->getParent();  
+  MachineBasicBlock *I = MI->getParent();
+  MachineInstr* NearestDef = NULL;  
+  bool found = false;
+  //for (MachineFunction::iterator I = MF->begin(), E = MF->end();
+  //     I != E && !found; ++ I) {
+    for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (I2->isIdenticalTo(MI)) {
+	found = true;
+	continue;
+      }
+      if (I2->findRegisterDefOperandIdx(Reg) != -1 && found) {
+	NearestDef = &*I2;
+	break;
+      }
+    }
+  //}
+  return NearestDef;
+}
 }
 
 /// `'__arch__`' Callee Saved Registers
@@ -115,6 +155,31 @@ __eliminate_call_frame_pseudo_negative__
   }
 #endif
   MBB.erase(I);
+}
+
+bool __arch__`'RegisterInfo::
+handleLargeOffset(MachineInstr* MI, int spOffset, unsigned AuxReg,
+		  MachineBasicBlock::iterator I) const
+{
+  MachineBasicBlock &MBB = *MI->getParent();
+  bool Patched = false;  
+  #define getFrameIndex getIndex
+  #define isFrameIndex isFI
+  // Check if the immediate will fit into the target field
+  if ((spOffset & ~`'__masktgtimm__`') != 0) {
+    // Won't fit. Check if this fit at least in a 16bit immediate
+    if ((spOffset & ~0xFFFF) != 0) {
+      // Generate code to fetch a 32-bit imm
+__change_fi_to_32_bit__
+    } else {
+      // Generate code to fetch a 16-bit imm
+__change_fi_to_16_bit__
+    }
+  }
+  #undef getFrameIndex
+  #undef isFrameIndex
+  
+  return Patched;
 }
 
 // FrameIndex represent objects inside a abstract stack.
@@ -173,12 +238,16 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   DOUT << "Offset     : " << Offset << "\n";
   DOUT << "<--------->\n";
   #endif
-
-  MI.getOperand(j).ChangeToImmediate(spOffset);
+  unsigned AuxReg;
   if (FrameIndex >= 0)
-    MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);
+    AuxReg = getFrameRegister(MF);
   else
-    MI.getOperand(i).ChangeToRegister(`'__stackpointer_register__`', false);
+    AuxReg = `'__stackpointer_register__`';
+  
+  if (!handleLargeOffset(&MI, spOffset, AuxReg, II)) {
+    MI.getOperand(j).ChangeToImmediate(spOffset);
+    MI.getOperand(i).ChangeToRegister(AuxReg, false);  
+  }
 }
 
 void __arch__`'RegisterInfo::

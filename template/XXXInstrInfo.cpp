@@ -42,14 +42,14 @@ const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock 
   return BestFit;
 }
 
-const MachineInstr* findNearestDef(const MachineInstr* MI, unsigned Reg) {
+MachineInstr* findNearestDefBefore(MachineInstr* MI, unsigned Reg) {
   //const MachineFunction* MF = MI->getParent()->getParent();  
-  const MachineBasicBlock *I = MI->getParent();
-  const MachineInstr* NearestDef = NULL;  
+  MachineBasicBlock *I = MI->getParent();
+  MachineInstr* NearestDef = NULL;  
   bool found = false;
-  //for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
+  //for (MachineFunction::iterator I = MF->begin(), E = MF->end();
   //     I != E && !found; ++ I) {
-    for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
+    for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
 	 I2 != E2; ++I2) {
       if (I2->isIdenticalTo(MI)) {
 	found = true;
@@ -57,6 +57,28 @@ const MachineInstr* findNearestDef(const MachineInstr* MI, unsigned Reg) {
       }
       if (I2->findRegisterDefOperandIdx(Reg) != -1)
 	NearestDef = &*I2;
+    }
+  //}
+  return NearestDef;
+}
+
+MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
+  //const MachineFunction* MF = MI->getParent()->getParent();  
+  MachineBasicBlock *I = MI->getParent();
+  MachineInstr* NearestDef = NULL;  
+  bool found = false;
+  //for (MachineFunction::iterator I = MF->begin(), E = MF->end();
+  //     I != E && !found; ++ I) {
+    for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (I2->isIdenticalTo(MI)) {
+	found = true;
+	continue;
+      }
+      if (I2->findRegisterDefOperandIdx(Reg) != -1 && found) {
+	NearestDef = &*I2;
+	break;
+      }
     }
   //}
   return NearestDef;
@@ -75,7 +97,7 @@ bool `'__arch__`'InstrInfo::isMoveInstr(const MachineInstr &MI,
                                  unsigned &SrcReg, unsigned &DstReg,
                                  unsigned &SrcSR, unsigned &DstSR) const {
   SrcSR = DstSR = 0; // No sub-registers.
-  const MachineInstr* pMI = &MI;
+  MachineInstr* pMI = const_cast<MachineInstr*>(&MI);
   __is_move__
 }
 
@@ -86,6 +108,7 @@ bool `'__arch__`'InstrInfo::isMoveInstr(const MachineInstr &MI,
 /// any side effects other than loading from the stack slot.
 unsigned `'__arch__`'InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
                                              int &FrameIndex) const {
+  MachineInstr* pMI = const_cast<MachineInstr*>(MI);
 #define getFrameIndex getIndex
 #define isFrameIndex isFI
 __is_load_from_stack_slot__
@@ -101,6 +124,7 @@ __is_load_from_stack_slot__
 /// any side effects other than storing to the stack slot.
 unsigned `'__arch__`'InstrInfo::isStoreToStackSlot(const MachineInstr *MI,
                                             int &FrameIndex) const {
+  MachineInstr* pMI = const_cast<MachineInstr*>(MI);
 #define getFrameIndex getIndex
 #define isFrameIndex isFI	
 __is_store_to_stack_slot__

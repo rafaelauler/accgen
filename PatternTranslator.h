@@ -146,7 +146,12 @@ namespace backendgen {
 			      LiteralMap *LMap,
 			      const std::string &Action,
 			      const std::string &MI = "MI",
-			      unsigned ident = 2);
+			      unsigned ident = 2,
+			      bool ErasePatt = false);
+    std::string genFindMIPatRoot(SearchResult *SR, 
+				 const std::string& InitialMI,
+				 const std::string& OperandName,					   
+				 unsigned ident = 2);
   };
 
 }
