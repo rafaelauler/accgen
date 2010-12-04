@@ -566,25 +566,34 @@ string buildNodeName(const list<unsigned>& pathToNode) {
   return SS.str();
 }
 
-inline const OperandTransformation*
+/// Reads all transformations available and discovers which ones applies to
+/// the given operand. May be more than one, so the result is a list of
+/// chained operations.
+inline list<const OperandTransformation*>*
 findOperandTransformation(const OpTransLists* OTL, const string& OpName) {
   string name(OpName);
-  string::size_type idx = name.find('_');
-  if (idx == 0 || idx == string::npos || name.size() <= idx+3)
-    return NULL;
-  string rhs = name.substr(idx+1);
-  name = name.substr(0, idx);  
-  for (OpTransLists::const_iterator OTLI = OTL->begin(),
-    OTLE = OTL->end(); OTLI != OTLE; ++OTLI) {    
-    for (OperandTransformationList::const_iterator I = OTLI->begin(),
-         E = OTLI->end(); I != E;
-	++I) {
-      if (I->RHSOperand == rhs && I->LHSOperand == name) {
-	return &*I;
-      }    
-    }
-  }
-  return NULL;
+  string baseLHS = name.substr(0,name.find('_'));
+  string::size_type idx = 0;
+  list<const OperandTransformation*>* Result = NULL;
+  while ((idx = name.find('_', idx+1)) != string::npos) {    
+    if (name.size() <= idx+3)
+      break;
+    string rhs = name.substr(idx+1, name.find('_', idx+1)-idx-1);
+    string lhs = name.substr(0, idx);  
+    for (OpTransLists::const_iterator OTLI = OTL->begin(),
+      OTLE = OTL->end(); OTLI != OTLE; ++OTLI) {    
+      for (OperandTransformationList::const_iterator I = OTLI->begin(),
+	  E = OTLI->end(); I != E;
+	  ++I) {
+	if (I->RHSOperand == rhs && I->LHSOperand == lhs) {
+	  if (Result == NULL)
+	    Result = new list<const OperandTransformation*>();
+	  Result->push_back(&*I);
+	}    
+      }
+    }// end outer for
+  }// end while
+  return Result;
 }
 
 /// Helper function used to declare leaf nodes when generating
@@ -606,7 +615,7 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   }
   // If not literal, then check if it matches some operand in LLVMDAG
   SDNode *Resp = NULL;  
-  const OperandTransformation* OT = NULL;
+  list<const OperandTransformation*>* L = NULL;
   list<unsigned>* Res = findPredecessor(LLVMDAG, *N->OpName, &Resp);
   if (Res == NULL) {
     // If it does not match, check to see if it is a constant node
@@ -617,9 +626,11 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
       return;
     }
     // Else, check if this operand is bound to another via transformation rules
-    OT = findOperandTransformation(OTL, *N->OpName);
-    if (OT != NULL)
-      Res = findPredecessor(LLVMDAG, OT->LHSOperand, &Resp);
+    L = findOperandTransformation(OTL, *N->OpName);
+    if (L != NULL) {
+      assert (L->size() > 0);
+      Res = findPredecessor(LLVMDAG, (*L->begin())->LHSOperand, &Resp);
+    }
   }
   if (Res == NULL) {
     // Not found as predecessor. It must be a temporary register.      
@@ -665,11 +676,13 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   }
   // Check if this kind of node has its own get-filter function 
   if (Info != NULL && Info->GetNode != NULL)  
-    S << Info->GetNode(SS.str(), OT);
+    S << Info->GetNode(SS.str(), L);
   else { 
     S << SS.str();
     S << ";" << endl;
   }       
+  if (L != NULL)
+    delete L;
   return;
 }
 
@@ -1112,19 +1125,34 @@ inline bool MIHandleTransformation(const OpTransLists* OTL,
 			           const string& OpName,
 				   const StringMap& Defs,
 				   stringstream& SSOperands) {
-  const OperandTransformation* OT = findOperandTransformation(OTL, OpName);
-  if (OT == NULL)
+  list<const OperandTransformation*>* L = findOperandTransformation(OTL, OpName);
+  if (L == NULL)
     return false;
-  const string& name = OT->LHSOperand;
-  const string& transfExp = OT->TransformExpression;  
+  assert (L->size() > 0);  
+  list<const OperandTransformation*>::const_iterator I, E;
+  I = L->begin();
+  ++I;
+  E = L->end();
+  const string& name = (*L->begin())->LHSOperand;
+  string Exp = (*L->begin())->TransformExpression;
+  Exp.insert((string::size_type)0,1,'(');
+  Exp.append(1,')');
+  for (; I != E; ++I) {
+    Exp = (*I)->PatchTransformExpression(Exp);
+    Exp.insert((string::size_type)0,1,'(');
+    Exp.append(1,')');
+  }
   if (Defs.find(name) != Defs.end()) {	    
     StringMap::const_iterator CI = Defs.find(name);
     //while (string::size_type i = trans.find(rhs))
     //  trans.erase(i, i+rhs.size());    
-    SSOperands << ".add" << CI->second << "(" <<  transfExp;        
-    SSOperands << ")";		
+    stringstream tmp;
+    tmp << ".add" << CI->second << "(" <<  Exp;        
+    SSOperands << ")";	
+    delete L;
     return true;
   }
+  delete L;
   return false;
 }
 }

@@ -28,40 +28,59 @@ using std::map;
 extern backendgen::expression::OperandTableManager OperandTable;
 
 namespace {
+  void
+  HandleOTL(string& Operand, list<const OperandTransformation*>* OTL)
+  {
+    assert (OTL != NULL);
+    for (list<const OperandTransformation*>::const_iterator I = OTL->begin(),
+      E = OTL->end(); I != E; ++I) 
+    {
+      Operand = (*I)->PatchTransformExpression(Operand);
+      Operand.append(1, ')');
+      Operand.insert((string::size_type)0,1,'(');
+    }
+  }
   
-  string GetFrameIndex(const string &N, const OperandTransformation *OT) {
+  string
+  GetFrameIndex(const string &N, list<const OperandTransformation*>* OTL) 
+  {
     stringstream SS, SSOperand;    
     SSOperand << "dyn_cast<FrameIndexSDNode>(" 
 	      << N
 	      << ")->getIndex()";
     string Operand = SSOperand.str();
-    if (OT)
-      Operand = OT->PatchTransformExpression(Operand);
+    if (OTL) {
+      HandleOTL(Operand, OTL);
+    }
     SS << "CurDAG->getTargetFrameIndex(" << Operand << ", TLI.getPointerTy());"
        << endl;    
     return SS.str();
   }
   
-  string GetConstant(const string &N, const OperandTransformation *OT) {
+  string
+  GetConstant(const string &N, list<const OperandTransformation*>* OTL)
+  {
     stringstream SS, SSOperand;    
     SSOperand << "((unsigned) cast<ConstantSDNode>(" 
 	      << N
 	      << ")->getZExtValue())";
     string Operand = SSOperand.str();
-    if (OT)
-      Operand = OT->PatchTransformExpression(Operand);
+    if (OTL)
+      HandleOTL(Operand, OTL);
     SS << "CurDAG->getTargetConstant(" << Operand << ", MVT::i32);"
        << endl;    
     return SS.str();
   }
   
-  string GetGlobalAddress(const string &N, const OperandTransformation *OT) {
+  string
+  GetGlobalAddress(const string &N, list<const OperandTransformation*>* OTL)
+  {
     stringstream SS, SSOperand;        
     SSOperand << "cast<GlobalAddressSDNode>(" 
 	      << N
 	      << ")->getGlobal()";
     string Operand = SSOperand.str();
-    assert (OT == NULL && "GlobalAddress should not be OperandTransform'ed");
+    assert (OTL == NULL && "GlobalAddress should not be OperandTransform'ed");
     //if (OT)
       //Operand = OT->PatchTransformExpression(Operand);
     SS << "CurDAG->getTargetGlobalAddress(" << Operand << ", MVT::i32);"

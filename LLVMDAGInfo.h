@@ -25,9 +25,10 @@ namespace LLVMDAGInfo {
   using std::string;
   using std::map;    
   using std::vector;
+  using std::list;
   using backendgen::OperandTransformation;
   
-  typedef string (*GetNodeFunc)(const string&, const OperandTransformation*);
+  typedef string (*GetNodeFunc)(const string&, list<const OperandTransformation*>*);
   typedef string (*MatchNodeFunc)(const string&, const string&);
   
   struct LLVMNodeInfo {
