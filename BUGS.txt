@@ -1,2 +1,3 @@
 Problems with virtual register use. Avoid creating patterns that use virtual register without definition (situations when we don't care what was the previous value of the register).
 Problems when handling signed/unsigned quantities. How to infer a pattern that transforms unsigned immediates into signed?
+TransCache::Lookup gives FALSE POSITIVES when two operands have different sizes!

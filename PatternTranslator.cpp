@@ -276,7 +276,7 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
 SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR, 
   LiteralMap* LMap) {
   DefList Defs;
-  SDNode *LastProcessedNode, *NoDefNode = NULL;  
+  SDNode *LastProcessedNode = NULL, *NoDefNode = NULL;  
   // The idea is to discover the "outs" operands of the first instructions
   // of the sequence. This reveals us the "defs". Then, we search for uses
   // and thus "glueing" the defs as in the DAG like syntax. The last def
@@ -414,6 +414,17 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
 
 namespace {
 
+inline bool ExtractConstValue(const std::string &N, int *ConstVal) {
+  const std::string conststr("CONST<"); 
+  if (N.size() < 8)
+    return false;
+  if (N.compare(0,6,conststr) == 0) {    
+    *ConstVal = atoi(N.substr(6).c_str());
+    return true;
+  }
+  return false;
+}  
+  
 /// This helper function will try to find a predecessor node of name "Name" 
 /// and then return a list with the children nodes accessed in order to
 /// find the predecessor, or NULL if it failed to find it.
@@ -560,11 +571,33 @@ string buildNodeName(const list<unsigned>& pathToNode) {
   return SS.str();
 }
 
+inline const OperandTransformation*
+findOperandTransformation(const OpTransLists* OTL, const string& OpName) {
+  string name(OpName);
+  string::size_type idx = name.find('_');
+  if (idx == 0 || idx == string::npos || name.size() <= idx+3)
+    return NULL;
+  string rhs = name.substr(idx+1);
+  name = name.substr(0, idx);  
+  for (OpTransLists::const_iterator OTLI = OTL->begin(),
+    OTLE = OTL->end(); OTLI != OTLE; ++OTLI) {    
+    for (OperandTransformationList::const_iterator I = OTLI->begin(),
+         E = OTLI->end(); I != E;
+	++I) {
+      if (I->RHSOperand == rhs && I->LHSOperand == name) {
+	return &*I;
+      }    
+    }
+  }
+  return NULL;
+}
+
 /// Helper function used to declare leaf nodes when generating
 /// emit code LLVM function.
 void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S, 
 			 map<string, string> *TempToVirtual,
-			 const list<unsigned>& pathToNode) {
+			 const list<unsigned>& pathToNode,
+			 const OpTransLists* OTL) {
   if (N->RefInstr != NULL)
    return;        
   const string NodeName = buildNodeName(pathToNode);
@@ -578,9 +611,22 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
   }
   // If not literal, then check if it matches some operand in LLVMDAG
   SDNode *Resp = NULL;  
+  const OperandTransformation* OT = NULL;
   list<unsigned>* Res = findPredecessor(LLVMDAG, *N->OpName, &Resp);
   if (Res == NULL) {
-    // If it does not match, then it is a temporary register.      
+    // If it does not match, check to see if it is a constant node
+    int ConstVal = 0;
+    if (ExtractConstValue(*N->OpName, &ConstVal)) {
+      S << "  SDValue " << NodeName << " = " << "CurDAG->getTargetConstant("
+        << ConstVal << "ULL, MVT::i32);" << endl;
+      return;
+    }
+    // Else, check if this operand is bound to another via transformation rules
+    OT = findOperandTransformation(OTL, *N->OpName);
+    Res = findPredecessor(LLVMDAG, OT->LHSOperand, &Resp);
+  }
+  if (Res == NULL) {
+    // Not found as predecessor. It must be a temporary register.      
     // We need to check if this temporary has already been alloc'd
     if (TempToVirtual->find(*N->OpName) == TempToVirtual->end()) {      
       (*TempToVirtual)[*N->OpName] = NodeName;
@@ -621,13 +667,13 @@ void emitCodeDeclareLeaf(SDNode *N, SDNode *LLVMDAG, std::ostream &S,
        I != E; ++I) {
     SS << ".getOperand(" << *I << ")";
   }
-  // Check if this kind of node has its own get-filter function
-  if (Info != NULL && Info->GetNode != NULL) 
-    S << Info->GetNode(SS.str());
-  else {
+  // Check if this kind of node has its own get-filter function 
+  if (Info != NULL && Info->GetNode != NULL)  
+    S << Info->GetNode(SS.str(), OT);
+  else { 
     S << SS.str();
     S << ";" << endl;
-  }
+  }       
   return;
 }
 
@@ -653,7 +699,7 @@ std::string PatternTranslator::genEmitSDNode(SearchResult *SR,
   SDNode *LLVMDAG  = parseLLVMDAGString(LLVMDAGStr);
   SS << "SDNode* __arch__`'DAGToDAGISel::EmitFunc" << FuncID 
      << "(SDValue& N) {" << endl;
-  genEmitSDNode(RootNode, LLVMDAG, pathToNode, SS);
+  genEmitSDNode(RootNode, LLVMDAG, pathToNode, SR->OpTrans, SS);
   SS << "}" << endl << endl;
   delete RootNode;
   delete LLVMDAG;
@@ -670,6 +716,7 @@ std::string PatternTranslator::genEmitSDNode(SearchResult *SR,
 void PatternTranslator::genEmitSDNode(SDNode* N, 
 					 SDNode* LLVMDAG,
 					 const list<unsigned>& pathToNode,
+				         const OpTransLists* OTL,
 					 std::ostream &S) {  
   map<string, string> TempToVirtual;
   const LLVMNodeInfo *Info = NULL;
@@ -685,7 +732,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
       if (N->ops[i]->RefInstr != NULL) {
 	list<unsigned> childpath = pathToNode;	
 	childpath.push_back(i);
-	genEmitSDNode(N->ops[i], LLVMDAG, childpath, S);	
+	genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S);	
       }
     }
     // Check for chain
@@ -694,7 +741,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
       ChainTail = false;
       list<unsigned> childpath = pathToNode;      
       childpath.push_back(N->NumOperands);
-      genEmitSDNode(N->Chain, LLVMDAG, childpath, S);
+      genEmitSDNode(N->Chain, LLVMDAG, childpath, OTL, S);
     }    
   }
   
@@ -703,7 +750,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
   for (unsigned i = 0; i < N->NumOperands; ++i) {
     list<unsigned> childpath = pathToNode;	    
     childpath.push_back(i);
-    emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath);     
+    emitCodeDeclareLeaf(N->ops[i], LLVMDAG, S, &TempToVirtual, childpath, OTL);     
   }  
   
   const string NodeName = buildNodeName(pathToNode);
@@ -886,7 +933,15 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 	S2 << "N";
 	AddressOperand(S2, Parents, ChildNo, i);	
 	S << " && " << Info->MatchNode(S2.str(), *N->ops[0]->OpName);
+      } 
+      // Check to see if it has a special matching function
+      else if (Info->MatchNode) {
+	stringstream S2;
+	S2 << "N";
+	AddressOperand(S2, Parents, ChildNo, i);	
+	S << " && " << Info->MatchNode(S2.str(), "");
       }
+      
     }
   }
   if (Root->NumOperands > 0) {
@@ -917,10 +972,161 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
 //              *********************************
 
 namespace {
-inline bool ExtractConstValue(const std::string &N, int *ConstVal) {
-  const std::string conststr("CONST<"); 
-  if (N.compare(0,6,conststr,0,6)) {    
-    *ConstVal = atoi(N.substr(7).c_str());
+  
+// These classes are used to organize the utilization of the small set of 
+// auxiliary registers in genEmitMI(), using a simple register allocation
+// algorithm.
+class RegAllocIt {
+  const Register* physReg;
+  std::string owner;  
+public:
+  RegAllocIt(const Register* pr): physReg(pr), owner("FREE") {}
+  void SetOwner(const std::string& N) {
+    owner = N;
+  }
+  const std::string& Owner() {
+    return owner;
+  }
+  const std::string& PhysReg() {
+    return physReg->getName();
+  }
+};
+struct InsufficientAuxiliarRegsException{};
+// A list of RegAllocItems
+class RegAlloc : public list<RegAllocIt> {
+  // Keep track of current usable register
+  iterator CurUsableReg;
+  // Keep track of current instruction operands to analyze defs/uses
+  OperandsDefsType::const_iterator CurInsOperands, InsEnd;
+public:  
+  static RegAlloc* Build(const list<const Register*>* AList, 
+			 OperandsDefsType::const_iterator FirstInsn,
+			 OperandsDefsType::const_iterator LastInsn) {
+    RegAlloc* RA = new RegAlloc();
+    for (list<const Register*>::const_iterator I = AList->begin(), 
+         E = AList->end(); I != E; ++I) {
+      RA->push_back(RegAllocIt(*I));
+    }
+    RA->CurUsableReg = RA->begin();
+    RA->CurInsOperands = FirstInsn;
+    RA->InsEnd = LastInsn;
+    return RA;
+  }
+  // Tell the allocator that we are now analyzing the next instructions
+  // in the list. If we arrived at the end of the list, automatically
+  // deallocate itself, as its task has ended.
+  void NextInstruction() {
+    ++CurInsOperands;
+    if (CurInsOperands == InsEnd) {
+      delete this;
+    }
+  }
+  bool IsLive(const std::string &VirtReg) {
+    OperandsDefsType::const_iterator I = CurInsOperands, E = InsEnd;
+    ++I;
+    for (;I != E; ++I) {
+      NameListType* OpNames = *I;
+      for (NameListType::const_iterator NI = OpNames->begin(),
+	   NE = OpNames->end(); NI != NE; ++NI) {
+	if (*NI == VirtReg)
+	  return true;
+      }
+    }
+    return false;
+  }
+  const std::string& getPhysRegister(const std::string &VirtReg) {
+    // First perform a lookup to see if this virtreg is already allocated
+    for (iterator I = begin(), E = end(); I != E; ++I) {
+      if (I->Owner() == VirtReg)
+	return I->PhysReg();
+    }
+    // Need to allocate a new phys reg. to it
+    for (iterator I = begin(), E = end(); I != E; ++I) {
+      if (I->Owner() == "FREE" || !IsLive(I->Owner())) {
+	I->SetOwner(VirtReg);
+	return I->PhysReg();
+      }
+    }
+    throw InsufficientAuxiliarRegsException();
+  }
+};
+  
+inline bool MIHandleOpAlreadyDefined(const StringMap& Defs,
+				     const string& OpName,
+				     const StringMap* ExtraParams,
+				     stringstream &SSOperands) {
+  if (Defs.find(OpName) != Defs.end()) {	
+    StringMap::const_iterator CI = Defs.find(OpName);
+    SSOperands << ".add" << CI->second << "(" << OpName;
+    StringMap::const_iterator El;
+    // Check for extra parameters to be passed in order to create
+    // this specific operand.
+    if (ExtraParams != NULL && 
+      (El = ExtraParams->find(OpName)) != ExtraParams->end()) {
+      SSOperands << ", " << El->second;
+    }
+    SSOperands << ")";		
+    return true;
+  }
+  return false;
+}
+
+inline bool MIHandleScratchReg(const Operand* Element, bool mayUseVirtualReg,
+			       const string& OpName,
+			       const string& MBB,
+			       set<string>& DeclaredVirtuals,
+			       stringstream& DeclarationsStream,
+			       stringstream& SSOperands,
+			       RegAlloc* RA) {
+  const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
+  if (RO != NULL && mayUseVirtualReg) {
+    if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
+      DeclaredVirtuals.insert(OpName);
+      DeclarationsStream << "  const TargetRegisterClass* TRC" << OpName
+      //TODO: Find the correct type (not just i32)
+	<< " = findSuitableRegClass(MVT::i32, " << MBB << ");" << endl;
+      DeclarationsStream << "  assert (TRC" << OpName << " != 0 &&"
+	<< "\"Could not find a suitable regclass for virtual\");" << endl;
+      DeclarationsStream << "  unsigned " << OpName << " = ";
+      DeclarationsStream << MBB << ".getParent()->getRegInfo()"
+	<< ".createVirtualRegister(TRC" << OpName << "); " <<  endl;
+    }
+    SSOperands << ".addReg(" << OpName << ")";	
+    return true;
+  } else if (RO != NULL) {
+    // We may not use virtual registers, so we need to use a scratch
+    // register.
+    if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
+      std::string PhysRegName = RA->getPhysRegister(OpName);
+      DeclaredVirtuals.insert(OpName);
+      DeclarationsStream << "  unsigned " << OpName << " = ";
+      DeclarationsStream << "__arch__`'::" 
+			<< PhysRegName << ";" << endl;
+    }
+    // The suffix false, false, true sets this to isKill = true, because
+    // we need to kill the aux reg since it is a physical reg and we
+    // will no longer need this definition.
+    SSOperands << ".addReg(" << OpName << ", false, false, true)";	
+    return true;
+  }
+  return false;
+}
+
+inline bool MIHandleTransformation(const OpTransLists* OTL, 
+			           const string& OpName,
+				   const StringMap& Defs,
+				   stringstream& SSOperands) {
+  const OperandTransformation* OT = findOperandTransformation(OTL, OpName);
+  if (OT == NULL)
+    return false;
+  const string& name = OT->LHSOperand;
+  const string& transfExp = OT->TransformExpression;  
+  if (Defs.find(name) != Defs.end()) {	    
+    StringMap::const_iterator CI = Defs.find(name);
+    //while (string::size_type i = trans.find(rhs))
+    //  trans.erase(i, i+rhs.size());    
+    SSOperands << ".add" << CI->second << "(" <<  transfExp;        
+    SSOperands << ")";		
     return true;
   }
   return false;
@@ -954,11 +1160,12 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 					 const string& get){
   std::stringstream SS, DeclarationsStream;
   set<string> DeclaredVirtuals;  
+  RegAlloc *RA = NULL;
   assert( (mayUseVirtualReg || auxiliarRegs != NULL) &&
-         "Must provide auxiliar regs list if not mayUseVirtualReg");
-  list<const Register*>::const_iterator currentAuxReg;
+         "Must provide auxiliar regs list if not mayUseVirtualReg");  
   if (auxiliarRegs != NULL) {
-    currentAuxReg = auxiliarRegs->begin();
+    RA = RegAlloc::Build(auxiliarRegs, SR->OperandsDefs->begin(),
+			 SR->OperandsDefs->end());
   }
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
   for (InstrList::const_iterator I = SR->Instructions->begin(),
@@ -967,7 +1174,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     CnstOperandsList* Outs = I->first->getOuts();
     BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
-    NameListType* OpNames = *(OI++);
+    NameListType* OpNames = *(OI++);    
     if (!alreadySorted)
       sortOperandsDefs(OpNames, I->second);
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
@@ -989,6 +1196,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     unsigned i = 0;
     bool hasDef = false;
     NameListType::const_iterator NI = OpNames->begin();
+    
     for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
 	   E2 = AllOps->end(); I2 != E2; ++I2) {
       const Operand *Element = *I2;     
@@ -1000,7 +1208,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	assert (dynamic_cast<const RegisterOperand*>(Element) &&
 	  "Currently only support register operand definition");
 	SS << ", " << *NI;
-	++NI;
+	++NI;        
 	++i;
 	hasDef = true;
 	continue;
@@ -1010,18 +1218,18 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	// See if bindings list has a definition for it
 	if (Bindings != NULL) {
 	  bool Found = false;
-	  for (BindingsList::const_iterator I = Bindings->begin(),
-		 E = Bindings->end(); I != E; ++I) {
-	    if (HasOperandNumber(I->first)) {
-	      unsigned OpNum = hasDef? i + 2: i + 1;
-	      if(ExtractOperandNumber(I->first) == OpNum) {
-		unsigned index = LMap->addMember(I->second);
+	  for (BindingsList::const_iterator I2 = Bindings->begin(),
+		 E2 = Bindings->end(); I2 != E2; ++I2) {
+	    if (HasOperandNumber(I2->first)) {
+	      unsigned OpNum = i + 1;
+	      if(ExtractOperandNumber(I2->first) == OpNum) {
+		unsigned index = LMap->addMember(I2->second);
 		SSOperands << ".addImm("<< index << ")";
 		Found = true;
 		break;
-	      }
+	      }	      
 	    }
-	  }
+	  }		 
 	  assert (Found && "Missing bindings for dummy operand");
 	  ++i;
 	  continue;
@@ -1035,60 +1243,25 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       // NOT DUMMY
       assert(NI != OpNames->end() && 
 	     "BUG: OperandsDefs lacks required definition");
-      // Is this operand already defined?
-            
-      if (Defs.find(*NI) != Defs.end()) {	
-	StringMap::const_iterator CI = Defs.find(*NI);
-	SSOperands << ".add" << CI->second << "(" << *NI;
-	StringMap::const_iterator El;
-	// Check for extra parameters to be passed in order to create
-	// this specific operand.
-	if (ExtraParams != NULL && 
-	   (El = ExtraParams->find(*NI)) != ExtraParams->end()) {
-	  SSOperands << ", " << El->second;
-	}
-	SSOperands << ")";	
+      // Is this operand already defined?            
+      if (MIHandleOpAlreadyDefined(Defs, *NI, ExtraParams, SSOperands)) {
 	++NI;
 	++i;
 	continue;
       }
-      // This operand type is not defined, so it must be a scratch
-      // register            
-      // Test to see if this is a RegisterOperand
-      const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
-      if (RO != NULL && mayUseVirtualReg) {
-	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
-	  DeclaredVirtuals.insert(*NI);
-	  DeclarationsStream << "  const TargetRegisterClass* TRC" << *NI
-	  //TODO: Find the correct type (not just i32)
-	    << " = findSuitableRegClass(MVT::i32, " << MBB << ");" << endl;
-	  DeclarationsStream << "  assert (TRC" << *NI << " != 0 &&"
-	    << "\"Could not find a suitable regclass for virtual\");" << endl;
-	  DeclarationsStream << "  unsigned " << *NI << " = ";
-	  DeclarationsStream << MBB << ".getParent()->getRegInfo()"
-	    << ".createVirtualRegister(TRC" << *NI << "); " <<  endl;
-	}
-	SSOperands << ".addReg(" << *NI << ")";	
+      // Check if this operand must be transformed based on 
+      // another input operand.
+      if (MIHandleTransformation(SR->OpTrans, *NI, Defs, SSOperands)) {
 	++NI;
 	++i;
 	continue;
-      } else if (RO != NULL) {
-	// We may not use virtual registers, so we need to use a scratch
-	// register.
-	if (DeclaredVirtuals.find(*NI) == DeclaredVirtuals.end()) {      
-	  assert (auxiliarRegs != NULL);
-	  assert (currentAuxReg != auxiliarRegs->end() && 
-	          "Not enough auxiliar registers in architecture.");
-	  DeclaredVirtuals.insert(*NI);
-	  DeclarationsStream << "  unsigned " << *NI << " = ";
-	  DeclarationsStream << "__arch__`'::" 
-	                     << (*currentAuxReg)->getName() << ";" << endl;
-	  ++currentAuxReg;
-	}
-	// The suffix false, false, true sets this to isKill = true, because
-	// we need to kill the aux reg since it is a physical reg and we
-	// will no longer need this definition.
-	SSOperands << ".addReg(" << *NI << ", false, false, true)";	
+      }
+      
+      // This operand type is not defined, so it must be a scratch
+      // register            
+      // Test to see if this is a RegisterOperand
+      if (MIHandleScratchReg(Element,  mayUseVirtualReg, *NI, MBB,
+	DeclaredVirtuals, DeclarationsStream, SSOperands, RA)) {
 	++NI;
 	++i;
 	continue;
@@ -1100,6 +1273,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
 	SSOperands << ".addImm("<< ConstVal << ")";
 	++NI;
 	++i;
+	continue;
       }
       
       // Not a scratch register operand... 
@@ -1107,6 +1281,8 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     }    
     SS << ")" << SSOperands.str();
     SS << ";" << endl;
+    if (RA != NULL)
+      RA->NextInstruction();
     // Housekeeping
     delete AllOps;
     delete Outs;
@@ -1142,6 +1318,7 @@ struct Level {
 // MachineInstr that defines a requested virtual register.
 
 //TODO: HANDLE CHAIN
+//TODO: Handle OperandTransformation
 string PatternTranslator::genIdentifyMI(SearchResult *SR,
 					const StringMap& Defs,
 					LiteralMap *LMap,

@@ -13,8 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "LLVMDAGInfo.h"
+#include "InsnSelector/Semantic.h"
 #include <iostream>
 #include <sstream>
+#include <cassert>
 
 using namespace LLVMDAGInfo;
 using std::stringstream;
@@ -22,31 +24,47 @@ using std::string;
 using std::endl;
 using std::map;
 
+// Defined in Parser
+extern backendgen::expression::OperandTableManager OperandTable;
+
 namespace {
   
-  string GetFrameIndex(const string &N) {
-    stringstream SS;
-    SS << "CurDAG->getTargetFrameIndex(dyn_cast<FrameIndexSDNode>(" 
-       << N
-       << ")->getIndex(), TLI.getPointerTy());"
+  string GetFrameIndex(const string &N, const OperandTransformation *OT) {
+    stringstream SS, SSOperand;    
+    SSOperand << "dyn_cast<FrameIndexSDNode>(" 
+	      << N
+	      << ")->getIndex()";
+    string Operand = SSOperand.str();
+    if (OT)
+      Operand = OT->PatchTransformExpression(Operand);
+    SS << "CurDAG->getTargetFrameIndex(" << Operand << ", TLI.getPointerTy());"
        << endl;    
     return SS.str();
   }
   
-  string GetConstant(const string &N) {
-    stringstream SS;    
-    SS << "CurDAG->getTargetConstant(((unsigned) cast<ConstantSDNode>(" 
-       << N
-       << ")->getZExtValue()), MVT::i32);"
+  string GetConstant(const string &N, const OperandTransformation *OT) {
+    stringstream SS, SSOperand;    
+    SSOperand << "((unsigned) cast<ConstantSDNode>(" 
+	      << N
+	      << ")->getZExtValue())";
+    string Operand = SSOperand.str();
+    if (OT)
+      Operand = OT->PatchTransformExpression(Operand);
+    SS << "CurDAG->getTargetConstant(" << Operand << ", MVT::i32);"
        << endl;    
     return SS.str();
   }
   
-  string GetGlobalAddress(const string &N) {
-    stringstream SS;        
-    SS << "CurDAG->getTargetGlobalAddress(cast<GlobalAddressSDNode>(" 
-       << N
-       << ")->getGlobal(), MVT::i32);"
+  string GetGlobalAddress(const string &N, const OperandTransformation *OT) {
+    stringstream SS, SSOperand;        
+    SSOperand << "cast<GlobalAddressSDNode>(" 
+	      << N
+	      << ")->getGlobal()";
+    string Operand = SSOperand.str();
+    assert (OT == NULL && "GlobalAddress should not be OperandTransform'ed");
+    //if (OT)
+      //Operand = OT->PatchTransformExpression(Operand);
+    SS << "CurDAG->getTargetGlobalAddress(" << Operand << ", MVT::i32);"
        << endl;    
     SS << "  CurDAG->getMachineFunction().getInfo<`'__arch__`'Function"
           "Info>()->insertNewGlobalValue(cast<GlobalAddressSDNode>(" 
@@ -64,7 +82,21 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 18;
+  string MatchTgtImm(const string &N, const string &S) {    
+    stringstream SS;
+    unsigned size = OperandTable.getType("tgtimm").Size;
+    unsigned mask = 0;
+    for (unsigned i = 0; i < size; i++) {
+      mask = (mask << 1) | 1;
+    }
+    mask = ~mask;
+    SS << "(((unsigned) cast<ConstantSDNode>(" 
+	      << N
+	      << ")->getZExtValue()) & " << mask << ") == 0";
+    return SS.str();
+  }
+  
+  const unsigned NodeNamesSz = 19;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -77,6 +109,7 @@ namespace {
 			       "ret",
 			       "frameindex",
 			       "imm",
+			       "tgtimm",
 			       "texternalsymbol",
 			       "tglobaladdr",
 			       "globaladdr",
@@ -96,6 +129,7 @@ namespace {
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
+			       "ISD::Constant",
 			       "ISD::Constant",
 			       "ISD::TargetExternalSymbol",
 			       "ISD::TargetGlobalAddress",
@@ -117,6 +151,7 @@ namespace {
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
 			      GetConstant, // imm
+			      GetConstant, // tgtimm
 			      NULL, // texternalsymbol
 			      NULL, // tglobaladdr
 			      GetGlobalAddress, // globaladdr
@@ -137,6 +172,7 @@ namespace {
 				  NULL, // ret
 				  NULL, // frameindex
 				  NULL, // imm
+				  MatchTgtImm, // tgtimm
 				  NULL, // texternalsymbol
 				  NULL, // tglobaladdr
 				  NULL, // globaladdr
@@ -157,6 +193,7 @@ namespace {
 			       true,  // ret
 			       false, // frameindex
 			       false, // imm
+			       false, // tgtimm
 			       false, // texternalsymbol
 			       false, // tglobaladdr
 			       false, // globaladdr
@@ -177,6 +214,7 @@ namespace {
 			  true,  // ret
 			  false, // frameindex
 			  false, // imm
+			  false, // tgtimm
 			  false, // texternalsymbol
 			  false, // tglobaladdr
 			  false, // globaladdr
@@ -197,6 +235,7 @@ namespace {
 			    true,  // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // tgtimm
 			    false, // texternalsymbol
 			    false, // tglobaladdr
 			    false, // globaladdr
@@ -217,6 +256,7 @@ namespace {
 			    false, // ret
 			    false, // frameindex
 			    false, // imm
+			    false, // tgtimm
 			    false, // texternalsymbol
 			    false, // tglobaladdr
 			    false, // globaladdr

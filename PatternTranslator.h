@@ -123,6 +123,7 @@ namespace backendgen {
 			         unsigned FuncID, LiteralMap* LMap);
     void genEmitSDNode(SDNode* N, SDNode* LLVMDAG, 
 			  const std::list<unsigned>& pathToNode,
+			  const OpTransLists* OTL,
 			  std::ostream &S);
     // Matcher
     void genSDNodeMatcher(const std::string &LLVMDAG, 

@@ -24,6 +24,15 @@ namespace backendgen {
 			  const std::string &TE):
     LHSOperand(L), RHSOperand(R), TransformExpression(TE)
     {}
+    std::string PatchTransformExpression(const std::string &target) const
+    {
+      std::string result(TransformExpression);
+      std::string::size_type i;  
+      while ((i = result.find(LHSOperand)) != std::string::npos) {
+	result.replace(i, i+LHSOperand.size(), target);  
+      }
+      return result;
+    }
   };
   
   typedef std::list<OperandTransformation> OperandTransformationList;
@@ -57,6 +66,15 @@ namespace backendgen {
     bool BackwardMatch(const expression::Tree* Expression) const;
     expression::Tree* ForwardApply(const expression::Tree* Expression) const;
     expression::Tree* BackwardApply(const expression::Tree* Expression) const;
+    OperandTransformationList ApplyGetOpTrans(const expression::Tree* Patt1, 
+				              const expression::Tree* Exp)
+				              const;
+    OperandTransformationList ForwardApplyGetOpTrans(const 
+					      expression::Tree* Exp)
+				              const;
+    OperandTransformationList BackwardApplyGetOpTrans(const 
+					      expression::Tree* Exp)
+				              const;
     void Print(std::ostream &S) const;
   };
 

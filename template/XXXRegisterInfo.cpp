@@ -24,6 +24,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineLocation.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetFrameInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -44,6 +45,22 @@ using namespace __arch__`';
 //===----------------------------------------------------------------------===//
 // Callee Saved Registers methods 
 //===----------------------------------------------------------------------===//
+namespace {
+const TargetRegisterClass* findSuitableRegClass(MVT vt, const MachineBasicBlock &MBB) {
+  const TargetRegisterClass* BestFit = 0;
+  unsigned NumRegs = 0;
+  const TargetRegisterInfo *RI = MBB.getParent()->getTarget().getRegisterInfo();
+  for (TargetRegisterInfo::regclass_iterator I = RI->regclass_begin(),
+    E = RI->regclass_end(); I != E; ++I) {
+    if ((*I)->hasType(vt) &&
+        (!BestFit || (*I)->getNumRegs() > NumRegs)) {      
+      BestFit = *I;
+      NumRegs = (*I)->getNumRegs();
+    }
+  }
+  return BestFit;
+}
+}
 
 /// `'__arch__`' Callee Saved Registers
 const unsigned* `'__arch__`'RegisterInfo::

@@ -755,8 +755,8 @@ string TemplateManager::generateEliminateCallFramePseudo(std::ostream &Log,
   StringMap Defs;
   Defs[SP->getName()] = "Reg";
   Defs["Size"] = "Imm";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4, NULL, "MBB",
-			   "I", "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs, 4, 
+			   NULL, "MBB", "I", "TII.get");
   delete SR;
   delete Exp;
   return SS.str();
@@ -789,8 +789,8 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
   Defs[SP->getName()] = "Reg";
   Defs[FP->getName()] = "Reg";
   Defs["NumBytes"] = "Imm";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB", "I",
-			   "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs,
+			   2, NULL, "MBB", "I", "TII.get");
   delete SR;  
   delete Exp;
   Exp = NULL;
@@ -811,8 +811,8 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
     Log << "sequence to do this in target architecture.\n";
     abort();
   }  
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB", "I",
-			   "TII.get");  
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs,
+			   2, NULL, "MBB", "I", "TII.get");  
   delete SR;
   delete Exp;
   return SS.str();
@@ -843,8 +843,8 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   StringMap Defs;
   Defs[SP->getName()] = "Reg";
   Defs[FP->getName()] = "Reg";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 2, NULL, "MBB",
-			   "I", "TII.get");
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs, 2,
+			   NULL, "MBB", "I", "TII.get");
   delete SR;
   delete Exp;
   return SS.str();
@@ -886,7 +886,8 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
       } else {
 	InferenceResults.MoveRegToRegList.push_back(make_pair(make_pair(*I,
 						      *I2), SR));
-	SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, true, NULL, 4);	
+	SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs,
+				 4);	
       }
       delete Exp;
       SS << "  } ";

@@ -368,6 +368,7 @@ namespace backendgen {
     return;
   }
 
+  //BUG: Lookup gives FALSE POSITIVES when two operands have different sizes!
   inline TransformationCache::CacheEntry* TransformationCache::LookUp
   (const Tree* Exp, const Tree* Target, unsigned Depth) const {
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
@@ -379,7 +380,9 @@ namespace backendgen {
     for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
 	 I != E; ++I) {
       CacheEntry &Entry = *I;
-      if (Compare<false>(Exp, Entry.LHS, NULL) && 
+      //BUG: Do not use COMPARE because compare is not a perfect match,
+      //it may have size mismatches
+      if (Compare<false>(Entry.LHS, Exp, NULL) && 
 	  Compare<false>(Target, Entry.RHS, NULL) &&
 	  Depth <= Entry.Depth)
 	return &Entry;
@@ -886,7 +889,12 @@ namespace backendgen {
 				     CurDepth, VR) == true)
 	    {	      
 	      Result->RulesApplied->push_back(I->RuleID);
-	      Result->OpTrans->push_back(I->OpTransList);
+	      if (Forward)
+		Result->OpTrans
+		  ->push_back(I->ForwardApplyGetOpTrans(Expression));
+	      else
+		Result->OpTrans
+		  ->push_back(I->BackwardApplyGetOpTrans(Expression));
 	      delete Transformed;
 	      return Result;
 	    }
@@ -929,6 +937,12 @@ namespace backendgen {
 	    delete ChildResult;
 	    delete Transformed;
 	    Result->RulesApplied->push_back(I->RuleID);
+	    if (Forward)
+		Result->OpTrans
+		  ->push_back(I->ForwardApplyGetOpTrans(Expression));
+	    else
+		Result->OpTrans
+		  ->push_back(I->BackwardApplyGetOpTrans(Expression));
 	    return Result;
 	  }
 	DbgIndent(CurDepth);

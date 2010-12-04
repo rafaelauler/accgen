@@ -15,6 +15,7 @@
 #ifndef LLVMDAGINFO_H
 #define LLVMDAGINFO_H
 
+#include "InsnSelector/TransformationRules.h"
 #include <string>
 #include <map>
 #include <vector>
@@ -24,8 +25,9 @@ namespace LLVMDAGInfo {
   using std::string;
   using std::map;    
   using std::vector;
+  using backendgen::OperandTransformation;
   
-  typedef string (*GetNodeFunc)(const string&);
+  typedef string (*GetNodeFunc)(const string&, const OperandTransformation*);
   typedef string (*MatchNodeFunc)(const string&, const string&);
   
   struct LLVMNodeInfo {

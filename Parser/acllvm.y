@@ -543,10 +543,15 @@ optranslist: /* empty */
 
 optranselement: ID BINDS TO ID USING QUOTEDSTR SEMICOLON 
                 {	
-		  OpTransStack.push_front(OperandTransformation($1, $4, $6));
+		  std::string TE($6);
+		  free($6);
+		  if (TE.size() > 3)
+		    TE = TE.substr(1, TE.size()-2);
+                  else
+                    TE.clear();
+		  OpTransStack.push_front(OperandTransformation($1, $4, TE));
 		  free($1);
 		  free($4);
-		  free($6);
                 }
                 ;
 

@@ -255,17 +255,18 @@ namespace backendgen {
   // using generic names defined in rules. When generating a name,
   // stores it in the anotated tree, so as to properly substitute
   // similar names with the same generated names.
-  void SubstituteLeafs(Tree** T, AnnotatedTreeList* List) {
+  void SubstituteLeafs(Tree** T, AnnotatedTreeList* List,
+		       const OperandTransformationList& OpTransList) {
     if ((*T)->isOperator()) {
       AssignOperator *AO = dynamic_cast<AssignOperator*>(*T);
       if (AO != NULL && AO->getPredicate() != NULL) {
-	  SubstituteLeafs(AO->getPredicate()->getLHSAddr(), List);
-	  SubstituteLeafs(AO->getPredicate()->getRHSAddr(), List);
+	  SubstituteLeafs(AO->getPredicate()->getLHSAddr(), List, OpTransList);
+	  SubstituteLeafs(AO->getPredicate()->getRHSAddr(), List, OpTransList);
       }
       Operator *O = dynamic_cast<Operator*>(*T);
       for (int I = 0, E = O->getArity(); I != E; ++I)
 	{
-	  SubstituteLeafs(&(*O)[I], List);	   
+	  SubstituteLeafs(&(*O)[I], List, OpTransList);	   
 	}
       return;
     }
@@ -283,20 +284,51 @@ namespace backendgen {
 	    break;
 	  }
 	}
-      if (!Matched) {
-	std::string Name = O->getOperandName();
-	std::stringstream SS;
-	SS << Name << Rule::OpNum++;
-	O->changeOperandName(SS.str());
-	AnnotatedTree AT(Name, O);
-	List->push_back(AT);
-      }      
+      if (Matched)
+	return;
+      // Trying operand transformation bindings      
+      std::string Name;
+      bool Found = false;
+      for (OperandTransformationList::const_iterator I = OpTransList.begin(),
+	    E = OpTransList.end(); I != E; ++I) {
+	if (I->RHSOperand == O->getOperandName()) {
+	  Name = I->LHSOperand;
+	  Found = true;
+	  break;
+	}
+      }
+      if (Found) {
+	for (AnnotatedTreeList::const_iterator I = List->begin(),
+	    E = List->end(); I != E; ++I)
+	{
+	  if (I->first == Name) {
+	    std::stringstream SS;
+	    const Operand* Opand = dynamic_cast<const Operand*>(I->second);
+	    assert(Opand != NULL && "OpTrans. must refer to operand");
+	    Matched = true;
+	    SS << Opand->getOperandName() << "_" << O->getOperandName();
+	    O->changeOperandName(SS.str());
+	    break;
+	  }
+	}
+	assert(Matched && "Invalid OpTrans. binding");        
+      }
+      if (Matched)
+	return;
+      // Otherwise...     
+      std::string OldName = O->getOperandName();
+      std::stringstream SS;
+      SS << OldName << Rule::OpNum++;
+      O->changeOperandName(SS.str());
+      AnnotatedTree AT(OldName, O);
+      List->push_back(AT);            
     }
   }
 
   // Match the Expression with pattern Patt1 and, if successfull,
   // transform it in Patt2. Otherwise, return NULL;
-  Tree* Apply(const Tree *Patt1, const Tree* Patt2, const Tree* Expression)
+  Tree* Apply(const Tree *Patt1, const Tree* Patt2, const Tree* Expression,
+	      const OperandTransformationList& OpTransList)
   {
     AnnotatedTreeList *List = MatchExpByRule<false>(Patt1, Expression);
 
@@ -305,7 +337,7 @@ namespace backendgen {
       return NULL;
 
     Tree *Result = Patt2->clone();
-    SubstituteLeafs(&Result, List);
+    SubstituteLeafs(&Result, List, OpTransList);
     delete List;
 
     return Result;
@@ -325,12 +357,48 @@ namespace backendgen {
 
   Tree* Rule::ForwardApply(const Tree* Expression) const
   {
-    return Apply(LHS, RHS, Expression);
+    return Apply(LHS, RHS, Expression, OpTransList);
   }
 
   Tree* Rule::BackwardApply(const Tree* Expression) const
   {
-    return Apply(RHS, LHS, Expression);
+    return Apply(RHS, LHS, Expression, OpTransList);
+  }
+  
+  OperandTransformationList Rule::ApplyGetOpTrans(const Tree* Patt1, 
+						  const Tree* Exp) const
+  {
+    OperandTransformationList Result(OpTransList);
+    AnnotatedTreeList *List = MatchExpByRule<false>(Patt1, Exp);
+    for (OperandTransformationList::iterator I = Result.begin(), 
+           E = Result.end(); I != E; ++I) {
+      bool Found = false;
+      for (AnnotatedTreeList::iterator I2 = List->begin(), E2 = List->end();
+           I2 != E2; ++I2) {
+	if (I->LHSOperand == I2->first) {
+	  const Operand* Node = dynamic_cast<const Operand*>(I2->second);
+	  assert (Node != NULL && "OpTransform. rule must refer to operand");	  
+	  I->TransformExpression = 
+	    I->PatchTransformExpression(Node->getOperandName());	    
+	  I->LHSOperand = Node->getOperandName();
+	  Found = true;
+	  break;
+	}
+      }
+      assert (Found && "OpTransform. referring to inexistent operand?");
+    }
+    return Result;
+  }
+  
+  OperandTransformationList Rule::ForwardApplyGetOpTrans(const Tree* Exp) const
+  {
+    return ApplyGetOpTrans(LHS, Exp);
+  }
+  
+  OperandTransformationList Rule::BackwardApplyGetOpTrans(const Tree* Exp) 
+  const
+  {
+    return ApplyGetOpTrans(RHS, Exp);
   }
 
   // Traverse tree looking for a decomposition operator type

@@ -39,7 +39,7 @@ define operator alias    as sub => -;
 
 //===========================-- Operands --===================================//
 
-// Built-in operands: int
+// Built-in operands: int, tgtimm
 // These operands must exist
 define operand int    as size 32;
 define operand mem    as size 32;
@@ -64,7 +64,9 @@ const:int:0 => (xor Reg:regs Reg:regs);
 
 // split large immediate rule
 imm:op:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
-( op1 binds to op using "op1 = op >> 16"; );
+( op binds to op1 using "op >> 16";
+  op binds to op2 using "op & 0xFFFF";
+);
 imm:op:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) imm:op2:byte)) AReg:regs);
 
 //{LHS:regs < RHS:regs} -> AnyOperator:any => 
@@ -127,7 +129,7 @@ define pattern LOAD as (
 
 define pattern GLOBALADDRESS as (
   "(globaladdr i32:$addr)";
-  (transfer a3:regs (memref (+ addr:regs imm:addr:int)));
+  (transfer a3:regs (memref (+ addr:regs imm:addr:tgtimm)));
 );
 
 define pattern FRAMEINDEX as (
@@ -151,17 +153,17 @@ define pattern ADD as (
 );
 
 define pattern SUBCONST as (
-  "(sub i32:$a1, (imm i32:$a2))";
+  "(sub i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (- a1:regs imm:a2:tgtimm));
 );
 
 define pattern SHLCONST as (
-  "(shl i32:$a1, (imm i32:$a2))";
+  "(shl i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (shl a1:regs imm:a2:tgtimm));
 );
 
 define pattern SHRCONST as (
-  "(srl i32:$a1, (imm i32:$a2))";
+  "(srl i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (shr a1:regs imm:a2:tgtimm));
 );
 
