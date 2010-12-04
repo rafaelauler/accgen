@@ -163,7 +163,11 @@ handleLargeOffset(MachineInstr* MI, int spOffset, unsigned AuxReg,
 {
   MachineBasicBlock &MBB = *MI->getParent();
   bool Patched = false;  
-  I = prior(I);
+  bool AtBegin = false;
+  if (I != MBB.begin())
+    I = prior(I);
+  else
+    AtBegin = true;
   #define getFrameIndex getIndex
   #define isFrameIndex isFI
   // Check if the immediate will fit into the target field
