@@ -775,6 +775,8 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs.clear();
   Defs["a1"] = "Imm";   
   SS << generateIdent(8) << "I = next(I);" << endl;
+  SS << generateIdent(8) << "a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 8, NULL, "MBB", "I",
 			   "TII.get");
@@ -809,6 +811,8 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs.clear();
   Defs["a1"] = "Imm";
   SS << generateIdent(10) << "I = next(I);" << endl;
+  SS << generateIdent(10) << "a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 10, NULL, "MBB", "I",
 			   "TII.get");
