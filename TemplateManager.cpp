@@ -774,7 +774,7 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   // Emit 16bit const load
   Defs.clear();
   Defs["a1"] = "Imm";   
-  SS << generateIdent(8) << "if (AtBegin) I = MBB.begin() else I = next(I);"
+  SS << generateIdent(8) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
      << endl;
   SS << generateIdent(8) << "a2 = " << ArchName << "::" 
      << (*AuxiliarRegs.begin())->getName() << ";" << endl;
@@ -811,7 +811,7 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   // Emit 16bit const load
   Defs.clear();
   Defs["a1"] = "Imm";
-  SS << generateIdent(10) << "if (AtBegin) I = MBB.begin() else I = next(I);"
+  SS << generateIdent(10) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
      << endl;
   SS << generateIdent(10) << "a2 = " << ArchName << "::" 
      << (*AuxiliarRegs.begin())->getName() << ";" << endl;
