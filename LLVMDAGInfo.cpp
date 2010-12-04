@@ -111,7 +111,7 @@ namespace {
     mask = ~mask;
     SS << "(((unsigned) cast<ConstantSDNode>(" 
 	      << N
-	      << ")->getZExtValue()) & " << mask << ") == 0";
+	      << ")->getZExtValue()) & " << mask << "U) == 0";
     return SS.str();
   }
   
