@@ -205,11 +205,10 @@ operand or memory reference.");
 	continue;
       }
       // Exceptionally, we have a memory reference and thus it is not an operand
-      const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
-      assert (O != NULL && "Must be either operand or operator");
-      assert (O->getType() == MemRefOp && "Transfer first child must be \
-operand or memory reference.");     
-      Result->push_back(&MemRefOperand);
+      //const Operator* O = dynamic_cast<const Operator*>((*OP)[0]);
+      //assert (O != NULL && "Must be either operand or operator");
+      //assert (O->getType() == MemRefOp && "Transfer first child must be operand or memory reference.");     
+      //Result->push_back(&MemRefOperand);
     }
     SortOperandsList(Result);
     return Result;

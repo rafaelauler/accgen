@@ -795,8 +795,8 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   SS << generateIdent(6) << "else {" << endl;  
   
   // Guess a store
-  SS << generateIdent(8) << "bool idStore = false;";
-  SS << generateIdent(8) << "unsigned src;";
+  SS << generateIdent(8) << "bool idStore = false;" << endl;
+  SS << generateIdent(8) << "unsigned src;" << endl;
   SS << PatTrans.genFindMIPatRoot(InferenceResults.StoreToStackSlotSR, "MI",
 				  "val", 8);
   SS << generateIdent(8) << "if (MIRoot != NULL) {" << endl;
@@ -829,6 +829,35 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
 			   "TII.get");
   SS << generateIdent(10) << "Patched = true;" << endl;
   SS << generateIdent(8) << "} // end if (idStore)" << endl;
+  // If it is not load or store, then it is a direct frameindex access
+  // This is implemented as a single add operation.
+  SS << generateIdent(8) << "else {" << endl;
+  SS << generateIdent(10) << "bool isRawFI = false;" << endl;
+  SS << generateIdent(10) << "unsigned a3;" << endl;
+  SS << generateIdent(10) << "int addr;" << endl;
+  SS << PatTrans.genFindMIPatRoot(InferenceResults.FrameIndexSR, "MI",
+				  "addr", 10);
+  SS << generateIdent(10) << "if (MIRoot != NULL) {" << endl;
+  Defs.clear();
+  Defs["addr"] = "FrameIndex";  
+  Defs["a3"] = "Reg";
+  //SS << generateIdent(12) << "int a3;" << endl;
+  SS << PatTrans.genIdentifyMI(InferenceResults.FrameIndexSR, Defs,
+			       &LMap, "isRawFI = true;", "MIRoot", 12, true);
+  SS << generateIdent(10) << "} // end if (MIRoot != NULL)" << endl;
+  SS << generateIdent(10) << "if (isRawFI) {" << endl;
+  // Emit n-bit const load
+  Defs.clear();
+  Defs["a1"] = "Imm";
+  SS << generateIdent(12) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
+     << endl;
+  SS << generateIdent(12) << "a2 = a3;" << endl;
+  SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 12, NULL, "MBB", "I",
+			   "TII.get");  
+  SS << generateIdent(12) << "Patched = true;" << endl;
+  SS << generateIdent(10) << "} // end if (isRawFI)" << endl;
+  SS << generateIdent(8) << "} // end else (idStore)" << endl;
   SS << generateIdent(6) << "} // end else (isLoad)" << endl;  
   return SS.str();
 }
@@ -916,25 +945,55 @@ string TemplateManager::generateEmitPrologue(std::ostream &Log) {
   Exp = NULL;
   SR = NULL;
   // Generate instruction to add or subtract stack pointer
-  Exp = PatternManager::genCopyAddSubImmPat(OperatorTable,
-			  OperandTable, RegisterClassManager,
-			  RegisterClassManager.getGrowsUp(),
-			  RCSP->getName(),
-			  SP->getName(),
-			  RCSP->getName(),
-			  SP->getName(),
-			  "NumBytes");
   
-  SR = FindImplementation(Exp, Log);
-  if (SR == NULL) {
-    Log << "Stack adjustment inference failed. Could not find a instruction\n";
-    Log << "sequence to do this in target architecture.\n";
-    abort();
-  }  
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs,
-			   2, NULL, "MBB", "I", "TII.get");  
-  delete SR;
-  delete Exp;
+  Defs.clear();
+  SS << generateIdent(2) << "if ((NumBytes & " << this->generateTgtImmMask()
+     << ") == 0) {" << endl;
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Imm";
+  SS << generateIdent(4) << "unsigned a1 = `'__stackpointer_register__`';"
+     << endl;
+  SS << generateIdent(4) << "unsigned a2 = NumBytes;" << endl;
+  SS << generateIdent(4) << "unsigned a3 = a1;" << endl;
+  if (RegisterClassManager.getGrowsUp()) {
+    SS << PatTrans.genEmitMI(InferenceResults.AddConstSR, Defs, &LMap, true, false, &AuxiliarRegs, 4,
+			    NULL, "MBB", "I", "TII.get");
+  } else {
+    SS << PatTrans.genEmitMI(InferenceResults.SubConstSR, Defs, &LMap, true, false, &AuxiliarRegs, 4,
+			    NULL, "MBB", "I", "TII.get");
+  }
+  SS << generateIdent(2) << "} else {" << endl;
+  SS << generateIdent(4) << "unsigned a1 = NumBytes;" << endl;
+  SS << generateIdent(4) << "unsigned a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
+  SS << generateIdent(4) << "if ((NumBytes & ~0xFFFF) == 0) { //fit"
+     " into 16bit imm" << endl;
+  Defs.clear();
+  Defs["a1"] = "Imm";  
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst16SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(4) << "} else { // use 32bit imm" << endl;
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst32SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(4) << "}" << endl;
+  Defs.clear();  
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Reg";
+  SS << generateIdent(4) << "a1 = `'__stackpointer_register__`';"
+       << endl;
+  SS << generateIdent(4) << "unsigned a3 = a1;" << endl;
+  if (RegisterClassManager.getGrowsUp()) {    
+    SS << PatTrans.genEmitMI(InferenceResults.AddSR, Defs, &LMap,
+			     true, false, &AuxiliarRegs, 4, NULL, "MBB", "I",
+			     "TII.get");
+  } else {
+    SS << PatTrans.genEmitMI(InferenceResults.SubSR, Defs, &LMap,
+			     true, false, &AuxiliarRegs, 4, NULL, "MBB", "I",
+			     "TII.get");
+  }
+  SS << generateIdent(2) << "} // end if (NumBytes & ...)" << endl;  
   return SS.str();
 }
 
@@ -1157,6 +1216,16 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.StoreAddSR = SR;
     else if (I->Name == "LOADADD")
       InferenceResults.LoadAddSR = SR;
+    else if (I->Name == "ADDCONST")
+      InferenceResults.AddConstSR = SR;
+    else if (I->Name == "ADD")
+      InferenceResults.AddSR = SR;
+    else if (I->Name == "SUBCONST")
+      InferenceResults.SubConstSR = SR;
+    else if (I->Name == "SUB")
+      InferenceResults.SubSR = SR;
+    else if (I->Name == "FRAMEINDEX")
+      InferenceResults.FrameIndexSR = SR;
     else
       delete SR;
   }    
@@ -1181,6 +1250,16 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	 "Missing built-in pattern STOREADD");    
   assert(InferenceResults.LoadAddSR != NULL && 
 	 "Missing built-in pattern LOADADD");  
+  assert(InferenceResults.AddConstSR != NULL && 
+	 "Missing built-in pattern ADDCONST");
+  assert(InferenceResults.AddSR != NULL && 
+	 "Missing built-in pattern ADD");  
+  assert(InferenceResults.SubConstSR != NULL && 
+	 "Missing built-in pattern SUBCONST");  
+  assert(InferenceResults.SubSR != NULL && 
+	 "Missing built-in pattern SUB");  
+  assert(InferenceResults.FrameIndexSR != NULL && 
+	 "Missing built-in pattern FRAMEINDEX");  
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  

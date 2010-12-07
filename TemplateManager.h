@@ -57,6 +57,11 @@ class TemplateManager {
     SearchResult * LoadConst32SR;
     SearchResult * StoreAddSR;
     SearchResult * LoadAddSR;
+    SearchResult * AddSR;
+    SearchResult * AddConstSR;
+    SearchResult * SubSR;
+    SearchResult * SubConstSR;
+    SearchResult * FrameIndexSR;
     // A list of patterns of move instructions, between each pair of possible
     // register class
     MoveListTy MoveRegToRegList;

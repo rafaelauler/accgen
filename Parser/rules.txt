@@ -81,11 +81,6 @@ imm:oper:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) im
 //  (transfer (memref (+ a1:regs (+ val:regs imm:val:immed))) imm:src:immed);
 //);
 
-define pattern ADDCONST as (
-  "(add i32:$a1, (imm i32:$a2))";
-  (transfer a3:regs (+ a1:regs imm:a2:tgtimm));
-);
-
 define pattern STOREFICONST as (
   "(store (imm i32:$src), (frameindex i32:$val))";
   (transfer (memref (+ val:regs imm:val:tgtimm)) imm:src:tgtimm);
@@ -140,6 +135,8 @@ define pattern GLOBALADDRESS as (
   (transfer a3:regs (memref (+ addr:regs imm:addr:tgtimm)));
 );
 
+// Built-int pattern: FRAMEINDEX is used to identify frameindexes
+// accesses and adjust the immediates
 define pattern FRAMEINDEX as (
   "(frameindex i32:$addr)";
   (transfer a3:regs (+ addr:regs imm:addr:tgtimm));
@@ -155,14 +152,32 @@ define pattern CALL2 as (
   (call imm:tgt:int);
 );
 
+// Built-in pattern: ADDCONST is used to adjust stack when target-immediate
+// size values are used.
+define pattern ADDCONST as (
+  "(add i32:$a1, (imm i32:$a2))";
+  (transfer a3:regs (+ a1:regs imm:a2:tgtimm));
+);
+
+// Built-in pattern: ADD is used to adjust stack when large immediates
+// are loaded into one register
 define pattern ADD as (
   "(add i32:$a1, i32:$a2)";
   (transfer a3:regs (+ a1:regs a2:regs));
 );
 
+// Built-in pattern: SUBCONST is used to adjust stack when target-immediate
+// size values are used.
 define pattern SUBCONST as (
   "(sub i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (- a1:regs imm:a2:tgtimm));
+);
+
+// Built-in pattern: SUB is used to adjust stack when large immediates
+// are loaded into one register
+define pattern SUB as (
+  "(sub i32:$a1, i32:$a2)";
+  (transfer a3:regs (- a1:regs a2:regs));
 );
 
 define pattern SHLCONST as (
@@ -173,11 +188,6 @@ define pattern SHLCONST as (
 define pattern SHRCONST as (
   "(srl i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (shr a1:regs imm:a2:tgtimm));
-);
-
-define pattern SUB as (
-  "(sub i32:$a1, i32:$a2)";
-  (transfer a3:regs (- a1:regs a2:regs));
 );
 
 define pattern OR as (
@@ -256,8 +266,8 @@ redefine operand tgtimm size to 8;
 
 define abi as (
   define callee save registers as (r4 r5 r6 r7);
-  define reserved registers as    (r9 r13 r14 r15);
-  define auxiliar registers as    (r9);
+  define reserved registers as    (r9 r10 r13 r14 r15);
+  define auxiliar registers as    (r9 r10);
   //define calling convention for int as stack size 4 alignment 4;
   define calling convention for int as (r0 r1 r2 r3);
   define calling convention for int as stack size 4 alignment 4;

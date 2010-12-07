@@ -1089,36 +1089,48 @@ inline bool MIHandleScratchReg(const Operand* Element, bool mayUseVirtualReg,
 			       set<string>& DeclaredVirtuals,
 			       stringstream& DeclarationsStream,
 			       stringstream& SSOperands,
+			       bool isDef,
 			       RegAlloc* RA) {
   const RegisterOperand* RO = dynamic_cast<const RegisterOperand*>(Element);
-  if (RO != NULL && mayUseVirtualReg) {
-    if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
-      DeclaredVirtuals.insert(OpName);
-      DeclarationsStream << "  const TargetRegisterClass* TRC" << OpName
-      //TODO: Find the correct type (not just i32)
-	<< " = findSuitableRegClass(MVT::i32, " << MBB << ");" << endl;
-      DeclarationsStream << "  assert (TRC" << OpName << " != 0 &&"
-	<< "\"Could not find a suitable regclass for virtual\");" << endl;
-      DeclarationsStream << "  unsigned " << OpName << " = ";
-      DeclarationsStream << MBB << ".getParent()->getRegInfo()"
-	<< ".createVirtualRegister(TRC" << OpName << "); " <<  endl;
+  if (!isDef || RA->IsLive(OpName)) {
+    if (RO != NULL && mayUseVirtualReg) {
+      if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
+	DeclaredVirtuals.insert(OpName);
+	DeclarationsStream << "  const TargetRegisterClass* TRC" << OpName
+	//TODO: Find the correct type (not just i32)
+	  << " = findSuitableRegClass(MVT::i32, " << MBB << ");" << endl;
+	DeclarationsStream << "  assert (TRC" << OpName << " != 0 &&"
+	  << "\"Could not find a suitable regclass for virtual\");" << endl;
+	DeclarationsStream << "  unsigned " << OpName << " = ";
+	DeclarationsStream << MBB << ".getParent()->getRegInfo()"
+	  << ".createVirtualRegister(TRC" << OpName << "); " <<  endl;
+      }
+      if (isDef)
+	SSOperands << ", " << OpName;
+      else
+	SSOperands << ".addReg(" << OpName << ")";	
+      return true;
+    } else if (RO != NULL) {
+      // We may not use virtual registers, so we need to use a scratch
+      // register.
+      if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
+	std::string PhysRegName = RA->getPhysRegister(OpName);
+	DeclaredVirtuals.insert(OpName);
+	DeclarationsStream << "  unsigned " << OpName << " = ";
+	DeclarationsStream << "__arch__`'::" 
+			  << PhysRegName << ";" << endl;
+      }
+      // The suffix false, false, true sets this to isKill = true, because
+      // we need to kill the aux reg since it is a physical reg and we
+      // will no longer need this definition.
+      if (isDef)
+	SSOperands << ", " << OpName;
+      else
+	SSOperands << ".addReg(" << OpName << ", false, false, true)";	
+      return true;
     }
-    SSOperands << ".addReg(" << OpName << ")";	
-    return true;
-  } else if (RO != NULL) {
-    // We may not use virtual registers, so we need to use a scratch
-    // register.
-    if (DeclaredVirtuals.find(OpName) == DeclaredVirtuals.end()) {      
-      std::string PhysRegName = RA->getPhysRegister(OpName);
-      DeclaredVirtuals.insert(OpName);
-      DeclarationsStream << "  unsigned " << OpName << " = ";
-      DeclarationsStream << "__arch__`'::" 
-			<< PhysRegName << ";" << endl;
-    }
-    // The suffix false, false, true sets this to isKill = true, because
-    // we need to kill the aux reg since it is a physical reg and we
-    // will no longer need this definition.
-    SSOperands << ".addReg(" << OpName << ", false, false, true)";	
+  } else if (isDef) {
+    SSOperands << ", " << OpName;
     return true;
   }
   return false;
@@ -1187,12 +1199,9 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
   std::stringstream SS, DeclarationsStream;
   set<string> DeclaredVirtuals;  
   RegAlloc *RA = NULL;
-  assert( (mayUseVirtualReg || auxiliarRegs != NULL) &&
-         "Must provide auxiliar regs list if not mayUseVirtualReg");  
-  if (auxiliarRegs != NULL) {
-    RA = RegAlloc::Build(auxiliarRegs, SR->OperandsDefs->begin(),
-			 SR->OperandsDefs->end());
-  }
+  assert(auxiliarRegs != NULL && "Must provide auxiliar regs list");  
+  RA = RegAlloc::Build(auxiliarRegs, SR->OperandsDefs->begin(),
+			 SR->OperandsDefs->end());  
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
   for (InstrList::const_iterator I = SR->Instructions->begin(),
 	 E = SR->Instructions->end(); I != E; ++I) {
@@ -1229,11 +1238,10 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       // Do not include outs operands in input list
       if (reinterpret_cast<const void*>(Element) == 
 	  reinterpret_cast<const void*>(DefOperand) &&
-	  !hasDef) {
-	// This is the defined operand
-	assert (dynamic_cast<const RegisterOperand*>(Element) &&
-	  "Currently only support register operand definition");
-	SS << ", " << *NI;
+	  !hasDef) {	
+	bool emit = MIHandleScratchReg(Element,  mayUseVirtualReg, *NI, MBB,
+		DeclaredVirtuals, DeclarationsStream, SS, true, RA);
+	assert (emit && "Currently only support register operand definition");
 	++NI;        
 	++i;
 	hasDef = true;
@@ -1287,7 +1295,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
       // register            
       // Test to see if this is a RegisterOperand
       if (MIHandleScratchReg(Element,  mayUseVirtualReg, *NI, MBB,
-	DeclaredVirtuals, DeclarationsStream, SSOperands, RA)) {
+	DeclaredVirtuals, DeclarationsStream, SSOperands, false, RA)) {
 	++NI;
 	++i;
 	continue;
@@ -1307,8 +1315,7 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     }    
     SS << ")" << SSOperands.str();
     SS << ";" << endl;
-    if (RA != NULL)
-      RA->NextInstruction();
+    RA->NextInstruction();
     // Housekeeping
     delete AllOps;
     delete Outs;
@@ -1369,7 +1376,7 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
   // If we should delete the pattern once identified, schedule erase code to
   // run for the root as a final action;
   if (ErasePatt) {
-    generateIdent(FinalAction, curIdent);
+    generateIdent(RemoveAction, curIdent);
     RemoveAction << CurLevel->instr << "->eraseFromParent();" << endl;
   }
     
@@ -1415,7 +1422,7 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
       NameListType::const_iterator NI = OpNames->begin();
       for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
 	   E2 = AllOps->end(); I2 != E2; ++I2) {
-	const Operand *Element = *I2;     
+	const Operand *Element = *I2;             
 	if (reinterpret_cast<const void*>(Element) == 
 	    reinterpret_cast<const void*>(DefOperand)) {
 	  // This is the defined operand
@@ -1442,7 +1449,7 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 	    // If this pattern should be erased once found, emit erase calls
 	    // as final action
 	    if (ErasePatt) {
-	      generateIdent(FinalAction, curIdent);
+	      generateIdent(RemoveAction, curIdent);
 	      RemoveAction << CurLevel->instr << "->eraseFromParent();" << endl;
 	    }
 	  }	  
@@ -1630,7 +1637,7 @@ inline const std::string& ExtractDefOperandName(NameListType* OpNames,
 /// pattern operand (MI that has this operand) and ends with the root MI, if
 /// possible.
 
-// Expects the function "findNearestDefAfter" to be in scope, returning a
+// Expects the function "findNearestUseAfter" to be in scope, returning a
 // MachineInstr that defines a requested virtual register.
 // TODO: handle chain
 string PatternTranslator::genFindMIPatRoot(SearchResult *SR, 
@@ -1698,7 +1705,7 @@ string PatternTranslator::genFindMIPatRoot(SearchResult *SR,
     ident += 2;
     generateIdent(Code, ident);
     Code << "MachineInstr* MI" << count << " = ";
-    Code << "findNearestDefAfter(MI" << count-1 << ", MI" << count-1
+    Code << "findNearestUseAfter(MI" << count-1 << ", MI" << count-1
          << "->getOperand(0).getReg());" << endl;    
     if (ReachedRoot(SR->Instructions, I)) {
       generateIdent(Code, ident);

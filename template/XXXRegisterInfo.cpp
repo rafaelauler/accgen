@@ -79,7 +79,7 @@ MachineInstr* findNearestDefBefore(MachineInstr* MI, unsigned Reg) {
   //}
   return NearestDef;
 }
-MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
+MachineInstr* findNearestUseAfter(MachineInstr* MI, unsigned Reg) {
   //const MachineFunction* MF = MI->getParent()->getParent();  
   MachineBasicBlock *I = MI->getParent();
   MachineInstr* NearestDef = NULL;  
@@ -92,7 +92,7 @@ MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
 	found = true;
 	continue;
       }
-      if (I2->findRegisterDefOperandIdx(Reg) != -1 && found) {
+      if (I2->findRegisterUseOperandIdx(Reg) != -1 && found) {
 	NearestDef = &*I2;
 	break;
       }
