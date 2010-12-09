@@ -16,6 +16,10 @@
 #include "../Instruction.h"
 #include <list>
 
+// TransCache is static, so it gets used between different searches.
+// In order words, Search gets faster when it is used multiple times.
+#define STATIC_TRANSCACHE
+
 using namespace backendgen::expression;
 
 namespace backendgen {
@@ -103,8 +107,12 @@ namespace backendgen {
   // Main interface for search algorithms
   class Search {
     TransformationRules& RulesMgr;    
-    InstrManager& InstructionsMgr;
+    InstrManager& InstructionsMgr; 
+#ifdef STATIC_TRANSCACHE    
+    static TransformationCache TransCache;
+#else
     TransformationCache TransCache;
+#endif
 
     unsigned MaxDepth;
 

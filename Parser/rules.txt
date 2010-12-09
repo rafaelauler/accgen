@@ -132,7 +132,7 @@ define pattern LOAD as (
 
 define pattern GLOBALADDRESS as (
   "(globaladdr i32:$addr)";
-  (transfer a3:regs (memref (+ addr:regs imm:addr:tgtimm)));
+  (transfer a3:regs (memref (+ addr:regs imm:addr:int)));
 );
 
 // Built-int pattern: FRAMEINDEX is used to identify frameindexes

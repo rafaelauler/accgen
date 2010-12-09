@@ -80,11 +80,14 @@ namespace {
 	      << N
 	      << ")->getGlobal()";
     string Operand = SSOperand.str();
-    assert (OTL == NULL && "GlobalAddress should not be OperandTransform'ed");
-    //if (OT)
-      //Operand = OT->PatchTransformExpression(Operand);
-    SS << "CurDAG->getTargetGlobalAddress(" << Operand << ", MVT::i32);"
-       << endl;    
+    string Transformations("GVGOESHERE");
+    //assert (OTL == NULL && "GlobalAddress should not be OperandTransform'ed");
+    if (OTL)
+      HandleOTL(Transformations, OTL);
+    SS << "CurDAG->getTargetGlobalAddress(" << Operand << ", MVT::i32,"
+       << "(int64_t)  CurDAG->getMachineFunction().getInfo<`'__arch__`'Function"
+          "Info>()->insertNewOperandExpression(\"" 
+       << Transformations << "\"));" << endl;    
     SS << "  CurDAG->getMachineFunction().getInfo<`'__arch__`'Function"
           "Info>()->insertNewGlobalValue(cast<GlobalAddressSDNode>(" 
        << N

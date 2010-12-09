@@ -37,6 +37,10 @@ namespace backendgen {
 #define Dbg(x)
 #endif
 
+  //Static member definition
+#ifdef STATIC_TRANSCACHE      
+  TransformationCache Search::TransCache;
+#endif
 
   // Auxiliaries EqualTypes and EqualNodeTypes are used in the
   // prune heuristic to compare node types

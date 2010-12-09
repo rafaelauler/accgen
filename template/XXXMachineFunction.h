@@ -23,6 +23,8 @@
 namespace llvm {
 
 class GlobalValue;
+
+struct InvalidOEIndexException {};
   
 /// __arch__`'FunctionInfo - This class is derived from MachineFunction private
 /// __arch__ target-specific information for each MachineFunction.
@@ -45,10 +47,20 @@ private:
   };
   
   SmallVector<GlobalValueElement, 16> GlobalValues;
+  
+  struct GVOperandExpression {
+    int index;
+    std::string Expression;
+    GVOperandExpression(const std::string& N, int index):
+      index(index), Expression(N) {}
+  };
+  
+  SmallVector<GVOperandExpression, 16> OperandExpressions;
 
+  std::string DefaultExp;
 public:
   __arch__`'FunctionInfo(MachineFunction& MF) 
-  : FPStackOffset(0), RAStackOffset(0)
+  : FPStackOffset(0), RAStackOffset(0), DefaultExp("GVGOESHERE")
   {}
 
   int getFPStackOffset() const { return FPStackOffset; }
@@ -66,6 +78,22 @@ public:
     if (found == -1) {
       GlobalValues.push_back(GlobalValueElement(gv, index));
     }
+  }
+  
+  int insertNewOperandExpression(const std::string &N) {
+    int index = 1;
+    if (OperandExpressions.size() > 0)
+      index = OperandExpressions.back().index + 1;
+    OperandExpressions.push_back(GVOperandExpression(N, index));
+    return index;
+  }
+  
+  const std::string& getOperandExpression(int index) const {
+    for (unsigned i = 0, e = OperandExpressions.size(); i != e; ++i) {
+      if (OperandExpressions[i].index == index)
+	return OperandExpressions[i].Expression;
+    }
+    return DefaultExp;
   }
   
   int getIndex(const GlobalValue* gv) const {

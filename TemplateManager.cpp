@@ -16,6 +16,7 @@
 
 #define INITIAL_DEPTH 5
 #define SEARCH_DEPTH 25
+#define SEARCH_STEP 3
 
 using namespace backendgen;
 using namespace backendgen::expression;
@@ -625,7 +626,8 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
     if (SearchDepth == SEARCH_DEPTH)
       break;
     Log << "  Trying search with depth " << SearchDepth << "\n";
-    S.setMaxDepth(SearchDepth++);
+    S.setMaxDepth(SearchDepth);
+    SearchDepth = SearchDepth + SEARCH_STEP;
     if (R != NULL)
       delete R;
     R = S(Exp, 0, NULL);

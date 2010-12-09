@@ -51,7 +51,7 @@ MachineInstr* findNearestDefBefore(MachineInstr* MI, unsigned Reg) {
   //     I != E && !found; ++ I) {
     for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
 	 I2 != E2; ++I2) {
-      if (I2->isIdenticalTo(MI)) {
+      if (&(*I2) == MI) {
 	found = true;
 	break;
       }
@@ -71,7 +71,7 @@ MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
   //     I != E && !found; ++ I) {
     for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
 	 I2 != E2; ++I2) {
-      if (I2->isIdenticalTo(MI)) {
+      if (&(*I2) == MI) {
 	found = true;
 	continue;
       }

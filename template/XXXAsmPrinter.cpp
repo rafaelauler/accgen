@@ -39,6 +39,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cctype>
+#include <sstream>
 
 using namespace llvm;
 
@@ -220,25 +221,41 @@ __print_literal__
 
 __size_table__
 
+namespace {
+std::string
+PatchOperandExpression(const std::string& Expression, const std::string &tgt)
+{
+  std::string result(Expression);
+  std::string::size_type i;  
+  std::string marker("GVGOESHERE");
+  while ((i = result.find(marker)) != std::string::npos) {
+    result.replace(i, marker.size(), tgt);  
+  }
+  return result;
+}   
+}
+
 void __arch__`'AsmPrinter::
 printGlobalValue(const MachineInstr *MI, int opNum) 
 {
   const MachineOperand &MO = MI->getOperand (opNum);
   const GlobalValue *GV = MO.getGlobal();
   // Determine if we need special handling
-  unsigned num = 0;
-  for (unsigned i = 0, e= MI->getNumOperands();i != e; ++i) {
-    if (MI->getOperand(i).getType() == MachineOperand::MO_GlobalAddress)
-      num++;
-  }
-  // Normal handling
-  if (num == 1) {
+  // FIXME: This is kind of a guess
+  //unsigned num = 0;
+  //for (unsigned i = 0, e= MI->getNumOperands();i != e; ++i) {
+    //if (MI->getOperand(i).getType() == MachineOperand::MO_GlobalAddress ||
+      //  MI->getOperand(i).getType() == MachineOperand::MO_Register)
+      //num++;
+  //}
+  // Normal handling 
+  if ((TM.getInstrInfo()->get(MI->getOpcode()).isCall())) {
     O << Mang->getValueName(GV);
     return;
-  }
+  }  
   // Special handling
   if (TM.getInstrInfo()->get(MI->getOpcode()).OpInfo[opNum].RegClass != 0) {
-    O << "__pc_asm__";
+    O << "`'__pc_asm__`'";
     return;
   }
   // Calculate the PC offset
@@ -247,13 +264,62 @@ printGlobalValue(const MachineInstr *MI, int opNum)
   index *= (__wordsize__ /8);
   
   int offset = 0;
-  bool count = false;
+  // Stage1 is trying to find this instruction in the MBB.
+  // Stage2 is trying to traverse the pattern and find the use of PC register
+  // Count counts the distance of PC reg. usage to the target, in order to
+  // correctly build a pc-relative offset.
+  bool stage1 = true, stage2=false, count = false;
+  int curDefReg = -1;
   for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
        I != E; ++ I) {
     for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
 	 I2 != E2; ++I2) {
-      if (I2->isIdenticalTo(MI)) 
-	count = true;
+      if (stage1 && (&(*I2) == MI)) {
+	stage2 = true;
+	stage1 = false;
+	curDefReg = (I2->getOperand(0).isReg()) ? (int) I2->getOperand(0).getReg()
+	  : -1;	 
+	if (curDefReg == -1) {
+	  stage2= false;
+	  count = true;
+	} else {
+	  bool found = false;
+	  for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
+	    if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
+	      if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
+		found = true;
+		break;
+	      }
+	    }
+	  }
+	  if (found) {
+	    stage2= false;
+	    count = true;
+	  }
+	}
+      } // end stage 1
+      if (stage2 && (I2->findRegisterUseOperandIdx((unsigned)curDefReg) != -1)) {
+	bool found = false;
+	for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
+	  if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
+	    if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
+	      found = true;
+	      break;
+	    }
+	  }
+	}
+	if (found) {
+	  count = true;
+	  stage2 = false;
+	} else {
+	  curDefReg = (I2->getOperand(0).isReg()) ? (int) I2->getOperand(0).getReg()
+	    : -1;	 
+	  if (curDefReg == -1) {
+	    stage2= false;
+	    count = true;
+	  }
+	}
+      } // end stage2
       if (count) {
 	offset+= InsnSizeTable[I2->getDesc().Opcode];
       }
@@ -261,7 +327,10 @@ printGlobalValue(const MachineInstr *MI, int opNum)
   }
   offset = offset / 8;
   offset = offset + index + (__pc_offset__);
-  O << offset;
+  std::stringstream SS;
+  SS << offset;  
+  O << PatchOperandExpression(MF->getInfo<`'__arch__`'FunctionInfo>()
+    ->getOperandExpression((int)MO.getOffset()), SS.str());
 }
 
 void __arch__`'AsmPrinter::

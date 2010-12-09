@@ -29,7 +29,7 @@ namespace backendgen {
       std::string result(TransformExpression);
       std::string::size_type i;  
       while ((i = result.find(LHSOperand)) != std::string::npos) {
-	result.replace(i, i+LHSOperand.size(), target);  
+	result.replace(i, LHSOperand.size(), target);  
       }
       return result;
     }
