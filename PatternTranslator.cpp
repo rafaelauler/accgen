@@ -1448,9 +1448,12 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
 	           && "Multiple defs patterns not implemented!");
 	    // If this pattern should be erased once found, emit erase calls
 	    // as final action
+	    // NOTE: Do not erase intermediate instructions, as this may be
+	    // used by other instructions, at this stage
 	    if (ErasePatt) {
 	      generateIdent(RemoveAction, curIdent);
-	      RemoveAction << CurLevel->instr << "->eraseFromParent();" << endl;
+	      RemoveAction << "if (!isLive(" << CurLevel->instr << ")) " 
+	        << CurLevel->instr << "->eraseFromParent();" << endl;
 	    }
 	  }	  
 	  found = true;

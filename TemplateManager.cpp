@@ -824,6 +824,7 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs.clear();
   Defs["reg1"] = "Reg";
   Defs["reg2"] = "Reg";
+  Defs["src"] = "Reg";
   SS << generateIdent(10) << "unsigned reg1 = AuxReg;" << endl;
   SS << generateIdent(10) << "unsigned reg2 = a2;" << endl;
   SS << PatTrans.genEmitMI(InferenceResults.StoreAddSR, Defs, &LMap, true, 

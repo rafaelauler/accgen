@@ -84,6 +84,32 @@ MachineInstr* findNearestDefAfter(MachineInstr* MI, unsigned Reg) {
   return NearestDef;
 }
 
+bool isLive(MachineInstr* MI) {
+  //const MachineFunction* MF = MI->getParent()->getParent();  
+  MachineBasicBlock *I = MI->getParent();
+  unsigned RegDef = 0;
+  bool found = false;
+  //for (MachineFunction::iterator I = MF->begin(), E = MF->end();
+  //     I != E && !found; ++ I) {
+    for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {
+      if (&(*I2) == MI) {
+	found = true;
+	if (I2->getOperand(0).isReg())
+	  RegDef = I2->getOperand(0).getReg();
+	else 
+	  return false;
+	continue;
+      }
+      if (I2->findRegisterUseOperandIdx(RegDef) != -1 && found) 
+	return true;      
+      if (I2->findRegisterDefOperandIdx(RegDef) != -1 && found) 
+	return false;      
+    }
+  //}
+  return false;
+}
+
 }
 
 //static bool isZeroImm(const MachineOperand &op) {
