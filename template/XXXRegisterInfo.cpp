@@ -199,12 +199,22 @@ handleLargeOffset(MachineInstr* MI, int spOffset, unsigned AuxReg,
 {
   MachineBasicBlock &MBB = *MI->getParent();
   bool Patched = false;  
+  unsigned checkNum;
+  bool negative;
+  if (spOffset < 0) {
+    checkNum = (unsigned)(0 - spOffset);
+    negative = true;
+  } else {
+    checkNum = (unsigned) spOffset;
+    negative = false;
+  }
+  checkNum = checkNum * 2;
   #define getFrameIndex getIndex
   #define isFrameIndex isFI
   // Check if the immediate will fit into the target field
-  if ((spOffset & ~`'__masktgtimm__`') != 0) {
+  if ((checkNum & `'__masktgtimm__`') != 0) {
     // Won't fit. Check if this fit at least in a 16bit immediate
-    if ((spOffset & ~0xFFFF) != 0) {
+    if ((checkNum & ~0xFFFF) != 0 || negative) {
       // Generate code to fetch a 32-bit imm
 __change_fi_to_32_bit__
     } else {

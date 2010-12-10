@@ -132,7 +132,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 20;
+  const unsigned NodeNamesSz = 21;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -140,6 +140,7 @@ namespace {
 			       "sub",
 			       "shl",
 			       "srl",
+			       "sra",
 			       "or",
 			       "call",
 			       "ret",
@@ -162,6 +163,7 @@ namespace {
 			       "ISD::SUB",
 			       "ISD::SHL",
 			       "ISD::SRL",
+			       "ISD::SRA",
 			       "ISD::OR",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
@@ -184,6 +186,7 @@ namespace {
 			      NULL, // sub
 			      NULL, // shl
 			      NULL, // srl
+			      NULL, // sra
 			      NULL, // or
 			      NULL, // call
 			      NULL, // ret
@@ -206,6 +209,7 @@ namespace {
 				  NULL, // sub
 				  NULL, // shl
 				  NULL, // srl
+				  NULL, // sra
 				  NULL, // or
 				  NULL, // call
 				  NULL, // ret
@@ -228,6 +232,7 @@ namespace {
 			       true,  // sub
 			       true,  // shl
 			       true,  // srl
+			       true,  // sra
 			       true,  // or
 			       true,  // call
 			       true,  // ret
@@ -250,6 +255,7 @@ namespace {
 			  false, // sub
 			  false, // shl
 			  false, // srl
+			  false, // sra
 			  false, // or
 			  true,  // call
 			  true,  // ret
@@ -272,6 +278,7 @@ namespace {
 			    false, // sub
 			    false, // shl
 			    false, // srl
+			    false, // sra
 			    false, // or
 			    false, // call
 			    true,  // ret
@@ -294,6 +301,7 @@ namespace {
 			    false, // sub
 			    false, // shl
 			    false, // srl
+			    false, // sra
 			    false, // or
 			    true,  // call
 			    false, // ret
