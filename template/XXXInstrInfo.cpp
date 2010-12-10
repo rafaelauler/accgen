@@ -109,15 +109,16 @@ bool isLive(MachineInstr* MI) {
   //}
   return false;
 }
-MachineBasicBlock::iterator* MIGetIterator(MachineInstr* MI) {  
+MachineBasicBlock::iterator MIGetIterator(MachineInstr* MI) {  
   MachineBasicBlock *I = MI->getParent();  
   for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
       I2 != E2; ++I2) {
     if (&(*I2) == MI) {
-      return &I2;
+      return I2;
     }    
   }  
-  return NULL;
+  assert(0 && "MI not found");
+  return I->begin();
 }
 
 }
