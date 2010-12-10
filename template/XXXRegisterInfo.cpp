@@ -125,6 +125,17 @@ bool isLive(MachineInstr* MI) {
   //}
   return false;
 }
+MachineBasicBlock::iterator MIGetIterator(MachineInstr* MI) {  
+  MachineBasicBlock *I = MI->getParent();  
+  for (MachineBasicBlock::iterator I2 = I->begin(), E2 = I->end();
+      I2 != E2; ++I2) {
+    if (&(*I2) == MI) {
+      return I2;
+    }    
+  }  
+  assert(0 && "MI not found");
+  return I->begin();
+}
 }
 
 /// `'__arch__`' Callee Saved Registers
@@ -188,11 +199,6 @@ handleLargeOffset(MachineInstr* MI, int spOffset, unsigned AuxReg,
 {
   MachineBasicBlock &MBB = *MI->getParent();
   bool Patched = false;  
-  bool AtBegin = false;
-  if (I != MBB.begin())
-    I = prior(I);
-  else
-    AtBegin = true;
   #define getFrameIndex getIndex
   #define isFrameIndex isFI
   // Check if the immediate will fit into the target field

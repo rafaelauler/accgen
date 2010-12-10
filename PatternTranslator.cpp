@@ -1594,12 +1594,12 @@ string PatternTranslator::genIdentifyMI(SearchResult *SR,
     delete I->action;
     delete I->decl;
     delete I->cond;
-  }
-  SS << FinalAction.str();
-  if (ErasePatt)
-    SS << RemoveAction.str();
+  }  
+  SS << FinalAction.str();  
   generateIdent(SS, curIdent);
   SS << Action << endl;
+  if (ErasePatt)
+    SS << RemoveAction.str();
   
   for (unsigned I = 0; I < NumParen; ++I) {
     curIdent = curIdent - 2;

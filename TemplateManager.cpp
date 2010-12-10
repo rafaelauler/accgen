@@ -770,14 +770,16 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs["dest"] = "Reg";  
   SS << generateIdent(8) << "int addr;" << endl;  
   SS << PatTrans.genIdentifyMI(InferenceResults.LoadFromStackSlotSR, Defs,
-			       &LMap, "isLoad = true;", "MIRoot", 8, true); 
+			       &LMap, "isLoad = true; "
+			       "I = next(MIGetIterator(MIRoot));",
+			       "MIRoot", 8, true); 
   SS << generateIdent(6) << "} // end if (MIRoot != NULL)" << endl;
   SS << generateIdent(6) << "if (isLoad) {" << endl;
   // Emit 16bit const load
   Defs.clear();
   Defs["a1"] = "Imm";   
-  SS << generateIdent(8) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
-     << endl;
+  //SS << generateIdent(8) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
+    // << endl;
   SS << generateIdent(8) << "a2 = " << ArchName << "::" 
      << (*AuxiliarRegs.begin())->getName() << ";" << endl;
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
@@ -807,14 +809,16 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs["val"] = "FrameIndex";
   SS << generateIdent(8) << "int val;" << endl;
   SS << PatTrans.genIdentifyMI(InferenceResults.StoreToStackSlotSR, Defs,
-			       &LMap, "idStore = true;", "MIRoot", 10, true);
+			       &LMap, "idStore = true; "
+			       "I = next(MIGetIterator(MIRoot));"
+			       , "MIRoot", 10, true);
   SS << generateIdent(8) << "} // end if (MIRoot != NULL)" << endl;
   SS << generateIdent(8) << "if (idStore) {" << endl;
   // Emit 16bit const load
   Defs.clear();
   Defs["a1"] = "Imm";
-  SS << generateIdent(10) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
-     << endl;
+  //SS << generateIdent(10) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
+    // << endl;
   SS << generateIdent(10) << "a2 = " << ArchName << "::" 
      << (*AuxiliarRegs.begin())->getName() << ";" << endl;
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
@@ -846,14 +850,16 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs["a3"] = "Reg";
   //SS << generateIdent(12) << "int a3;" << endl;
   SS << PatTrans.genIdentifyMI(InferenceResults.FrameIndexSR, Defs,
-			       &LMap, "isRawFI = true;", "MIRoot", 12, true);
+			       &LMap, "isRawFI = true;"
+			       "I = next(MIGetIterator(MIRoot));",
+			       "MIRoot", 12, true);
   SS << generateIdent(10) << "} // end if (MIRoot != NULL)" << endl;
   SS << generateIdent(10) << "if (isRawFI) {" << endl;
   // Emit n-bit const load
   Defs.clear();
   Defs["a1"] = "Imm";
-  SS << generateIdent(12) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
-     << endl;
+  //SS << generateIdent(12) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
+    // << endl;
   SS << generateIdent(12) << "a2 = a3;" << endl;
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 12, NULL, "MBB", "I",
