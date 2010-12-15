@@ -374,7 +374,7 @@ namespace backendgen {
     const std::string AssignOpStr = "transfer";
     const std::string MemRefOpStr = "memref";
     const std::string CallOpStr = "call";
-    const std::string ReturnOpStr = "call";
+    const std::string ReturnOpStr = "ret";
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 

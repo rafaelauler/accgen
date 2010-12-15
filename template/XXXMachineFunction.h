@@ -139,4 +139,4 @@ public:
 
 } // end of namespace llvm
 
-#endif // MIPS_MACHINE_FUNCTION_INFO_H
+#endif

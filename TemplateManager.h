@@ -62,10 +62,22 @@ class TemplateManager {
     SearchResult * SubSR;
     SearchResult * SubConstSR;
     SearchResult * FrameIndexSR;
+    SearchResult * StoreAddConstSR;
+    SearchResult * LoadAddConstSR;
     // A list of patterns of move instructions, between each pair of possible
     // register class
     MoveListTy MoveRegToRegList;
   } InferenceResults;
+  
+  std::string generateAddImm(const std::string& DestName,
+			       const std::string& BaseName,
+			       const std::string& ImmName,
+			       bool Add,
+			       unsigned ident);
+  std::string generateStackAction(const std::string& RegName,
+				  const std::string& OffsetName,
+				  bool Store,
+				  unsigned ident);
   
   // Private members
   void CreateM4File();

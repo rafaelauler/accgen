@@ -920,89 +920,190 @@ string TemplateManager::generateEliminateCallFramePseudo(std::ostream &Log,
   return SS.str();
 }
 
+string TemplateManager::generateAddImm(const string& DestName,
+				       const string& BaseName,
+				       const string& ImmName,
+				       bool Add,
+				       unsigned ident) {
+  stringstream SS;
+  StringMap Defs;
+  const unsigned i = ident;
+  SS << generateIdent(i) << "if ((" << ImmName << " & " 
+     << this->generateTgtImmMask()
+     << ") == 0) {" << endl;
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Imm";
+  SS << generateIdent(i+2) << "unsigned a1 = " << BaseName << ";"
+     << endl;
+  SS << generateIdent(i+2) << "unsigned a2 = " << ImmName << ";" << endl;
+  SS << generateIdent(i+2) << "unsigned a3 = " << DestName << ";" << endl;
+  if (Add) {
+    SS << PatTrans.genEmitMI(InferenceResults.AddConstSR, Defs, &LMap, true,
+			     false, &AuxiliarRegs, i+2,
+			    NULL, "MBB", "I", "TII.get");
+  } else {
+    SS << PatTrans.genEmitMI(InferenceResults.SubConstSR, Defs, &LMap, true,
+			     false, &AuxiliarRegs, i+2,
+			    NULL, "MBB", "I", "TII.get");
+  }
+  SS << generateIdent(i) << "} else {" << endl;
+  SS << generateIdent(i+2) << "unsigned a1 = " << ImmName << ";" << endl;
+  SS << generateIdent(i+2) << "unsigned a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
+  SS << generateIdent(i+2) << "if ((" << ImmName << " & ~0xFFFF) == 0) { //fit"
+     " into 16bit imm" << endl;
+  Defs.clear();
+  Defs["a1"] = "Imm";  
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst16SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+4, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(i+2) << "} else { // use 32bit imm" << endl;
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst32SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+4, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(i+2) << "}" << endl;
+  Defs.clear();  
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Reg";
+  SS << generateIdent(i+2) << "a1 = " << BaseName << ";"
+       << endl;
+  SS << generateIdent(i+2) << "unsigned a3 = " << DestName << ";" << endl;
+  if (Add) {    
+    SS << PatTrans.genEmitMI(InferenceResults.AddSR, Defs, &LMap,
+			     true, false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			     "TII.get");
+  } else {
+    SS << PatTrans.genEmitMI(InferenceResults.SubSR, Defs, &LMap,
+			     true, false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			     "TII.get");
+  }
+  SS << generateIdent(i) << "} // end if (" << ImmName << " & ...)" << endl;  
+  return SS.str();
+}
+
+string TemplateManager::generateStackAction(const string& RegName,
+				       const string& OffsetName,
+				       bool Store,
+				       unsigned ident) {
+  stringstream SS;
+  StringMap Defs;
+  const unsigned i = ident;
+  
+  SS << generateIdent(i) << "{" << endl;
+  SS << generateIdent(i) << "unsigned checkNum;" << endl;
+  SS << generateIdent(i) << "bool negative;" << endl;
+  SS << generateIdent(i) << "if (" << OffsetName << " < 0) {" << endl;
+  SS << generateIdent(i+2) << "checkNum = (unsigned)(0-" << OffsetName 
+     << ");" << endl;
+  SS << generateIdent(i+2) << "negative =  true;" << endl;
+  SS << generateIdent(i) << "} else {" << endl;
+  SS << generateIdent(i+2) << "checkNum = (unsigned) " << OffsetName 
+     << ";" << endl;
+  SS << generateIdent(i+2) << "negative =  false;" << endl;
+  SS << generateIdent(i) << "}" << endl;
+  SS << generateIdent(i) << "checkNum = checkNum * 2;" << endl;    
+  SS << generateIdent(i) << "if ((checkNum & " 
+     << this->generateTgtImmMask()
+     << ") == 0) {" << endl;
+  SS << generateIdent(i+2) << "unsigned a1 = `'__stackpointer_register__`';" << endl;
+  SS << generateIdent(i+2) << "int a2 = " << OffsetName << ";" << endl;
+  Defs.clear();
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Imm";
+  if (Store) {
+    Defs["src"] = "Reg";
+    SS << generateIdent(i+2) << "unsigned src = " << RegName << ";" << endl;
+    SS << PatTrans.genEmitMI(InferenceResults.StoreAddConstSR, Defs, &LMap, true,
+			   false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			   "TII.get");
+  } else { 
+    SS << generateIdent(i+2) << "unsigned dest = " << RegName << ";" << endl;
+    SS << PatTrans.genEmitMI(InferenceResults.LoadAddConstSR, Defs, &LMap, true,
+			   false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			   "TII.get");
+  }
+  SS << generateIdent(i) << "} else {" << endl;
+  SS << generateIdent(i+2) << "unsigned a1 = " << OffsetName << ";" << endl;
+  SS << generateIdent(i+2) << "unsigned a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
+  SS << generateIdent(i+2) << "if ((" << OffsetName << " & ~0xFFFF) == 0 && !negative) { //fit"
+     " into 16bit imm" << endl;
+  Defs.clear();
+  Defs["a1"] = "Imm";  
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst16SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+4, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(i+2) << "} else { // use 32bit imm" << endl;
+  SS << PatTrans.genEmitMI(InferenceResults.LoadConst32SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+4, NULL, "MBB", "I",
+			   "TII.get");
+  SS << generateIdent(i+2) << "}" << endl;
+  Defs.clear();  
+  Defs["reg1"] = "Reg";
+  Defs["reg2"] = "Reg";
+  SS << generateIdent(i+2) << "unsigned reg1 = `'__stackpointer_register__`';"
+       << endl;
+  SS << generateIdent(i+2) << "unsigned reg2 = a2;"
+       << endl;
+  if (Store) {
+    Defs["src"] = "Reg";
+    SS << generateIdent(i+2) << "unsigned src = " << RegName << ";" << endl;
+    SS << PatTrans.genEmitMI(InferenceResults.StoreAddSR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			   "TII.get");  
+  } else {
+    SS << generateIdent(i+2) << "unsigned dest = " << RegName << ";" << endl;
+    SS << PatTrans.genEmitMI(InferenceResults.LoadAddSR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, i+2, NULL, "MBB", "I",
+			   "TII.get");  
+  }
+  SS << generateIdent(i) << "} // end if (" << OffsetName << "..." <<  endl;
+  SS << generateIdent(i) << "}" << endl;
+  return SS.str();
+}
+
 // This function is responsible for determining the EmitPrologue function
 // of the backend.
 // Assumptions: "NumBytes" is in the scope where this code will be put, and
 //   indicates the stack size, or how much we will adjust the stack.
 //   The name of registers SP and FP are also in scope.   
 string TemplateManager::generateEmitPrologue(std::ostream &Log) {
-  const Register* SP = RegisterClassManager.getStackPointer();
-  const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
-  const Register* FP = RegisterClassManager.getFramePointer();
-  const RegisterClass* RCFP = RegisterClassManager.getRegRegClass(FP);
-  
-  // Generate instruction to move stack pointer to frame pointer
-  const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	  OperandTable, RegisterClassManager, RCFP->getName(), FP->getName(),
-	  RCSP->getName(), SP->getName());	
-  Log << "\nInfering how to emit prologue...\n";
-  SearchResult *SR = FindImplementation(Exp, Log);
-  if (SR == NULL) {
-    Log << "Stack adjustment inference failed. Could not find a instruction\n";
-    Log << "sequence to do this in target architecture.\n";
-    abort();
-  }
   stringstream SS;
   StringMap Defs;
-  Defs[SP->getName()] = "Reg";
-  Defs[FP->getName()] = "Reg";
-  Defs["NumBytes"] = "Imm";
-  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs,
-			   2, NULL, "MBB", "I", "TII.get");
-  delete SR;  
-  delete Exp;
-  Exp = NULL;
-  SR = NULL;
+
+  //
   // Generate instruction to add or subtract stack pointer
+  //
+  SS << generateAddImm("`'__stackpointer_register__",
+		       "`'__stackpointer_register__`'",
+		       "NumBytes",
+		       RegisterClassManager.getGrowsUp(),
+			2);
+
   
-  Defs.clear();
-  SS << generateIdent(2) << "if ((NumBytes & " << this->generateTgtImmMask()
-     << ") == 0) {" << endl;
-  Defs["a1"] = "Reg";
-  Defs["a2"] = "Imm";
-  SS << generateIdent(4) << "unsigned a1 = `'__stackpointer_register__`';"
-     << endl;
-  SS << generateIdent(4) << "unsigned a2 = NumBytes;" << endl;
-  SS << generateIdent(4) << "unsigned a3 = a1;" << endl;
-  if (RegisterClassManager.getGrowsUp()) {
-    SS << PatTrans.genEmitMI(InferenceResults.AddConstSR, Defs, &LMap, true, false, &AuxiliarRegs, 4,
-			    NULL, "MBB", "I", "TII.get");
-  } else {
-    SS << PatTrans.genEmitMI(InferenceResults.SubConstSR, Defs, &LMap, true, false, &AuxiliarRegs, 4,
-			    NULL, "MBB", "I", "TII.get");
-  }
-  SS << generateIdent(2) << "} else {" << endl;
-  SS << generateIdent(4) << "unsigned a1 = NumBytes;" << endl;
-  SS << generateIdent(4) << "unsigned a2 = " << ArchName << "::" 
-     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
-  SS << generateIdent(4) << "if ((NumBytes & ~0xFFFF) == 0) { //fit"
-     " into 16bit imm" << endl;
-  Defs.clear();
-  Defs["a1"] = "Imm";  
-  SS << PatTrans.genEmitMI(InferenceResults.LoadConst16SR, Defs, &LMap,
-			   true, false, &AuxiliarRegs, 6, NULL, "MBB", "I",
-			   "TII.get");
-  SS << generateIdent(4) << "} else { // use 32bit imm" << endl;
-  SS << PatTrans.genEmitMI(InferenceResults.LoadConst32SR, Defs, &LMap,
-			   true, false, &AuxiliarRegs, 6, NULL, "MBB", "I",
-			   "TII.get");
-  SS << generateIdent(4) << "}" << endl;
-  Defs.clear();  
-  Defs["a1"] = "Reg";
-  Defs["a2"] = "Reg";
-  SS << generateIdent(4) << "a1 = `'__stackpointer_register__`';"
-       << endl;
-  SS << generateIdent(4) << "unsigned a3 = a1;" << endl;
-  if (RegisterClassManager.getGrowsUp()) {    
-    SS << PatTrans.genEmitMI(InferenceResults.AddSR, Defs, &LMap,
-			     true, false, &AuxiliarRegs, 4, NULL, "MBB", "I",
-			     "TII.get");
-  } else {
-    SS << PatTrans.genEmitMI(InferenceResults.SubSR, Defs, &LMap,
-			     true, false, &AuxiliarRegs, 4, NULL, "MBB", "I",
-			     "TII.get");
-  }
-  SS << generateIdent(2) << "} // end if (NumBytes & ...)" << endl;  
+  //
+  // ******* Save FP and set it, if necessary **********
+  //
+  
+  SS << generateIdent(2) << "if (hasFP(MF)) {" << endl;  
+  
+  SS << generateStackAction("`'__frame_register__`'", "FPOffset", true, 4);
+
+  // CONFIGURE FP
+  SS << generateAddImm("`'__frame_register__",
+		       "`'__stackpointer_register__`'",
+		       "NumBytes",
+		       !RegisterClassManager.getGrowsUp(),
+			4);
+  
+  SS << generateIdent(2) << "} // end if (hasFP..." <<  endl;
+  
+  //
+  //  ***** RETURN ADDRESS SAVING *****
+  //
+  SS << generateIdent(2) << "if (MFI->hasCalls()) {" << endl;
+  SS << generateStackAction("`'__ra_register__`'", "RAOffset", true, 4);
+  SS << generateIdent(2) << "} // end if (MFI->hasCalls()) ... " << endl;
   return SS.str();
 }
 
@@ -1015,26 +1116,41 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   const RegisterClass* RCSP = RegisterClassManager.getRegRegClass(SP);
   const Register* FP = RegisterClassManager.getFramePointer();
   const RegisterClass* RCFP = RegisterClassManager.getRegRegClass(FP);
-  
-  // Generate instruction to move stack pointer to frame pointer
-  const Tree* Exp = PatternManager::genCopyRegToRegPat(OperatorTable,
-	  OperandTable, RegisterClassManager, RCSP->getName(), SP->getName(),
-	  RCFP->getName(), FP->getName());	
-  Log << "\nInfering how to emit epilogue...\n";
-  SearchResult *SR = FindImplementation(Exp, Log);
-  if (SR == NULL) {
-    Log << "Stack adjustment inference failed. Could not find a instruction\n";
-    Log << "sequence to do this in target architecture.\n";
-    abort();
-  }
+  SearchResult* SR = NULL;
   stringstream SS;
   StringMap Defs;
-  Defs[SP->getName()] = "Reg";
-  Defs[FP->getName()] = "Reg";
+  
+  for (MoveListTy::const_iterator I= InferenceResults.MoveRegToRegList.begin(),
+       E = InferenceResults.MoveRegToRegList.end(); I != E; ++I) {
+    if (I->first.first == RCFP && I->first.second == RCSP)
+      SR = I->second;    
+  }
+  assert (SR != NULL && "Could not find how to move FP to SP");
+  
+  SS << generateIdent(2) << "if (hasFP(MF)) {" << endl;  
+  Defs["DestReg"] = "Reg";
+  Defs["SrcReg"] = "Reg";
+  SS << generateIdent(4) << "unsigned DestReg = `'__stackpointer_register__`';"
+     << endl;
+  SS << generateIdent(4) << "unsigned SrcReg = `'__frame_register__`';"
+     << endl;
   SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs, 2,
 			   NULL, "MBB", "I", "TII.get");
-  delete SR;
-  delete Exp;
+  // Load FP
+  SS << generateStackAction("`'__frame_register__`'", "FPOffset", false, 4);
+			   
+  SS << generateIdent(2) << "} else { // else if (hasFP(MF))" << endl;
+  SS << generateAddImm("`'__stackpointer_register__",
+		       "`'__stackpointer_register__`'",
+		       "NumBytes",
+		       !RegisterClassManager.getGrowsUp(),
+			4);			
+  SS << generateIdent(2) << "} // end if (hasFP(MF))" << endl;
+  
+  // Load RA
+  SS << generateIdent(2) << "if (MFI->hasCalls()) {" << endl;
+  SS << generateStackAction("`'__ra_register__`'", "RAOffset", false, 4);
+  SS << generateIdent(2) << "} // end if (MFI->hasCalls()) ... " << endl;
   return SS.str();
 }
 
@@ -1159,27 +1275,28 @@ TemplateManager::PostprocessLLVMDAGString(const string &S, SDNode *DAG) {
 
 // Generate the implementation for RETFLAG pattern based on calling
 // conventions
-string TemplateManager::generateReturnLowering() {
-  const Register* PC = RegisterClassManager.getProgramCounter();
-  const Register* LR = RegisterClassManager.getReturnRegister();
-  const RegisterClass* PCRC = RegisterClassManager.getRegRegClass(PC);
-  const RegisterClass* LRRC = RegisterClassManager.getRegRegClass(LR);
+string TemplateManager::generateReturnLowering() {  
   stringstream SS;
+  std::string InsnName;
   
-  assert(LR != NULL && "Need to have return register defined.");
-  assert(LRRC != NULL && "Return reg must have a class.");
-  assert(PC != NULL && "Need to have program counter register defined.");
-  assert(PCRC != NULL && "Program counter must have a class.");
+  for (InstrIterator I = InstructionManager.getBegin(), 
+	 E = InstructionManager.getEnd(), Prev = InstructionManager.getEnd();
+       I != E; Prev = I++) {
+    if ((*I)->isReturn()) {
+      InsnName = (*I)->getLLVMName();
+      break;
+    }
+  }
+  assert (InsnName.size() > 0 && "Model must have a return instruction");
   
-  SS << "  if (Flag.getNode())" << endl;
-  SS << "    return DAG.getCopyToReg(Chain, __arch__`'::" <<
-        PC->getName() << ", DAG.getRegister(RAreg, MVT::i" 
-        <<  LRRC->getOperandType().Size << 
-        "), Flag);" << endl;
-  SS << "  return DAG.getCopyToReg(Chain, __arch__`'::" <<
-        PC->getName() << ", DAG.getRegister(RAreg, MVT::i" 
-        <<  LRRC->getOperandType().Size << 
-        "));" << endl;  
+  SS << "  if (Flag.getNode()) {" << endl;
+  SS << "    SDValue Ops[] = {Chain, Flag};" << endl;
+  SS << "    return SDValue(DAG.getTargetNode(`'__arch__`'::" <<
+        InsnName << ", MVT::Other, Ops, 2),0);" << endl;
+  SS << "  } else {" << endl;
+  SS << "    SDValue Ops[] = {Chain};" << endl;
+  SS << "    return SDValue(DAG.getTargetNode(`'__arch__`'::" <<
+        InsnName << ", MVT::Other, Ops, 2),0);}" << endl;
   
   return SS.str();
 }
@@ -1235,6 +1352,10 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.SubSR = SR;
     else if (I->Name == "FRAMEINDEX")
       InferenceResults.FrameIndexSR = SR;
+    else if (I->Name == "STOREADDCONST")
+      InferenceResults.StoreAddConstSR = SR;
+    else if (I->Name == "LOADADDCONST")
+      InferenceResults.LoadAddConstSR = SR;
     else
       delete SR;
   }    
@@ -1269,6 +1390,10 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	 "Missing built-in pattern SUB");  
   assert(InferenceResults.FrameIndexSR != NULL && 
 	 "Missing built-in pattern FRAMEINDEX");  
+  assert(InferenceResults.StoreAddConstSR != NULL && 
+	 "Missing built-in pattern STOREADDCONST");  
+  assert(InferenceResults.LoadAddConstSR != NULL && 
+	 "Missing built-in pattern LOADADDCONST");  
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  

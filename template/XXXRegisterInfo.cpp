@@ -164,6 +164,47 @@ getReservedRegs(const MachineFunction &MF) const
   return Reserved;
 }
 
+
+void __arch__`'RegisterInfo::adjustStackFrame(MachineFunction &MF) const
+{
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  __arch__`'FunctionInfo *FI = MF.getInfo<`'__arch__`'FunctionInfo>();
+  unsigned StackAlign = MF.getTarget().getFrameInfo()->getStackAlignment();
+
+  unsigned StackSize = MFI->getStackSize();
+
+  // Adjust CPU Callee Saved Registers Area. Registers RA and FP must
+  // be saved in this CPU Area there is the need. This whole Area must 
+  // be aligned to the default Stack Alignment requirements.
+  int StackOffset = 0-StackSize;
+  unsigned RegSize = __wordsize__ / 8;
+ 
+  StackOffset = ((StackOffset+StackAlign-1)/StackAlign*StackAlign);
+
+
+  if (hasFP(MF)) {
+    MFI->setObjectOffset(MFI->CreateStackObject(RegSize, RegSize), 
+                         StackOffset);
+    FI->setFPStackOffset(StackOffset);
+    //TopCPUSavedRegOff = StackOffset;
+    StackOffset -= RegSize;
+  }
+
+  if (MFI->hasCalls()) {
+    MFI->setObjectOffset(MFI->CreateStackObject(RegSize, RegSize), 
+                         StackOffset);
+    FI->setRAStackOffset(StackOffset);
+    //TopCPUSavedRegOff = StackOffset;
+    StackOffset -= RegSize;
+  }
+  StackOffset = ((StackOffset+StackAlign-1)/StackAlign*StackAlign);
+
+  // Update frame info
+  MFI->setStackSize(0-StackOffset);
+
+ 
+}
+
 // hasFP - Return true if the specified function should have a dedicated frame
 // pointer register.  This is true if the function has variable sized allocas or
 // if frame pointer elimination is disabled.
@@ -277,7 +318,9 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
 
   // as explained on LowerFORMAL_ARGUMENTS, detect negative offsets 
   // and adjust SPOffsets considering the final stack size.
-  int Offset = ((spOffset < 0) ? (stackSize + (-(spOffset+4))) : (spOffset));
+  int Offset = ((spOffset < 0) ? (stackSize + spOffset) : (spOffset));
+  if (!hasFP(MF))
+    spOffset = Offset;
   //Offset    += MI.getOperand(i-1).getImm();
 
   #ifndef NDEBUG
@@ -285,7 +328,7 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   DOUT << "<--------->\n";
   #endif
   unsigned AuxReg;
-  if (FrameIndex >= 0)
+  if (FrameIndex >= 0 && hasFP(MF))
     AuxReg = getFrameRegister(MF);
   else
     AuxReg = `'__stackpointer_register__`';
@@ -302,6 +345,9 @@ emitPrologue(MachineFunction &MF) const
   MachineBasicBlock &MBB = MF.front();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   unsigned align = MFI->getMaxAlignment();
+  __arch__`'FunctionInfo *FI       = MF.getInfo<`'__arch__`'FunctionInfo>();
+  
+  adjustStackFrame(MF);
 
   // Get the number of bytes to allocate from the FrameInfo
   int NumBytes = (int) MFI->getStackSize();
@@ -312,7 +358,10 @@ emitPrologue(MachineFunction &MF) const
     //NumBytes = -NumBytes;
   }
   MachineBasicBlock::iterator I = MBB.begin();
-    
+  int FPOffset = FI->getFPStackOffset();
+  FPOffset = NumBytes + FPOffset;
+  int RAOffset = FI->getRAStackOffset();
+  RAOffset = NumBytes + RAOffset;
 __emit_prologue__
  
 }
@@ -320,6 +369,15 @@ __emit_prologue__
 void __arch__`'RegisterInfo::
 emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const 
 {
+  MachineFrameInfo *MFI            = MF.getFrameInfo();
+  __arch__`'FunctionInfo *FI       = MF.getInfo<`'__arch__`'FunctionInfo>();
+
+  // Get the number of bytes from FrameInfo
+  int NumBytes = (int) MFI->getStackSize();  
+
+  // Get the FI's where RA and FP are saved.
+  int FPOffset = FI->getFPStackOffset();
+  int RAOffset = FI->getRAStackOffset();
   MachineBasicBlock::iterator I = prior(MBB.end());
     
 __emit_epilogue__

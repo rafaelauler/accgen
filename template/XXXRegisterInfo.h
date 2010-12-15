@@ -36,6 +36,7 @@ struct __arch__`'RegisterInfo : public __arch__`'GenRegisterInfo {
 
   BitVector getReservedRegs(const MachineFunction &MF) const;
 
+  void adjustStackFrame(MachineFunction &MF) const;
   bool hasFP(const MachineFunction &MF) const;
 
   void eliminateCallFramePseudoInstr(MachineFunction &MF,

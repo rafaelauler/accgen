@@ -28,6 +28,7 @@ define operator or       as arity 2;
 //NOTE: MemRef is a special case not affected by wildcard rules
 define operator memref   as arity 1;
 define operator call     as arity 1;
+define operator ret      as arity 0;
 define operator jump     as arity 1;
 // CJUMP is a special conditional jump node and is not straightforward
 // The first operand has the conditional code, the second is the
@@ -101,6 +102,12 @@ define pattern STOREFI as (
   (transfer (memref (+ val:regs imm:val:tgtimm)) src:regs);
 );
 
+// Built-in pattern: STOREADDCONST is used to help emit prologue
+define pattern STOREADDCONST as (
+  "(store i32:$src, (add i32:$a1, (imm i32:$a2)))";
+  (transfer (memref (+ a1:regs imm:a2:tgtimm)) src:regs);
+);
+
 // Built-in pattern: STOREADD is used to help handle large frameindexes
 define pattern STOREADD as (
   "(store i32:$src, (add i32:$reg1, i32:$reg2))";
@@ -118,6 +125,12 @@ define pattern STORE as (
 define pattern LOADFI as (
   "(load (frameindex i32:$addr))";
   (transfer dest:regs (memref (+ addr:regs imm:addr:tgtimm)));
+);
+
+// Built-in pattern: LOADADDCONST is used to help emit epilogue
+define pattern LOADADDCONST as (
+  "(load (add i32:$a1, (imm i32:$a2)))";
+  (transfer dest:regs (memref (+ a1:regs imm:a2:tgtimm)));
 );
 
 // Built-in pattern: LOADADD is used to help handle large frameindexes
@@ -478,6 +491,9 @@ let Op1 = "" in
 define instruction mov1 semantic as (
   let Op1 = "", Op2 = "" in
     (transfer Op3:GPR SimpleAddrMode:fragment params (Op4));
+) cost 1;
+define instruction mov1 semantic as (
+  (ret);
 ) cost 1;
 define instruction mov1 semantic as (
   let Op1 = "", Op2 = "", Op5 = "LSL" in

@@ -77,9 +77,10 @@ static SDValue LowerRET(SDValue Op, SelectionDAG &DAG) {
     // Guarantee that all emitted copies are stuck together with flags.
     Flag = Chain.getValue(1);
   }
-  unsigned RAreg = AddLiveIn(DAG.getMachineFunction(),`'__ra_register__`',
-	    DAG.getTarget().getRegisterInfo()->getPhysicalRegisterRegClass
-	    (`'__ra_register__`', `MVT::i'__wordsize__`'));
+  //unsigned RAreg = `'__ra_register__`';
+  //unsigned RAreg = AddLiveIn(DAG.getMachineFunction(),`'__ra_register__`',
+	//    DAG.getTarget().getRegisterInfo()->getPhysicalRegisterRegClass
+	  //  (`'__ra_register__`', `MVT::i'__wordsize__`'));
   
 __return_lowering__
 
