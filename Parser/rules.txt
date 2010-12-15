@@ -249,6 +249,11 @@ define pattern BR as (
   (jump imm:tgt:int);
 );
 
+define pattern CONST as (
+  "(tgtimm i32:$a1)";
+  (transfer a2:regs imm:a1:tgtimm);
+);
+
 // Built-in pattern: CONST16 is used to load a 16-bit immediate when ordinary
 // patterns cannot, or when generating code that creates large immediates.
 define pattern CONST16 as (
