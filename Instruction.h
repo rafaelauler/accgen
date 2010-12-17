@@ -71,6 +71,8 @@ class Instruction {
   void print(std::ostream &S) const;
   SemanticIterator getBegin() const;
   SemanticIterator getEnd() const;
+  unsigned getIteratorPos(SemanticIterator it) const;
+  SemanticIterator getIteratorAtPos(unsigned pos) const;
   CostType getCost() const {return Cost;}
   int getOutSize() const;
   CnstOperandsList* getOuts() const;
@@ -122,6 +124,7 @@ class InstrManager {
  public:
   void addInstruction (Instruction *Instr);
   Instruction *getInstruction(const std::string &Name, unsigned Occurrence);
+  Instruction *getInstruction(const std::string &LLVMName);
   InstrManager();
   ~InstrManager();
   void printAll(std::ostream &S);

@@ -6,6 +6,7 @@
 #include "Support.h"
 #include "TemplateManager.h"
 #include "InsnFormat.h"
+#include "SaveAgent.h"
 #include <iostream>
 #include <algorithm>
 #include <fstream>
@@ -1308,26 +1309,42 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 			  string **EmitHeaders) {  
   stringstream SSfunc, SSheaders;
   map<string, MatcherCode> Map;
+  SaveAgent Cache(InstructionManager, "cache.file");
   unsigned count = 0;
+  bool invalidCache = false;
   std::time_t start, end;
   start = std::time(0);
   Log << "Pattern implementation inference will start now. This may take"
       << " several\nminutes.\n\n";
+  if (Cache.CheckVersion() != Version) {
+    Cache.ClearFileAndSetVersion(Version);
+    invalidCache = true;
+  }
   for (PatternManager::Iterator I = PatMan.begin(), E = PatMan.end();
        I != E; ++I) {
+    bool CacheHit = false;
     count ++;
-    Log << "Now finding implementation for : " << I->Name << "\n";
-    SearchResult *SR = FindImplementation(I->TargetImpl, Log);
+    Log << "Now finding implementation for : " << I->Name << "\n";  
+    SearchResult *SR = invalidCache? NULL : Cache.LoadRecord(I->Name);
+    if (SR != NULL) {
+      CacheHit = true;
+      Log << "Recovered from cache.\n";
+      SR->DumpResults(Log);
+    } else
+      SR = FindImplementation(I->TargetImpl, Log);
     if (SR == NULL) {
       std::cerr << "Failed: Could not find implementation for pattern " <<
 	I->Name << "\n";
       abort();
     }    
+    if (!CacheHit)
+      Cache.SaveRecord(SR, I->Name);
     SSfunc << PatTrans.genEmitSDNode(SR, I->LLVMDAG, count, &LMap) << endl;
     SSheaders << PatTrans.genEmitSDNodeHeader(count);
     stringstream temp;
     temp << "EmitFunc" << count;
     PatTrans.genSDNodeMatcher(I->LLVMDAG, Map, temp.str());    
+    
     // Now check if this is a built-in pattern and we must remember this
     // inference.
     if (I->Name == "STOREFI")

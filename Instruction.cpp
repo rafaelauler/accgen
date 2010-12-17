@@ -129,7 +129,27 @@ namespace backendgen {
     } 
   };
   
+  unsigned Instruction::getIteratorPos(SemanticIterator it) const {
+    unsigned pos = 0;
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      if (&*I == &*it)
+	return pos;
+      ++pos;
+    }
+    assert (0 && "Invalid iterator for this instruction");
+  }
   
+  SemanticIterator Instruction::getIteratorAtPos(unsigned pos) const {
+    unsigned curPos = 0;
+    for (SemanticIterator I = SemanticVec.begin(), E = SemanticVec.end();
+	 I != E; ++I) {
+      if (curPos == pos)
+	return I;
+      ++curPos;
+    }
+    assert (0 && "Invalid iterator position for this instruction"); 
+  }
   
   int Instruction::getOutSize() const {    
     // We extract this information from our semantics forest.
@@ -538,6 +558,19 @@ operand or memory reference.");
     //  Pointer = new Instruction(Name, Cost);
     //  Instructions.push_back(Pointer);
     //}
+    return Pointer;
+  }
+  
+  Instruction *InstrManager::getInstruction(const std::string &LLVMName) {
+    Instruction *Pointer = NULL;
+    for (std::vector<Instruction*>::iterator I = Instructions.begin(),
+	   E = Instructions.end(); I != E; ++I)
+      {
+	if ((*I)->getLLVMName() == LLVMName) {
+	  Pointer = *I;
+	  break;	  
+	}
+      } 
     return Pointer;
   }
   

@@ -20,6 +20,7 @@
 #include "ArchEmitter.h"
 #include "TemplateManager.h"
 #include "CMemWatcher.h"
+#include "SaveAgent.h"
 #include "InsnSelector/Semantic.h"
 #include <map>
 
@@ -94,9 +95,6 @@ void parse_archc_description(char **argv) {
     exit(1);
   }
   acppUnload();
-
-  free(file_name);
-  free(isa_filename_with_path);
 }
 
 void print_formats() {
@@ -360,6 +358,7 @@ void create_dir(const char *path) {
 }
 
 int main(int argc, char **argv) {
+  unsigned Version;
   std::cout << "ArchC LLVM Backend Generator (version 0.1).\n";
   if (argc != 4) {
     std::cerr << "Wrong number of parameters.\n";
@@ -375,6 +374,10 @@ int main(int argc, char **argv) {
   // should be used instead.
   MemWatcher->InstallHooks();
   parse_archc_description(argv);
+  Version = SaveAgent::CalculateVersion(isa_filename_with_path,
+					SaveAgent::CalculateVersion(argv[3]));
+  free(file_name);
+  free(isa_filename_with_path);
   MemWatcher->UninstallHooks();
   //print_formats();  
   //print_insns();
@@ -403,7 +406,7 @@ int main(int argc, char **argv) {
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
-		     OperandTable, OperatorTable, PatMan);
+		     OperandTable, OperatorTable, PatMan, Version);
   TM.SetArchName("sparc16");
   TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
   TM.SetNumRegs(48);

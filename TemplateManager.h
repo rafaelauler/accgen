@@ -39,6 +39,7 @@ class TemplateManager {
   const char * WorkingDir;
   LiteralMap LMap;
   std::list<const Register*> AuxiliarRegs;
+  const unsigned Version;
   
   typedef std::pair<const RegisterClass*, const RegisterClass*> RCPair;
   typedef std::list<std::pair<RCPair,
@@ -121,10 +122,11 @@ class TemplateManager {
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
 			   RegClassManager& RM, OperandTableManager &OM,
 			   OperatorTableManager &ORM,
-			   PatternManager& PM):
+			   PatternManager& PM, unsigned Version):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
-    OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL) {
+    OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL),
+    Version(Version) {
       CommentChar = '#';
       TypeCharSpecifier = '@';
       InferenceResults.StoreToStackSlotSR = NULL;
