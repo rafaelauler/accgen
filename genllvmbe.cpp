@@ -233,10 +233,10 @@ void BuildInsn() {
       continue; // Pseudo!
 
     Instruction *I = new Instruction(pinsn->insn->name, 
-				     pinsn->op_literal, 
+				     pinsn->op_literal_unformatted, 
 				     FormatMap[pinsn->insn->format],
 				     pinsn->mnemonic);
-
+    std::cerr << "name: " << pinsn->insn->name << " asm_str: " << pinsn->insn->asm_str << "\n";
     unsigned startbit, endbit;
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
       InsnOperand *IO = new InsnOperand(operand->str);

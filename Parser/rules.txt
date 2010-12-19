@@ -23,6 +23,8 @@ define operator dec      as arity 2;
 define operator shl      as arity 2;            // Shift left
 define operator shr      as arity 2;            // Shift right
 define operator asr      as arity 2;            // Arithmetic shift right
+define operator rol      as arity 2;            // Rotate left
+define operator ror      as arity 2;            // Rotate right
 define operator and      as arity 2;
 define operator or       as arity 2;
 //NOTE: MemRef is a special case not affected by wildcard rules
@@ -57,12 +59,16 @@ define operand bit    as size 1  like int;
 
 AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
 
-AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
+//AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 (transfer (memref AnyOperator1:any) (memref AnyOperator2:any)) => 
   (dec (transfer AReg:regs (memref AnyOperator2:any)) (transfer (memref AnyOperator1:any) AReg:regs));
 
-const:int:0 => (xor Reg:regs Reg:regs);
+//const:int:0 => (xor Reg:regs Reg:regs);
+
+// expansion rules
+(rol child1:any child2:any) => 
+  (or (shl child1:any child2:any) (shr child1:any (- const:byte:32 child2:any)));
 
 // split large immediate rule
 imm:oper:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
@@ -169,7 +175,7 @@ define pattern CALL2 as (
 // Built-in pattern: ADDCONST is used to adjust stack when target-immediate
 // size values are used.
 define pattern ADDCONST as (
-  "(add i32:$a1, (imm i32:$a2))";
+  "(add i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (+ a1:regs imm:a2:tgtimm));
 );
 
@@ -209,9 +215,29 @@ define pattern SRACONST as (
   (transfer a3:regs (asr a1:regs imm:a2:tgtimm));
 );
 
+define pattern ROLCONST as (
+  "(rotl i32:$a1, (tgtimm i32:$a2))";
+  (transfer a3:regs (rol a1:regs imm:a2:tgtimm));
+);
+
+define pattern RORCONST as (
+  "(rotr i32:$a1, (tgtimm i32:$a2))";
+  (transfer a3:regs (ror a1:regs imm:a2:tgtimm));
+);
+
 define pattern OR as (
   "(or i32:$a1, i32:$a2)";
   (transfer a3:regs (or a1:regs a2:regs));
+);
+
+define pattern AND as (
+  "(and i32:$a1, i32:$a2)";
+  (transfer a3:regs (and a1:regs a2:regs));
+);
+
+define pattern XOR as (
+  "(xor i32:$a1, i32:$a2)";
+  (transfer a3:regs (xor a1:regs a2:regs));
 );
 
 define pattern BRCOND as (
@@ -225,21 +251,41 @@ define pattern BRCOND2 as (
 );
 
 define pattern BRCOND3 as (
+  "(br_cc (condcode SETLE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:le (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND4 as (
+  "(br_cc (condcode SETGE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND5 as (
   "(br_cc (condcode SETULT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
-define pattern BRCOND4 as (
+define pattern BRCOND6 as (
   "(br_cc (condcode SETUGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
-define pattern BRCOND5 as (
+define pattern BRCOND7 as (
+  "(br_cc (condcode SETUGE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND8 as (
+  "(br_cc (condcode SETULE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
+  (cjump const:cond:ule (comp lhs:regs rhs:regs) imm:tgt:int);
+);
+
+define pattern BRCOND9 as (
   "(br_cc (condcode SETNE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ne (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
-define pattern BRCOND6 as (
+define pattern BRCOND10 as (
   "(br_cc (condcode SETEQ) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:eq (comp lhs:regs rhs:regs) imm:tgt:int);
 );
@@ -328,14 +374,32 @@ define semantic fragment RegARightShiftedAddrMode as (
   (asr Op5:GPR imm:Op7:tgtimm);
 );
 
+define semantic fragment RegRotRightAddrMode as (
+  (ror Op5:GPR imm:Op7:tgtimm);
+);
+
+// Register shifted by imm 
+define semantic fragment RegShiftedAddr2Mode as (
+  (shl Op5:GPR Op7:GPR);
+);
+
+// Register right shifted by imm 
+define semantic fragment RegRightShiftedAddr2Mode as (
+  (shr Op5:GPR Op7:GPR);
+);
+
+// Register arithmetic right shifted by imm 
+define semantic fragment RegARightShiftedAddr2Mode as (
+  (asr Op5:GPR Op7:GPR);
+);
+
+define semantic fragment RegRotRightAddr2Mode as (
+  (ror Op5:GPR Op7:GPR);
+);
+
 // Register shifted right by 1 
 define semantic fragment RegRotAddrMode as (
   (shr Op5:GPR const:int:1);
-);
-
-// Register shifted by an value defined in a register
-define semantic fragment RegShifted2AddrMode as (
-  (shl Op5:GPR Op7:GPR);
 );
 
 // Immediate
@@ -353,10 +417,18 @@ define instruction b semantic as (
     (cjump const:cond:lt SR:CPSR imm:Op2:int);
   let Op1 = "gt" in
     (cjump const:cond:gt SR:CPSR imm:Op2:int);
+  let Op1 = "le" in
+    (cjump const:cond:le SR:CPSR imm:Op2:int);
+  let Op1 = "ge" in
+    (cjump const:cond:ge SR:CPSR imm:Op2:int);
   let Op1 = "lo" in
     (cjump const:cond:ult SR:CPSR imm:Op2:int);
   let Op1 = "hi" in
     (cjump const:cond:ugt SR:CPSR imm:Op2:int);
+  let Op1 = "hs" in
+    (cjump const:cond:uge SR:CPSR imm:Op2:int);
+  let Op1 = "ls" in
+    (cjump const:cond:ule SR:CPSR imm:Op2:int);
   let Op1 = "ne" in
     (cjump const:cond:ne SR:CPSR imm:Op2:int);
   let Op1 = "eq" in
@@ -371,19 +443,24 @@ define instruction b semantic as (
 
 //====-- AND --====//
 define instruction and1 semantic as (
-  (transfer Op3:GPR (and Op4:GPR SimpleAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (and Op4:GPR SimpleAddrMode:fragment));
 ) cost 1;
 define instruction and1 semantic as (
-  (transfer Op3:GPR (and Op4:GPR RegShiftedAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (and Op4:GPR RegShiftedAddrMode:fragment));
 ) cost 1;
 define instruction and1 semantic as (
-  (transfer Op3:GPR (and Op4:GPR RegRotAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (and Op4:GPR RegRotAddrMode:fragment));
 ) cost 1;
 define instruction and2 semantic as (
-  (transfer Op3:GPR (and Op4:GPR RegShifted2AddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (and Op4:GPR RegShiftedAddr2Mode:fragment));
 ) cost 1;
 define instruction and3 semantic as (
-  (transfer Op3:GPR (and Op4:GPR ImmAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (and Op4:GPR ImmAddrMode:fragment));
 ) cost 1;
 
 //====-- EOR --====//
@@ -392,16 +469,20 @@ define instruction eor1 semantic as (
     (transfer Op3:GPR (xor Op4:GPR SimpleAddrMode:fragment));
 ) cost 1;
 define instruction eor1 semantic as (
-  (transfer Op3:GPR (xor Op4:GPR RegShiftedAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (xor Op4:GPR RegShiftedAddrMode:fragment));
 ) cost 1;
 define instruction eor1 semantic as (
-  (transfer Op3:GPR (xor Op4:GPR RegRotAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (xor Op4:GPR RegRotAddrMode:fragment));
 ) cost 1;
 define instruction eor2 semantic as (
-  (transfer Op3:GPR (xor Op4:GPR RegShifted2AddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (xor Op4:GPR RegShiftedAddr2Mode:fragment));
 ) cost 1;
 define instruction eor3 semantic as (
-  (transfer Op3:GPR (xor Op4:GPR ImmAddrMode:fragment));
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (xor Op4:GPR ImmAddrMode:fragment));
 ) cost 1;
 
 //====-- SUB --====//
@@ -419,7 +500,7 @@ let Op1 = "", Op2 = "" in
 ) cost 1;
 define instruction sub2 semantic as (
 let Op1 = "", Op2 = "" in
-  (transfer Op3:GPR (- Op4:GPR RegShifted2AddrMode:fragment));
+  (transfer Op3:GPR (- Op4:GPR RegShiftedAddr2Mode:fragment));
 ) cost 1;
 define instruction sub3 semantic as (
 let Op1 = "", Op2 = "" in
@@ -441,7 +522,7 @@ define instruction add1 semantic as (
 ) cost 1;
 define instruction add2 semantic as (
   let Op1 = "", Op2 = "" in
-  (transfer Op3:GPR (+ Op4:GPR RegShifted2AddrMode:fragment));
+  (transfer Op3:GPR (+ Op4:GPR RegShiftedAddr2Mode:fragment));
 ) cost 1;
 define instruction add3 semantic as (
   let Op1 = "", Op2 = "" in
@@ -463,7 +544,7 @@ let Op1 = "", Op2 = "" in
 ) cost 1;
 define instruction orr2 semantic as (
 let Op1 = "", Op2 = "" in
-  (transfer Op3:GPR (or Op4:GPR RegShifted2AddrMode:fragment));
+  (transfer Op3:GPR (or Op4:GPR RegShiftedAddr2Mode:fragment));
 ) cost 1;
 define instruction orr3 semantic as (
 let Op1 = "", Op2 = "" in
@@ -485,7 +566,7 @@ let Op1 = "" in
 ) cost 1;
 define instruction cmp2 semantic as (
 let Op1 = "" in
-  (transfer SR:CPSR (comp Op2:GPR RegShifted2AddrMode:fragment params (Op3 Op4)));
+  (transfer SR:CPSR (comp Op2:GPR RegShiftedAddr2Mode:fragment params (Op3 Op4)));
 ) cost 1;
 define instruction cmp3 semantic as (
 let Op1 = "" in
@@ -507,14 +588,22 @@ define instruction mov1 semantic as (
     (transfer Op3:GPR RegRightShiftedAddrMode:fragment params (Op4 Op6));
   let Op1 = "", Op2 = "", Op5 = "ASR" in
     (transfer Op3:GPR RegARightShiftedAddrMode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "ROR" in
+    (transfer Op3:GPR RegRotRightAddrMode:fragment params (Op4 Op6));
 ) cost 1;
 define instruction mov1 semantic as (
   let Op1 = "", Op2 = "" in
     (transfer Op3:GPR RegRotAddrMode:fragment params (Op4));
 ) cost 1;
 define instruction mov2 semantic as (
-  let Op1 = "", Op2 = "" in
-    (transfer Op3:GPR RegShifted2AddrMode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "LSL" in
+    (transfer Op3:GPR RegShiftedAddr2Mode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "LSR" in
+    (transfer Op3:GPR RegRightShiftedAddr2Mode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "ASR" in
+    (transfer Op3:GPR RegARightShiftedAddr2Mode:fragment params (Op4 Op6));
+  let Op1 = "", Op2 = "", Op5 = "ROR" in
+    (transfer Op3:GPR RegRotRightAddr2Mode:fragment params (Op4 Op6));
 //  (transfer Op3:GPR const:int:1);
 ) cost 1;
 define instruction mov3 semantic as (

@@ -132,7 +132,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 21;
+  const unsigned NodeNamesSz = 25;
   
   const string NodeNames[] = { "load", 
 			       "store",
@@ -141,7 +141,11 @@ namespace {
 			       "shl",
 			       "srl",
 			       "sra",
+			       "rotl",
+			       "rotr",
 			       "or",
+			       "and",
+			       "xor",
 			       "call",
 			       "ret",
 			       "frameindex",
@@ -164,7 +168,11 @@ namespace {
 			       "ISD::SHL",
 			       "ISD::SRL",
 			       "ISD::SRA",
+			       "ISD::ROTL",
+			       "ISD::ROTR",
 			       "ISD::OR",
+			       "ISD::AND",
+			       "ISD::XOR",
 			       "SPARC16ISD::CALL", // BUG: Hardwired!
 			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
 			       "ISD::FrameIndex",
@@ -187,7 +195,11 @@ namespace {
 			      NULL, // shl
 			      NULL, // srl
 			      NULL, // sra
+			      NULL, // rotl
+			      NULL, // rotr
 			      NULL, // or
+			      NULL, // and
+			      NULL, // xor
 			      NULL, // call
 			      NULL, // ret
 			      GetFrameIndex, // frameindex
@@ -210,7 +222,11 @@ namespace {
 				  NULL, // shl
 				  NULL, // srl
 				  NULL, // sra
+				  NULL, // rotl
+				  NULL, // rotr
 				  NULL, // or
+				  NULL, // and
+				  NULL, // xor
 				  NULL, // call
 				  NULL, // ret
 				  NULL, // frameindex
@@ -233,7 +249,11 @@ namespace {
 			       true,  // shl
 			       true,  // srl
 			       true,  // sra
+			       true,  // rotl
+			       true,  // rotr
 			       true,  // or
+			       true,  // and
+			       true,  // xor
 			       true,  // call
 			       true,  // ret
 			       false, // frameindex
@@ -256,7 +276,11 @@ namespace {
 			  false, // shl
 			  false, // srl
 			  false, // sra
+			  false, // rotl
+			  false, // rotr
 			  false, // or
+			  false, // and
+			  false, // xor
 			  true,  // call
 			  true,  // ret
 			  false, // frameindex
@@ -279,7 +303,11 @@ namespace {
 			    false, // shl
 			    false, // srl
 			    false, // sra
+			    false, // rotl
+			    false, // rotr
 			    false, // or
+			    false, // and
+			    false, // xor
 			    false, // call
 			    true,  // ret
 			    false, // frameindex
@@ -302,7 +330,11 @@ namespace {
 			    false, // shl
 			    false, // srl
 			    false, // sra
+			    false, // rotl
+			    false, // rotr
 			    false, // or
+			    false, // and
+			    false, // xor
 			    true,  // call
 			    false, // ret
 			    false, // frameindex

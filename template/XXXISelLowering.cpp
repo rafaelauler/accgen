@@ -439,6 +439,35 @@ __set_up_register_classes__
 
   computeRegisterProperties();
   
+  /*
+  setOperationAction(ISD::MEMBARRIER, MVT::Other, Expand);
+  setOperationAction(ISD::FSIN , MVT::f64, Expand);
+  setOperationAction(ISD::FCOS , MVT::f64, Expand);
+  setOperationAction(ISD::FREM , MVT::f64, Expand);
+  setOperationAction(ISD::FSIN , MVT::f32, Expand);
+  setOperationAction(ISD::FCOS , MVT::f32, Expand);
+  setOperationAction(ISD::FREM , MVT::f32, Expand);
+  setOperationAction(ISD::CTPOP, MVT::i32, Expand);
+  setOperationAction(ISD::CTTZ , MVT::i32, Expand);
+  setOperationAction(ISD::CTLZ , MVT::i32, Expand);
+  setOperationAction(ISD::ROTL , MVT::i32, Expand);
+  setOperationAction(ISD::ROTR , MVT::i32, Expand);
+  setOperationAction(ISD::BSWAP, MVT::i32, Expand);
+  setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
+  setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
+  setOperationAction(ISD::FPOW , MVT::f64, Expand);
+  setOperationAction(ISD::FPOW , MVT::f32, Expand);
+  
+  setOperationAction(ISD::UREM, MVT::i32, Expand);
+  setOperationAction(ISD::SREM, MVT::i32, Expand);
+  setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
+  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+  
+  setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
+  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);*/
+  
+  setOperationAction(ISD::MUL, MVT::i32, Expand);
+  
   //setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
   //setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
   //setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);

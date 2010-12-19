@@ -58,11 +58,13 @@ typedef unsigned CostType;
 // A semantic may comprise several expression trees, ran
 // in parallel.
 class Instruction {
+  void processOperandFmts();
  public:     
   void addSemantic(Semantic S);
   Instruction(const std::string name, const std::string operandFmts,
 	      InsnFormat *insnFormat, const std::string Mnemonic) : 
     Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {
+    processOperandFmts();
     OrderNum = 0;    
   }
   void setCost(const CostType Cost) {this->Cost = Cost;}

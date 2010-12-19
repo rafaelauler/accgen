@@ -106,6 +106,10 @@ void __arch__`'DAGToDAGISel::InstructionSelect() {
   if (N->isMachineOpcode())
     return NULL;   // Already selected.
 
+  // DEBUG
+  //CurDAG->dump();
+  //errs() << "\n";
+
   return SelectCode(Op);
 }
 

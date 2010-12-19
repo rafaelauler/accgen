@@ -1297,7 +1297,7 @@ string TemplateManager::generateReturnLowering() {
   SS << "  } else {" << endl;
   SS << "    SDValue Ops[] = {Chain};" << endl;
   SS << "    return SDValue(DAG.getTargetNode(`'__arch__`'::" <<
-        InsnName << ", MVT::Other, Ops, 2),0);}" << endl;
+        InsnName << ", MVT::Other, Ops, 1),0);}" << endl;
   
   return SS.str();
 }

@@ -90,6 +90,66 @@ namespace backendgen {
     return Result;
   }
   
+namespace {  
+  bool isFieldNameChar(char c) {
+    return ((c >= 'a' && c <= 'z')
+    || (c >= 'A' && c <= 'Z')
+    || (c >= '0' && c <= '9')
+    || c == '_');
+  }
+  bool isOpenGroupChar(char c) {
+    return (c == '(' || c == '[');
+  }
+  bool isCloseGroupChar(char c) {
+    return (c == ')' || c == ']');
+  }
+}
+  
+  void Instruction::processOperandFmts() {
+    std::string NewFmts;
+    bool IgnoreFlag = true; // starts true to ignore mnemonic
+    unsigned hasGroup = true;
+    for (std::string::size_type I = 0, 
+      E = OperandFmts.size(); I != E; ++I) {
+      if (IgnoreFlag) {	
+	if (isFieldNameChar(OperandFmts[I])) {
+	  continue;
+	} 
+	if (isOpenGroupChar(OperandFmts[I])) {
+	  hasGroup = true;
+	  continue;
+	}
+	if (hasGroup && isCloseGroupChar(OperandFmts[I])) {
+	  hasGroup = false;
+	  IgnoreFlag = false;
+	  continue;
+	}
+	if (OperandFmts[I] == '.') {
+	  if (!OperandFmts.substr(I, 3).compare("...")) {
+	    ++I;
+	    ++I;
+	    continue;
+	  }
+	}
+	IgnoreFlag = false;
+	hasGroup = false;
+      }
+      if (OperandFmts[I] == '\\') {
+	if (!OperandFmts.substr(I, 2).compare("\\%")) {
+	  NewFmts += '\\';
+	  NewFmts += '%';
+	  ++I;
+	  continue;
+	}
+      }
+      if (OperandFmts[I] == '%') {
+	IgnoreFlag = true;
+      }
+      NewFmts += OperandFmts[I];
+    }
+    OperandFmts = NewFmts;
+  }
+  
   std::string Instruction::getName() const {
     return Name;
   }
