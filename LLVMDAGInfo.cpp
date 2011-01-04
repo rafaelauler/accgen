@@ -104,6 +104,55 @@ namespace {
     return SS.str();
   }
   
+  // IntSize may be 1, 8 or 16
+  template<int IntSize>
+  string MatchUnindexedStore(const string &N, const string &S) {
+    stringstream SS;
+    SS << "cast<StoreSDNode>(" << N << ")->getAddressingMode() == ISD::UNINDEXED";
+    if (IntSize > 0) {
+      SS << " && cast<StoreSDNode>(" << N << ")->isTruncatingStore() && "
+	    "cast<StoreSDNode>(" << N << ")->getMemoryVT() == MVT::i" << IntSize;
+    } else {
+       SS << " && !(cast<StoreSDNode>(" << N << ")->isTruncatingStore())";
+    }
+    return SS.str();
+  }
+  
+  // IntSize may be 1, 8 or 16
+  template<int IntSize>
+  string MatchUnindexedSextLoad(const string &N, const string &S) {
+    stringstream SS;
+    SS << "cast<LoadSDNode>(" << N << ")->getAddressingMode() == ISD::UNINDEXED";
+    if (IntSize > 0) {
+      SS << " && cast<LoadSDNode>(" << N << ")->getExtensionType() == ISD::" 
+         << "SEXTLOAD" <<
+          " && cast<LoadSDNode>(" << N << ")->getMemoryVT() == MVT::i"
+	 << IntSize;
+    } else {
+      SS << " && cast<LoadSDNode>(" << N << ")->getExtensionType() == ISD::" 
+         << "NON_EXTLOAD";
+    }
+    return SS.str();
+  }
+  
+  // IntSize may be 1, 8 or 16
+  template<int IntSize>
+  string MatchUnindexedZextLoad(const string &N, const string &S) {
+    stringstream SS;
+    SS << "cast<LoadSDNode>(" << N << ")->getAddressingMode() == ISD::UNINDEXED";
+    if (IntSize > 0) {
+      SS << " && (cast<LoadSDNode>(" << N << ")->getExtensionType() == ISD::" 
+         << "ZEXTLOAD || cast<LoadSDNode>(" << N << ")->getExtensionType() == "
+            "ISD::EXTLOAD)" <<
+          " && cast<LoadSDNode>(" << N << ")->getMemoryVT() == MVT::i"
+	 << IntSize;
+    } else {
+      SS << " && cast<LoadSDNode>(" << N << ")->getExtensionType() == ISD::" 
+         << "NON_EXTLOAD";
+    }
+    return SS.str();
+  }
+  
   string MatchShortImm(const string &N, const string &S) {    
     stringstream SS;
     unsigned size = 16;
@@ -132,10 +181,19 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 25;
+  const unsigned NodeNamesSz = 34;
   
   const string NodeNames[] = { "load", 
+			       "loadsexti1",
+			       "loadsexti8",
+			       "loadsexti16",
+			       "loadzexti1",
+			       "loadzexti8",
+			       "loadzexti16",
 			       "store",
+			       "truncstorei1",
+			       "truncstorei8",
+			       "truncstorei16",
 			       "add",
 			       "sub",
 			       "shl",
@@ -162,6 +220,15 @@ namespace {
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::LOAD", 
+			       "ISD::STORE",
+			       "ISD::STORE",
+			       "ISD::STORE",
 			       "ISD::STORE",
 			       "ISD::ADD",
 			       "ISD::SUB",
@@ -189,7 +256,16 @@ namespace {
   };
   
   GetNodeFunc FuncNames[] = { NULL, // load
+			      NULL, // loadsexti1
+			      NULL, // loadsexti8
+			      NULL, // loadsexti16
+			      NULL, // loadzexti1
+			      NULL, // loadzexti8
+			      NULL, // loadzexti16
 			      NULL, // store
+			      NULL, // truncstorei1
+			      NULL, // truncstorei8
+			      NULL, // truncstorei16
 			      NULL, // add
 			      NULL, // sub
 			      NULL, // shl
@@ -215,8 +291,17 @@ namespace {
 			      NULL  // basicblock
   };
   
-  MatchNodeFunc MFuncNames[] = {  NULL, // load
-				  NULL, // store
+  MatchNodeFunc MFuncNames[] = {  MatchUnindexedSextLoad<0>, // load
+				  MatchUnindexedSextLoad<1>, // loadsexti1
+				  MatchUnindexedSextLoad<8>, // loadsexti8
+				  MatchUnindexedSextLoad<16>, // loadsexti16
+				  MatchUnindexedZextLoad<1>, // loadzexti1
+				  MatchUnindexedZextLoad<8>, // loadzexti8
+				  MatchUnindexedZextLoad<16>, // loadzexti16
+				  MatchUnindexedStore<0>, // store
+				  MatchUnindexedStore<1>, // truncstorei1
+				  MatchUnindexedStore<8>, // truncstorei8
+				  MatchUnindexedStore<16>, // truncstorei16
 				  NULL, // add
 				  NULL, // sub
 				  NULL, // shl
@@ -243,7 +328,16 @@ namespace {
   };
 
   bool MatchChildrenVals[] = { true,  // load
+			       true,  // loadsexti1
+			       true,  // loadsexti8
+			       true,  // loadsexti16
+			       true,  // loadzexti1
+			       true,  // loadzexti8
+			       true,  // loadzexti16
 			       true,  // store
+			       true,  // truncstorei1
+			       true,  // truncstorei8
+			       true,  // truncstorei16
 			       true,  // add
 			       true,  // sub
 			       true,  // shl
@@ -270,7 +364,16 @@ namespace {
   };
   
   bool HasChainVals[] = { true,  // load
+  			  true,  // loadsexti1
+			  true,  // loadsexti8
+			  true,  // loadsexti16
+			  true,  // loadzexti1
+			  true,  // loadzexti8
+			  true,  // loadzexti16
 			  true,  // store
+			  true,  // truncstorei1
+			  true,  // truncstorei8
+			  true,  // truncstorei16
 			  false, // add
 			  false, // sub
 			  false, // shl
@@ -297,7 +400,16 @@ namespace {
   };
   
   bool HasInFlagVals[] = {  false, // load
+			    false, // loadsexti1
+			    false, // loadsexti8
+			    false, // loadsexti16
+			    false, // loadzexti1
+			    false, // loadzexti8
+			    false, // loadzexti16
 			    false, // store
+			    false, // truncstorei1
+			    false, // truncstorei8
+			    false, // truncstorei16
 			    false, // add
 			    false, // sub
 			    false, // shl
@@ -324,7 +436,16 @@ namespace {
   };
   
   bool HasOutFlagVals[] = { false, // load
+			    false, // loadsexti1
+			    false, // loadsexti8
+			    false, // loadsexti16
+			    false, // loadzexti1
+			    false, // loadzexti8
+			    false, // loadzexti16
 			    false, // store
+			    false, // truncstorei1
+			    false, // truncstorei8
+			    false, // truncstorei16
 			    false, // add
 			    false, // sub
 			    false, // shl

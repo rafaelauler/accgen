@@ -884,8 +884,14 @@ void PatternTranslator::genSDNodeMatcher(const std::string &LLVMDAG, map<string,
   stringstream S;
   
   if (InfoMan->getInfo(*Root->OpName)->MatchChildren) {    
-  if (Root->NumOperands > 0) {
+  if (Root->NumOperands > 0 || 
+      InfoMan->getInfo(*Root->OpName)->MatchNode) {
     S << "if (";
+  }
+  if (InfoMan->getInfo(*Root->OpName)->MatchNode) {
+    S << InfoMan->getInfo(*Root->OpName)->MatchNode("N", ""); 
+    if (Root->NumOperands > 0)
+      S  << " && " << endl;
   }
   bool RootHasChain = InfoMan->getInfo(*Root->OpName)->HasChain;
   for (int i = 0; static_cast<unsigned>(i) < Root->NumOperands; ++i) {
