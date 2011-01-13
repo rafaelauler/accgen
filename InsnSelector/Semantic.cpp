@@ -54,10 +54,18 @@ namespace backendgen {
 	return LtCondVal;
       if (S == CondGtStr)
 	return GtCondVal;
+      if (S == CondLeStr)
+	return LeCondVal;
+      if (S == CondGeStr)
+	return GeCondVal;
       if (S == CondUltStr)
 	return UltCondVal;
       if (S == CondUgtStr)
 	return UgtCondVal;
+      if (S == CondUleStr)
+	return UleCondVal;
+      if (S == CondUgeStr)
+	return UgeCondVal;
       if (S == CondNeStr)
 	return NeCondVal;
       if (S == CondEqStr)

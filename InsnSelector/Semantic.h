@@ -69,13 +69,17 @@ namespace backendgen {
     // Cond values
     const std::string CondLtStr = "lt";
     const std::string CondGtStr = "gt";
+    const std::string CondLeStr = "le";
+    const std::string CondGeStr = "ge";
     const std::string CondUltStr = "ult";
     const std::string CondUgtStr = "ugt";
+    const std::string CondUleStr = "ule";
+    const std::string CondUgeStr = "uge";
     const std::string CondNeStr = "ne";
     const std::string CondEqStr = "eq";
     
-    enum CondValues {LtCondVal=1, GtCondVal, UltCondVal, UgtCondVal,
-		     NeCondVal, EqCondVal};
+    enum CondValues {LtCondVal=1, GtCondVal, LeCondVal, GeCondVal, UltCondVal,
+		     UgtCondVal, UleCondVal, UgeCondVal, NeCondVal, EqCondVal};
 
     struct OperandType {
       unsigned int Type;
