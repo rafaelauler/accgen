@@ -34,6 +34,7 @@ namespace llvm {
       ITOF,        // Int to FP within a FP register.
 
       CALL,        // A call instruction.
+      Select_CC,
       RET_FLAG     // Return with a flag operand.
     };
   }

@@ -273,51 +273,61 @@ define pattern XOR as (
   (transfer a3:regs (xor a1:regs a2:regs));
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND as (
   "(br_cc (condcode SETLT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:lt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND2 as (
   "(br_cc (condcode SETGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND3 as (
   "(br_cc (condcode SETLE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:le (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND4 as (
   "(br_cc (condcode SETGE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND5 as (
   "(br_cc (condcode SETULT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND6 as (
   "(br_cc (condcode SETUGT) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND7 as (
   "(br_cc (condcode SETUGE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND8 as (
   "(br_cc (condcode SETULE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ule (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND9 as (
   "(br_cc (condcode SETNE) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:ne (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in select_cc pseudo scheduler expansion
 define pattern BRCOND10 as (
   "(br_cc (condcode SETEQ) i32:$lhs i32:$rhs (basicblock i32:$tgt))";
   (cjump const:cond:eq (comp lhs:regs rhs:regs) imm:tgt:int);
@@ -347,8 +357,10 @@ define pattern CONST32 as (
   (transfer a2:regs imm:a1:int);
 );
 
-// { lhs < rhs }  SR == LT
-// { SR == LT } brancheio 
+//define pattern SIGNEXTENDINREG as (
+//  "(sign_extend_inreg i32:$a1)";
+//  (transfer a3:regs (- a1:regs a2:regs));
+//);
 
 
 //====================-- Machine specific rules --============================//
@@ -356,8 +368,8 @@ define pattern CONST32 as (
 //=====================-- Registers definitions --============================//
 
 // Current Program Status Register
-
-define registers CPSR:regs as ( SR );  // Status register
+// FIXME: CPSR must be after GPR so GPR has higher priority in patterns!
+define registers CPSR:regs as ( SR );  // Status registers
 
 define registers GPR:regs as (
   r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15

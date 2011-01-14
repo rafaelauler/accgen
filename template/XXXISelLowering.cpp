@@ -424,7 +424,37 @@ LowerCONSTANTPOOL(SDValue Op, SelectionDAG &DAG)
   return DAG.getTargetConstantPool(C, `MVT::i'__wordsize__`', N->getAlignment());
 }
 
+namespace {
+SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
+  SDValue TrueVal = Op.getOperand(2);
+  SDValue FalseVal = Op.getOperand(3);
+  unsigned Opc = 0;
 
+  // If this is a select_cc of a "setcc", and if the setcc got lowered into
+  // an CMP[IF]CC/SELECT_[IF]CC pair, find the original compared values.
+  //LookThroughSetCC(LHS, RHS, CC, SPCC);
+
+  SDValue CompareFlag;
+  if (LHS.getValueType() == MVT::i32) {
+    //std::vector<MVT> VTs;
+    //VTs.push_back(LHS.getValueType());   // subcc returns a value
+    //VTs.push_back(MVT::Flag);
+    //SDValue Ops[2] = { LHS, RHS };
+    //CompareFlag = DAG.getNode(SPISD::CMPICC, VTs, Ops, 2).getValue(1);
+    Opc = `'__arch_in_caps__`'ISD::Select_CC;    
+  } else {
+    //CompareFlag = DAG.getNode(SPISD::CMPFCC, MVT::Flag, LHS, RHS);
+    //Opc = SPISD::SELECT_FCC;
+    //if (SPCC == ~0U) SPCC = FPCondCCodeToFCC(CC);
+    assert (0 && "Cannot lower select_cc with float operands");
+  }
+  return DAG.getNode(Opc, TrueVal.getValueType(), TrueVal, FalseVal,
+                     DAG.getConstant(CC, MVT::i32), LHS, RHS);
+}
+}
 
 //===----------------------------------------------------------------------===//
 // TargetLowering Implementation
@@ -465,6 +495,23 @@ __set_up_register_classes__
   
   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);*/
+  
+  // replace them with shl/sra
+  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Expand);
+  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8 , Expand);
+  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1 , Expand);
+  
+  // We have no select or setcc: expand to SELECT_CC.
+  setOperationAction(ISD::SELECT, MVT::i32, Expand);
+  setOperationAction(ISD::SELECT, MVT::f32, Expand);
+  setOperationAction(ISD::SELECT, MVT::f64, Expand);
+  setOperationAction(ISD::SETCC, MVT::i32, Expand);
+  setOperationAction(ISD::SETCC, MVT::f32, Expand);
+  setOperationAction(ISD::SETCC, MVT::f64, Expand);  
+
+  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
+  //setOperationAction(ISD::SELECT_CC, MVT::f32, Custom);
+  //setOperationAction(ISD::SELECT_CC, MVT::f64, Custom);
   
   setOperationAction(ISD::MUL, MVT::i32, Expand);
   
@@ -521,6 +568,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
   case ISD::ConstantPool:       return LowerCONSTANTPOOL(Op, DAG);  
   case ISD::RET:                return LowerRET(Op, DAG);
   case ISD::FORMAL_ARGUMENTS:   return LowerFORMAL_ARGUMENTS(Op, DAG);
+  case ISD::SELECT_CC:          return LowerSELECT_CC(Op, DAG);
   }
 
 }
@@ -528,7 +576,82 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
 MachineBasicBlock *
 __arch__`'TargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
                                                  MachineBasicBlock *BB) {
-  return NULL;
+  const TargetInstrInfo &TII = *(getTargetMachine().getInstrInfo());
+
+  switch (MI->getOpcode()) {
+  default: //assert(false && "Unexpected instr type to insert");
+  case `'__arch_in_caps__`'ISD::Select_CC: {
+    // To "insert" a SELECT_CC instruction, we actually have to insert the
+    // diamond control-flow pattern.  The incoming instruction knows the
+    // destination vreg to set, the condition code register to branch on, the
+    // true/false values to select between, and a branch opcode to use.
+    const BasicBlock *LLVM_BB = BB->getBasicBlock();
+    MachineFunction::iterator It = BB;
+    ++It;
+
+    //  thisMBB:
+    //  ...
+    //   TrueVal = ...
+    //   setcc r1, r2, r3
+    //   bNE   r1, r0, copy1MBB
+    //   fallthrough --> copy0MBB
+    MachineBasicBlock *thisMBB  = BB;
+    MachineFunction *F = BB->getParent();
+    MachineBasicBlock *copy0MBB = F->CreateMachineBasicBlock(LLVM_BB);
+    MachineBasicBlock *sinkMBB  = F->CreateMachineBasicBlock(LLVM_BB);
+
+    // Emit the right instruction according to the type of the operands compared
+    //if (isFPCmp) {
+      // Find the condiction code present in the setcc operation.
+      //Mips::CondCode CC = (Mips::CondCode)MI->getOperand(4).getImm();
+      // Get the branch opcode from the branch code.
+      //unsigned Opc = FPBranchCodeToOpc(GetFPBranchCodeFromCond(CC));
+      //BuildMI(BB, TII->get(Opc)).addMBB(sinkMBB);
+    //} else
+    unsigned CondCode = MI->getOperand(3).getImm();
+    int TrueVal = MI->getOperand(1).getReg();
+    int FalseVal = MI->getOperand(2).getReg();
+    int lhs = MI->getOperand(4).getReg();
+    int rhs = MI->getOperand(5).getReg();
+    MachineBasicBlock *tgt = sinkMBB;
+__emit_select_cc__
+      //BuildMI(BB, TII->get(Mips::BNE)).addReg(MI->getOperand(1).getReg())
+      //  .addReg(Mips::ZERO).addMBB(sinkMBB);
+
+    F->insert(It, copy0MBB);
+    F->insert(It, sinkMBB);
+    // Update machine-CFG edges by first adding all successors of the current
+    // block to the new block which will contain the Phi node for the select.
+    for(MachineBasicBlock::succ_iterator i = BB->succ_begin(),
+        e = BB->succ_end(); i != e; ++i)
+      sinkMBB->addSuccessor(*i);
+    // Next, remove all successors of the current block, and add the true
+    // and fallthrough blocks as its successors.
+    while(!BB->succ_empty())
+      BB->removeSuccessor(BB->succ_begin());
+    BB->addSuccessor(copy0MBB);
+    BB->addSuccessor(sinkMBB);
+
+    //  copy0MBB:
+    //   %FalseValue = ...
+    //   # fallthrough to sinkMBB
+    BB = copy0MBB;
+
+    // Update machine-CFG edges
+    BB->addSuccessor(sinkMBB);
+
+    //  sinkMBB:
+    //   %Result = phi [ %FalseValue, copy0MBB ], [ %TrueValue, thisMBB ]
+    //  ...
+    BB = sinkMBB;
+    BuildMI(BB, TII.get(`'__arch__`'::PHI), MI->getOperand(0).getReg())
+      .addReg(FalseVal).addMBB(copy0MBB)
+      .addReg(TrueVal).addMBB(thisMBB);
+
+    F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
+    return BB;
+  }
+  }
 }
 
 //===----------------------------------------------------------------------===//

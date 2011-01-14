@@ -124,7 +124,11 @@ void TemplateManager::CreateM4File()
   O << generateEmitPrologue(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__emit_epilogue__',`";
   O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
-  O << "m4_define(`__store_reg_to_stack_slot__',`";
+  O << "m4_define(`__emit_select_cc__',`";
+  O << generateEmitSelectCC() << "')m4_dnl\n";
+  O << "m4_define(`__select_cc_patts__',`";
+  O << generateSelectCCTGenPatts() << "')m4_dnl\n";  
+  O << "m4_define(`__store_reg_to_stack_slot__',`";      
   O << generateStoreRegToStackSlot() << "')m4_dnl\n";
   O << "m4_define(`__load_reg_from_stack_slot__',`";
   O << generateLoadRegFromStackSlot() << "')m4_dnl\n";      
@@ -1155,6 +1159,101 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   return SS.str();
 }
 
+string TemplateManager::generateSelectCCTGenPatts() {  
+  stringstream SS;
+  unsigned count = 0;
+  
+  for (set<RegisterClass*>::const_iterator
+	 I = RegisterClassManager.getBegin(),
+	 E = RegisterClassManager.getEnd(); I != E; ++I) {    
+    //FIXME: Ignore STATUS REGS
+    if ((*I)->getNumRegs() < 2)
+      continue;
+    SS << generateIdent(2) << "def SELECT_CC_" << count << endl;
+    SS << generateIdent(2) << " : Pseudo<(outs " << (*I)->getName() 
+       << ":$dst), (ins " << (*I)->getName() << ":$T,"
+       << (*I)->getName() << ":$F, i32imm:$Cond, " << (*I)->getName() 
+       << ":$LHS, " << (*I)->getName() << ":$RHS),\n" 
+       << "       \"; SELECT_CC_" << count << " PSEUDO!\","
+       << "       [(set " << (*I)->getName() << ":$dst, (selecticc " 
+       << (*I)->getName() << ":$T, " << (*I)->getName() << ":$F,\n"
+       << "                     imm:$Cond, " << (*I)->getName() << ":$LHS, " 
+       << (*I)->getName() << ":$RHS))]>;" << endl;  
+    ++count;
+  }
+  
+  return SS.str();
+}
+
+// This function generates the SelectCC pseudo custom inserter, used by LLVM
+// scheduler to substitute SelectCC with target instructions and
+// a few basicblocks.
+// Assumptions: CondCode is an unsigned in scope, indicating what condition      
+//              should be used to compare lhs and rhs.
+//              TrueVal and FalseVal should also be in scope, as well as
+//              MachineBasicBlock *tgt (the jump target).
+string TemplateManager::generateEmitSelectCC() {  
+  stringstream SS;
+  StringMap Defs;
+  
+  Defs["lhs"] = "Reg";
+  Defs["rhs"] = "Reg";
+  Defs["tgt"] = "MBB";
+  SS << generateIdent(4) << "switch (CondCode) {"<< endl;
+  SS << generateIdent(4) << "default: case ISD::SETLT: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond1SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETGT: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond2SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETLE: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond3SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETGE: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond4SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETULT: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond5SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETUGT: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond6SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETUGE: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond7SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETULE: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond8SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETNE: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond9SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "case ISD::SETEQ: "<< endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.BranchCond10SR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
+			   "TII.get");  
+  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(4) << "} // end switch (CondCode)"<< endl;
+  return SS.str();
+}
+
 // This function works out how to transfer between different classes
 // of storage in the target architecture and puts this information into
 // the backend as c++ code.
@@ -1373,6 +1472,26 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.StoreAddConstSR = SR;
     else if (I->Name == "LOADADDCONST")
       InferenceResults.LoadAddConstSR = SR;
+    else if (I->Name == "BRCOND")
+      InferenceResults.BranchCond1SR = SR;
+    else if (I->Name == "BRCOND2")
+      InferenceResults.BranchCond2SR = SR;
+    else if (I->Name == "BRCOND3")
+      InferenceResults.BranchCond3SR = SR;
+    else if (I->Name == "BRCOND4")
+      InferenceResults.BranchCond4SR = SR;
+    else if (I->Name == "BRCOND5")
+      InferenceResults.BranchCond5SR = SR;
+    else if (I->Name == "BRCOND6")
+      InferenceResults.BranchCond6SR = SR;
+    else if (I->Name == "BRCOND7")
+      InferenceResults.BranchCond7SR = SR;
+    else if (I->Name == "BRCOND8")
+      InferenceResults.BranchCond8SR = SR;
+    else if (I->Name == "BRCOND9")
+      InferenceResults.BranchCond9SR = SR;
+    else if (I->Name == "BRCOND10")
+      InferenceResults.BranchCond10SR = SR;
     else
       delete SR;
   }    
@@ -1411,6 +1530,26 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	 "Missing built-in pattern STOREADDCONST");  
   assert(InferenceResults.LoadAddConstSR != NULL && 
 	 "Missing built-in pattern LOADADDCONST");  
+  assert(InferenceResults.BranchCond1SR != NULL && 
+	 "Missing built-in pattern BRCOND");
+  assert(InferenceResults.BranchCond2SR != NULL && 
+	 "Missing built-in pattern BRCOND2");
+  assert(InferenceResults.BranchCond3SR != NULL && 
+	 "Missing built-in pattern BRCOND3");
+  assert(InferenceResults.BranchCond4SR != NULL && 
+	 "Missing built-in pattern BRCOND4");
+  assert(InferenceResults.BranchCond5SR != NULL && 
+	 "Missing built-in pattern BRCOND5");
+  assert(InferenceResults.BranchCond6SR != NULL && 
+	 "Missing built-in pattern BRCOND6");
+  assert(InferenceResults.BranchCond7SR != NULL && 
+	 "Missing built-in pattern BRCOND7");
+  assert(InferenceResults.BranchCond8SR != NULL && 
+	 "Missing built-in pattern BRCOND8");
+  assert(InferenceResults.BranchCond9SR != NULL && 
+	 "Missing built-in pattern BRCOND9");
+  assert(InferenceResults.BranchCond10SR != NULL && 
+	 "Missing built-in pattern BRCOND10");
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  

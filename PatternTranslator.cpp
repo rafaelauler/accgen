@@ -1222,8 +1222,11 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     for (unsigned i = 0; i < ident; ++i)
       SS << " "; 
-    SS << "BuildMI(" << MBB << ", " << Itr << ", " << get << "(";
-    SS << "__arch__`'::" << I->first->getLLVMName();  
+    if (Itr == "")
+      SS << "BuildMI(" << MBB << ", "; 
+    else
+      SS << "BuildMI(" << MBB << ", " << Itr << ", ";
+    SS << get << "(`'__arch__`'::" << I->first->getLLVMName();  
     SS << ")";
     stringstream SSOperands;
             

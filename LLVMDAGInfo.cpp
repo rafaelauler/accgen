@@ -181,7 +181,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 34;
+  const unsigned NodeNamesSz = 35;
   
   const string NodeNames[] = { "load", 
 			       "loadsexti1",
@@ -216,7 +216,8 @@ namespace {
 			       "br",
 			       "br_cc",
 			       "condcode",
-			       "basicblock"
+			       "basicblock",
+			       "sign_extend_inreg"
   };
   
   const string EnumNames[] = { "ISD::LOAD", 
@@ -252,7 +253,8 @@ namespace {
 			       "ISD::BR",
 			       "ISD::BR_CC",
 			       "ISD::CONDCODE",
-			       "ISD::BasicBlock"
+			       "ISD::BasicBlock",
+			       "ISD::SIGN_EXTEND_INREG"
   };
   
   GetNodeFunc FuncNames[] = { NULL, // load
@@ -288,7 +290,8 @@ namespace {
 			      NULL, // br
 			      NULL, // br_cc
 			      NULL, // condcode
-			      NULL  // basicblock
+			      NULL, // basicblock
+			      NULL  // sign_extend_inreg
   };
   
   MatchNodeFunc MFuncNames[] = {  MatchUnindexedSextLoad<0>, // load
@@ -324,7 +327,8 @@ namespace {
 				  NULL, // br
 				  NULL, // br_cc
 				  MatchCondCode, // condcode
-				  NULL  // basicblock
+				  NULL,  // basicblock
+				  NULL  // sign_extend_inreg
   };
 
   bool MatchChildrenVals[] = { true,  // load
@@ -360,7 +364,8 @@ namespace {
 			       true,  // br
 			       true,  // br_cc
 			       false, // condcode
-			       false  // basicblock
+			       false, // basicblock
+			       true   // sign_extend_inreg
   };
   
   bool HasChainVals[] = { true,  // load
@@ -396,7 +401,8 @@ namespace {
 			  true,  // br
 			  true,  // br_cc
 			  false, // condcode
-			  false  // basicblock
+			  false, // basicblock
+			  false  // sign_extend_inreg
   };
   
   bool HasInFlagVals[] = {  false, // load
@@ -432,7 +438,8 @@ namespace {
 			    false, // br
 			    false, // br_cc
 			    false, // condcode
-			    false  // basicblock
+			    false, // basicblock
+			    false  // sign_extend_inreg
   };
   
   bool HasOutFlagVals[] = { false, // load
@@ -468,7 +475,8 @@ namespace {
 			    false, // br
 			    false, // br_cc
 			    false, // condcode
-			    false  // basicblock
+			    false, // basicblock
+			    false  // sign_extend_inreg
   };
   
   //const string * NodeToEnumName[] = { NodeNames, EnumNames };

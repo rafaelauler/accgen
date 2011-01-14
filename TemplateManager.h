@@ -65,6 +65,16 @@ class TemplateManager {
     SearchResult * FrameIndexSR;
     SearchResult * StoreAddConstSR;
     SearchResult * LoadAddConstSR;
+    SearchResult * BranchCond1SR;
+    SearchResult * BranchCond2SR;
+    SearchResult * BranchCond3SR;
+    SearchResult * BranchCond4SR;
+    SearchResult * BranchCond5SR;
+    SearchResult * BranchCond6SR;
+    SearchResult * BranchCond7SR;
+    SearchResult * BranchCond8SR;
+    SearchResult * BranchCond9SR;
+    SearchResult * BranchCond10SR;
     // A list of patterns of move instructions, between each pair of possible
     // register class
     MoveListTy MoveRegToRegList;
@@ -104,6 +114,8 @@ class TemplateManager {
 					       bool isPositive);
   std::string generateEmitPrologue(std::ostream &Log);
   std::string generateEmitEpilogue(std::ostream &Log);
+  std::string generateEmitSelectCC();
+  std::string generateSelectCCTGenPatts();
   std::string generateCopyRegPatterns(std::ostream &Log);
   std::string generateIsMove();
   SearchResult* FindImplementation(const expression::Tree *Exp,
