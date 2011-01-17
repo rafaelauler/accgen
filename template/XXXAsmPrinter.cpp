@@ -417,6 +417,9 @@ doInitialization(Module &M)
 void __arch__`'AsmPrinter::
 printModuleLevelGV(const GlobalVariable* GVar) {
   const TargetData *TD = TM.getTargetData();
+  //TODO: Which one ArchC generated binutils uses? Log or normal?
+  //unsigned Align = TD->getPreferredAlignment(GVar);
+  unsigned Align = TD->getPreferredAlignmentLog(GVar);
 
   if (!GVar->hasInitializer())
     return;   // External global require no code
@@ -432,18 +435,18 @@ printModuleLevelGV(const GlobalVariable* GVar) {
   unsigned Size = TD->getTypePaddedSize(CTy);
   const ConstantArray *CVA = dyn_cast<ConstantArray>(C);
   bool printSizeAndType = true;
-
+  
   // A data structure or array is aligned in memory to the largest
   // alignment boundary required by any data type inside it (this matches
   // the Preferred Type Alignment). For integral types, the alignment is
   // the type size.
-  unsigned Align;
-  if (CTy->getTypeID() == Type::IntegerTyID ||
-      CTy->getTypeID() == Type::VoidTyID) {
-    assert(!(Size & (Size-1)) && "Alignment is not a power of two!");
-    Align = Log2_32(Size);
-  } else
-    Align = TD->getPreferredTypeAlignmentShift(CTy);
+  //unsigned Align;
+  //if (CTy->getTypeID() == Type::IntegerTyID ||
+  //    CTy->getTypeID() == Type::VoidTyID) {
+  //  assert(!(Size & (Size-1)) && "Alignment is not a power of two!");
+  //  Align = Log2_32(Size);
+  //} else
+  //  Align = TD->getPreferredTypeAlignmentShift(CTy);
 
   printVisibility(name, GVar->getVisibility());
 

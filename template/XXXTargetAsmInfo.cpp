@@ -20,6 +20,7 @@ __arch__`'ELFTargetAsmInfo::`'__arch__`'ELFTargetAsmInfo(const TargetMachine &TM
   Data32bitsDirective = "\t.word\t";
   Data64bitsDirective = 0;  
   ZeroDirective = "\t.skip\t";
+  AlignmentIsInBytes = false;
   CommentString = "`'__comment_char__`'";
   ConstantPoolSection = "\t.section \".rodata\",#alloc\n";
   COMMDirectiveTakesAlignment = true;
