@@ -167,6 +167,10 @@ namespace backendgen {
 	  NewType.Type = MemRefOp;
 	else if (TypeName == CallOpStr)
 	  NewType.Type = CallOp;
+	else if (TypeName == JumpOpStr)
+	  NewType.Type = JumpOp;
+	else if (TypeName == CJumpOpStr)
+	  NewType.Type = CJumpOp;
 	else if (TypeName == ReturnOpStr)
 	  NewType.Type = ReturnOp;
 	else { // User defined operator

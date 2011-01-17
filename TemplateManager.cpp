@@ -407,11 +407,16 @@ string TemplateManager::generateInstructionsDefs() {
     }
     // Here we print defs and uses for this instruction
     CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
-    bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn();
+    bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn(),
+         isJump = (*I)->isJump();
     if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn) {
       SS << "let ";
       if (isCall) {
 	SS << "isCall = 1, ";
+      } else if (isJump) {
+	SS << "isBranch = 1, isTerminator = 1";
+	if (Defs->size() > 0 || Uses->size() > 0)
+	  SS << ", ";
       } else if (isReturn) {
 	SS << "isReturn = 1, isTerminator = 1";
 	if (Defs->size() > 0 || Uses->size() > 0)

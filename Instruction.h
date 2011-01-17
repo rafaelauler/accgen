@@ -85,6 +85,7 @@ class Instruction {
   
   bool isCall() const;
   bool isReturn() const;
+  bool isJump() const;
   bool hasOperator(unsigned OperatorOpcode) const;
 
   void setLLVMName(std::string LLVMName) {this->LLVMName = LLVMName;}

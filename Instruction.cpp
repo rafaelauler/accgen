@@ -426,6 +426,10 @@ operand or memory reference.");
   bool Instruction::isReturn() const {
     return hasOperator(ReturnOp);
   }
+  
+  bool Instruction::isJump() const {
+    return hasOperator(JumpOp) || hasOperator(CJumpOp);
+  }
 
   // Extract all defined registers in this instruction (defs)
   std::list<const Operand*>* Instruction::getDefs() const {

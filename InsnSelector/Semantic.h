@@ -369,7 +369,7 @@ namespace backendgen {
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
     enum KnownOperators {AddOp=1, SubOp, NegOp, DecompOp, IfOp, AssignOp,
-			 MemRefOp, CallOp, ReturnOp, LastOp};
+			 MemRefOp, CallOp, JumpOp, CJumpOp, ReturnOp, LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
@@ -379,6 +379,8 @@ namespace backendgen {
     const std::string AssignOpStr = "transfer";
     const std::string MemRefOpStr = "memref";
     const std::string CallOpStr = "call";
+    const std::string JumpOpStr = "jump";
+    const std::string CJumpOpStr = "cjump";
     const std::string ReturnOpStr = "ret";
 
     // Operator types' interface.
