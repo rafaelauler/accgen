@@ -376,7 +376,7 @@ LowerFORMAL_ARGUMENTS(SDValue Op, SelectionDAG &DAG)
       // offset on PEI::calculateFrameObjectOffsets.
       // Arguments are always 32-bit.
       unsigned ArgSize = VA.getLocVT().getSizeInBits()/8;
-      int FI = MFI->CreateFixedObject(ArgSize, 0);
+      int FI = MFI->CreateFixedObject(ArgSize, 5555); //magicnum to be detected by EliminateFrameIndex
       //MipsFI->recordLoadArgsFI(FI, -(ArgSize+
       //  (FirstStackArgLoc + VA.getLocMemOffset())));
 

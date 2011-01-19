@@ -324,7 +324,7 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   // as explained on LowerFORMAL_ARGUMENTS, detect negative indexes
   // and adjust SPOffsets considering the final stack size.
   // Accessing caller stack frame
-  if (FrameIndex < 0) {
+  if (FrameIndex < 0 && MF.getFrameInfo()->getObjectOffset(FrameIndex) == 5555) {
     spOffset = stackSize + (((-1)*FrameIndex)-1) * (__wordsize__ / 8);
   }
   //Offset    += MI.getOperand(i-1).getImm();

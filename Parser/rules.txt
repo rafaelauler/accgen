@@ -108,11 +108,12 @@ define pattern STOREFICONST as (
   (transfer (memref (+ val:regs imm:val:tgtimm)) imm:src:tgtimm);
 );
 
-define pattern STOREFROMFI as (
-  "(store (frameindex i32:$valsrc) i32:$addr)";
-  (transfer (memref addr:regs) 
-    (memref (+ valsrc:regs imm:valsrc:tgtimm)));
-);
+// INCORRECT PATTERN ??
+//define pattern STOREFROMFI as (
+//  "(store (frameindex i32:$valsrc) i32:$addr)";
+//  (transfer (memref addr:regs) 
+    //(memref (+ valsrc:regs imm:valsrc:tgtimm)));
+//);
 
 // Built-in pattern: STOREFI is used to determine how the backend will spill
 // registers to stack frame. This pattern must exist, with the correct
