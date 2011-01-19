@@ -65,6 +65,7 @@ class TemplateManager {
     SearchResult * FrameIndexSR;
     SearchResult * StoreAddConstSR;
     SearchResult * LoadAddConstSR;
+    SearchResult * UncondBranchSR;
     SearchResult * BranchCond1SR;
     SearchResult * BranchCond2SR;
     SearchResult * BranchCond3SR;
@@ -114,6 +115,7 @@ class TemplateManager {
 					       bool isPositive);
   std::string generateEmitPrologue(std::ostream &Log);
   std::string generateEmitEpilogue(std::ostream &Log);
+  std::string generateInsertBranch();
   std::string generateEmitSelectCC();
   std::string generateSelectCCTGenPatts();
   std::string generateCopyRegPatterns(std::ostream &Log);

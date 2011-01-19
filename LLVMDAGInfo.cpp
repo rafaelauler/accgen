@@ -181,7 +181,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 35;
+  const unsigned NodeNamesSz = 36;
   
   const string NodeNames[] = { "load", 
 			       "loadsexti1",
@@ -196,6 +196,7 @@ namespace {
 			       "truncstorei16",
 			       "add",
 			       "sub",
+			       "mul",
 			       "shl",
 			       "srl",
 			       "sra",
@@ -233,6 +234,7 @@ namespace {
 			       "ISD::STORE",
 			       "ISD::ADD",
 			       "ISD::SUB",
+			       "ISD::MUL",
 			       "ISD::SHL",
 			       "ISD::SRL",
 			       "ISD::SRA",
@@ -270,6 +272,7 @@ namespace {
 			      NULL, // truncstorei16
 			      NULL, // add
 			      NULL, // sub
+			      NULL, // mul
 			      NULL, // shl
 			      NULL, // srl
 			      NULL, // sra
@@ -307,6 +310,7 @@ namespace {
 				  MatchUnindexedStore<16>, // truncstorei16
 				  NULL, // add
 				  NULL, // sub
+				  NULL, // mul
 				  NULL, // shl
 				  NULL, // srl
 				  NULL, // sra
@@ -344,6 +348,7 @@ namespace {
 			       true,  // truncstorei16
 			       true,  // add
 			       true,  // sub
+			       true,  // mul
 			       true,  // shl
 			       true,  // srl
 			       true,  // sra
@@ -381,6 +386,7 @@ namespace {
 			  true,  // truncstorei16
 			  false, // add
 			  false, // sub
+			  false, // mul
 			  false, // shl
 			  false, // srl
 			  false, // sra
@@ -418,6 +424,7 @@ namespace {
 			    false, // truncstorei16
 			    false, // add
 			    false, // sub
+			    false, // mul
 			    false, // shl
 			    false, // srl
 			    false, // sra
@@ -455,6 +462,7 @@ namespace {
 			    false, // truncstorei16
 			    false, // add
 			    false, // sub
+			    false, // mul
 			    false, // shl
 			    false, // srl
 			    false, // sra

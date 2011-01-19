@@ -491,10 +491,10 @@ __set_up_register_classes__
   setOperationAction(ISD::UREM, MVT::i32, Expand);
   setOperationAction(ISD::SREM, MVT::i32, Expand);
   setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
-  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);*/
   
   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
-  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);*/
+  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
   
   // replace them with shl/sra
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Expand);
@@ -513,7 +513,7 @@ __set_up_register_classes__
   //setOperationAction(ISD::SELECT_CC, MVT::f32, Custom);
   //setOperationAction(ISD::SELECT_CC, MVT::f64, Custom);
   
-  setOperationAction(ISD::MUL, MVT::i32, Expand);
+  //setOperationAction(ISD::MUL, MVT::i32, Expand);
   
   //setOperationAction(ISD::GlobalAddress, `MVT::i'__wordsize__`', Custom);
   //setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);

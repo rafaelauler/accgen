@@ -14,6 +14,7 @@
 // These operands must exist
 define operator +        as arity 2;
 define operator -        as arity 2;
+define operator *        as arity 2;
 define operator ~        as arity 1;
 define operator xor      as arity 2;
 define operator transfer as arity 2;
@@ -233,6 +234,11 @@ define pattern SUB as (
   (transfer a3:regs (- a1:regs a2:regs));
 );
 
+define pattern MUL as (
+  "(mul i32:$a1, i32:$a2)";
+  (transfer a3:regs (* a1:regs a2:regs));
+);
+
 define pattern SHLCONST as (
   "(shl i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (shl a1:regs imm:a2:tgtimm));
@@ -333,6 +339,7 @@ define pattern BRCOND10 as (
   (cjump const:cond:eq (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+// Built-in pattern: Used in XXXInstrInfo::InsertBranch member function
 define pattern BR as (
   "(br (basicblock i32:$tgt))";
   (jump imm:tgt:int);
@@ -573,6 +580,12 @@ define instruction add3 semantic as (
   let Op1 = "", Op2 = "" in
   (transfer Op3:GPR (+ Op4:GPR ImmAddrMode:fragment));
 ) cost 1;
+
+//====-- MUL --====//
+define instruction mul semantic as (
+  let Op1 = "", Op2 = "" in
+    (transfer Op3:GPR (* Op4:GPR Op5:GPR));
+) cost 10;
 
 //====-- ORR --====//
 define instruction orr1 semantic as (

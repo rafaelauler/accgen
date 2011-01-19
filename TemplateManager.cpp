@@ -124,6 +124,8 @@ void TemplateManager::CreateM4File()
   O << generateEmitPrologue(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__emit_epilogue__',`";
   O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__insert_branch__',`";
+  O << generateInsertBranch() << "')m4_dnl\n";
   O << "m4_define(`__emit_select_cc__',`";
   O << generateEmitSelectCC() << "')m4_dnl\n";
   O << "m4_define(`__select_cc_patts__',`";
@@ -1190,6 +1192,22 @@ string TemplateManager::generateSelectCCTGenPatts() {
   return SS.str();
 }
 
+// This function generates the XXXInstrInfo::InsertBranch() member function.
+// Assumptions: 
+//              MachineBasicBlock *tgt (the jump target) is defined with the
+//              jump target.
+string TemplateManager::generateInsertBranch() {  
+  stringstream SS;
+  StringMap Defs;
+  
+  Defs["tgt"] = "MBB";  
+  SS << PatTrans.genEmitMI(InferenceResults.UncondBranchSR, Defs, &LMap,
+			   true, false, &AuxiliarRegs, 2, NULL, "&MBB", "",
+			   "get");
+  
+  return SS.str();
+}
+
 // This function generates the SelectCC pseudo custom inserter, used by LLVM
 // scheduler to substitute SelectCC with target instructions and
 // a few basicblocks.
@@ -1477,6 +1495,8 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.StoreAddConstSR = SR;
     else if (I->Name == "LOADADDCONST")
       InferenceResults.LoadAddConstSR = SR;
+    else if (I->Name == "BR")
+      InferenceResults.UncondBranchSR = SR;
     else if (I->Name == "BRCOND")
       InferenceResults.BranchCond1SR = SR;
     else if (I->Name == "BRCOND2")
@@ -1534,7 +1554,9 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
   assert(InferenceResults.StoreAddConstSR != NULL && 
 	 "Missing built-in pattern STOREADDCONST");  
   assert(InferenceResults.LoadAddConstSR != NULL && 
-	 "Missing built-in pattern LOADADDCONST");  
+	 "Missing built-in pattern LOADADDCONST"); 
+  assert(InferenceResults.UncondBranchSR != NULL && 
+	 "Missing built-in pattern BR");
   assert(InferenceResults.BranchCond1SR != NULL && 
 	 "Missing built-in pattern BRCOND");
   assert(InferenceResults.BranchCond2SR != NULL && 

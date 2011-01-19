@@ -174,8 +174,11 @@ unsigned
 `'__arch__`'InstrInfo::InsertBranch(MachineBasicBlock &MBB,MachineBasicBlock *TBB,
                              MachineBasicBlock *FBB,
                              const SmallVectorImpl<MachineOperand> &Cond)const{
-  assert (0 && "InsertBranch not implemented.");
-  return 0;
+  MachineBasicBlock *tgt = TBB;
+  // Can only insert uncond branches so far.
+  assert(Cond.empty() && !FBB && TBB && "Can only handle uncond branches!");
+__insert_branch__    
+  return 1;
 }
 
 bool `'__arch__`'InstrInfo::copyRegToReg(MachineBasicBlock &MBB,

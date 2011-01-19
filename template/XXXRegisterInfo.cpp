@@ -179,25 +179,26 @@ void __arch__`'RegisterInfo::adjustStackFrame(MachineFunction &MF) const
   int StackOffset = 0-StackSize;
   unsigned RegSize = __wordsize__ / 8;
  
-  StackOffset = ((StackOffset+StackAlign-1)/StackAlign*StackAlign);
+  //StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);
 
 
   if (hasFP(MF)) {
+    StackOffset -= RegSize;
     MFI->setObjectOffset(MFI->CreateStackObject(RegSize, RegSize), 
                          StackOffset);
     FI->setFPStackOffset(StackOffset);
-    //TopCPUSavedRegOff = StackOffset;
-    StackOffset -= RegSize;
+    //TopCPUSavedRegOff = StackOffset;    
   }
+  //StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);
 
   if (MFI->hasCalls()) {
+    StackOffset -= RegSize;
     MFI->setObjectOffset(MFI->CreateStackObject(RegSize, RegSize), 
                          StackOffset);
     FI->setRAStackOffset(StackOffset);
-    //TopCPUSavedRegOff = StackOffset;
-    StackOffset -= RegSize;
+    //TopCPUSavedRegOff = StackOffset;    
   }
-  StackOffset = ((StackOffset+StackAlign-1)/StackAlign*StackAlign);
+  StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);
 
   // Update frame info
   MFI->setStackSize(0-StackOffset);
@@ -219,7 +220,7 @@ hasFP(const MachineFunction &MF) const {
 void __arch__`'RegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
-#if 0
+#if 1
   MachineInstr &MI = *I;
   int Size = MI.getOperand(0).getImm();
   if (MI.getOpcode() == __arch__`'::ADJCALLSTACKDOWN)
@@ -315,12 +316,17 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   DOUT << "spOffset   : " << spOffset << "\n";
   DOUT << "stackSize  : " << stackSize << "\n";
   #endif
-
-  // as explained on LowerFORMAL_ARGUMENTS, detect negative offsets 
-  // and adjust SPOffsets considering the final stack size.
+  
   int Offset = ((spOffset < 0) ? (stackSize + spOffset) : (spOffset));
   if (!hasFP(MF))
     spOffset = Offset;
+
+  // as explained on LowerFORMAL_ARGUMENTS, detect negative indexes
+  // and adjust SPOffsets considering the final stack size.
+  // Accessing caller stack frame
+  if (FrameIndex < 0) {
+    spOffset = stackSize + (((-1)*FrameIndex)-1) * (__wordsize__ / 8);
+  }
   //Offset    += MI.getOperand(i-1).getImm();
 
   #ifndef NDEBUG
