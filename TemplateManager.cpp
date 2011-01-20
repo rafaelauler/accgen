@@ -1442,18 +1442,34 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     Cache.ClearFileAndSetVersion(Version);
     invalidCache = true;
   }
-  for (PatternManager::Iterator I = PatMan.begin(), E = PatMan.end();
-       I != E; ++I) {
+#ifdef PARALLEL_SEARCH
+#pragma omp parallel for shared(Cache, Log, SSfunc, SSheaders) schedule (dynamic, 1)
+#endif
+  for (unsigned i = 0; i < PatMan.size(); ++i) {
+    PatternManager::Iterator I = PatMan.getElementAt(i);
     bool CacheHit = false;
+    SearchResult *SR;
+#ifdef PARALLEL_SEARCH
+#pragma omp critical
+{
+#endif    
     count ++;
     Log << "Now finding implementation for : " << I->Name << "\n";  
-    SearchResult *SR = invalidCache? NULL : Cache.LoadRecord(I->Name);
+    SR = invalidCache? NULL : Cache.LoadRecord(I->Name);
     if (SR != NULL) {
       CacheHit = true;
       Log << "Recovered from cache.\n";
       SR->DumpResults(Log);
-    } else
+    }
+#ifdef PARALLEL_SEARCH
+}
+#endif
+    if (SR == NULL)
       SR = FindImplementation(I->TargetImpl, Log);
+#ifdef PARALLEL_SEARCH
+#pragma omp critical
+{
+#endif
     if (SR == NULL) {
       std::cerr << "Failed: Could not find implementation for pattern " <<
 	I->Name << "\n";
@@ -1519,6 +1535,9 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.BranchCond10SR = SR;
     else
       delete SR;
+#ifdef PARALLEL_SEARCH
+}
+#endif
   }    
   stringstream SSswitch;
   for (map<string, MatcherCode>::iterator I = Map.begin(), E = Map.end();

@@ -502,6 +502,16 @@ namespace backendgen {
 		      const Tree* TargetImpl);
       Iterator begin();
       Iterator end();
+      unsigned size() const {
+	return PatList.size();
+      }
+      Iterator getElementAt(unsigned n) {
+	Iterator I = begin();
+	for (unsigned cur = 0; cur < n; ++cur) {
+	  ++I;
+	}
+	return I;
+      }
       
       // Static utils - Pattern Generation
       static const Tree* genCopyRegToRegPat(OperatorTableManager& OpMan,

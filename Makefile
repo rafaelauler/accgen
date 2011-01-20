@@ -5,13 +5,13 @@ ARCH_INC = -I../install/include/archc/
 ARCH_ACPP_INC	= -I$(ARCH_SRC_DIR)/acpp/
 ARCH_ACPP_LIB = -L$(ARCH_SRC_DIR)/acpp/.libs/
 
-CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB)
+CXXFLAGS = $(ARCH_INC) $(ARCH_ACPP_INC) $(ARCH_ACPP_LIB) -fopenmp
 
 objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o PatternTranslator.o LLVMDAGInfo.o SaveAgent.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h
-	$(CXX) $^ -g -Wall -Werror -c
+	$(CXX) $^ -g -Wall -Werror -fopenmp -c
 
 #
 # These entries make sure we produce the correct parser.o and lex.o related

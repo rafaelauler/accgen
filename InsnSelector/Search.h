@@ -18,7 +18,12 @@
 
 // TransCache is static, so it gets used between different searches.
 // In order words, Search gets faster when it is used multiple times.
-#define STATIC_TRANSCACHE
+//#define STATIC_TRANSCACHE
+
+// If parallel search is enabled, TemplateManager will fork multiple
+// threads to search for more than one pattern at a time. To avoid
+// data race conditions, STATIC_TRANSCACHE must be DISABLED.
+#define PARALLEL_SEARCH
 
 using namespace backendgen::expression;
 
