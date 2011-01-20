@@ -121,7 +121,7 @@ class TemplateManager {
   std::string generateCopyRegPatterns(std::ostream &Log);
   std::string generateIsMove();
   SearchResult* FindImplementation(const expression::Tree *Exp,
-				   std::ostream &Log);
+				   std::ostream &Log, int TID);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
   std::string generateReturnLowering();
   void generateSimplePatterns(std::ostream &Log, std::string **EmitFunctions,

@@ -19,11 +19,15 @@
 // TransCache is static, so it gets used between different searches.
 // In order words, Search gets faster when it is used multiple times.
 //#define STATIC_TRANSCACHE
+// The above definition is currently controlled by Makefile
+// This option is enabled by default.
 
 // If parallel search is enabled, TemplateManager will fork multiple
 // threads to search for more than one pattern at a time. To avoid
 // data race conditions, STATIC_TRANSCACHE must be DISABLED.
-#define PARALLEL_SEARCH
+//#define PARALLEL_SEARCH
+// The above definition is currently controlled by Makefile
+// Use "PARALLEL_SEARCH=1 make" to activate this and disable STATIC_TRANSCACHE.
 
 using namespace backendgen::expression;
 

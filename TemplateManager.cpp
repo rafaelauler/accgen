@@ -14,6 +14,9 @@
 #include <cstdlib>
 #include <cassert>
 #include <ctime>
+#ifdef PARALLEL_SEARCH
+#include <omp.h>
+#endif
 
 #define INITIAL_DEPTH 5
 #define SEARCH_DEPTH 25
@@ -626,7 +629,7 @@ class UpdateSizeFunctor {
 };
 
 SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
-						  std::ostream &Log) {
+					std::ostream &Log, int TID=0) {
   Search S(RuleManager, InstructionManager);
   unsigned SearchDepth = INITIAL_DEPTH;
   SearchResult *R = NULL;
@@ -637,6 +640,8 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   while (R == NULL || R->Instructions->size() == 0) {
     if (SearchDepth == SEARCH_DEPTH)
       break;
+    if (TID != 0)
+      Log << "Thread " << TID << ": ";
     Log << "  Trying search with depth " << SearchDepth << "\n";
     S.setMaxDepth(SearchDepth);
     SearchDepth = SearchDepth + SEARCH_STEP;
@@ -1446,12 +1451,16 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 #pragma omp parallel for shared(Cache, Log, SSfunc, SSheaders) schedule (dynamic, 1)
 #endif
   for (unsigned i = 0; i < PatMan.size(); ++i) {
+#ifdef PARALLEL_SEARCH
+    int tid = omp_get_thread_num() + 1;
+#endif
     PatternManager::Iterator I = PatMan.getElementAt(i);
     bool CacheHit = false;
     SearchResult *SR;
 #ifdef PARALLEL_SEARCH
 #pragma omp critical
 {
+    Log << "Thread " << tid << ": ";
 #endif    
     count ++;
     Log << "Now finding implementation for : " << I->Name << "\n";  
@@ -1463,9 +1472,13 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
     }
 #ifdef PARALLEL_SEARCH
 }
-#endif
+    if (SR == NULL)
+      SR = FindImplementation(I->TargetImpl, Log, tid);
+#else
     if (SR == NULL)
       SR = FindImplementation(I->TargetImpl, Log);
+#endif
+    
 #ifdef PARALLEL_SEARCH
 #pragma omp critical
 {
