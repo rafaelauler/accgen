@@ -15,6 +15,10 @@
 define operator +        as arity 2;
 define operator -        as arity 2;
 define operator *        as arity 2;
+define operator sdiv     as arity 2;
+define operator udiv     as arity 2;
+define operator srem     as arity 2;
+define operator urem     as arity 2;
 define operator ~        as arity 1;
 define operator mulhs    as arity 2;
 define operator mulhu    as arity 2;
@@ -252,6 +256,26 @@ define pattern MULHU as (
   (transfer a3:regs (mulhu a1:regs a2:regs));
 );
 
+//define pattern SDIV as (
+//  "(sdiv i32:$a1, i32:$a2)";
+//  (transfer a3:regs (sdiv a1:regs a2:regs));
+//);
+
+//define pattern UDIV as (
+//  "(udiv i32:$a1, i32:$a2)";
+//  (transfer a3:regs (udiv a1:regs a2:regs));
+//);
+
+//define pattern SREM as (
+//  "(srem i32:$a1, i32:$a2)";
+//  (transfer a3:regs (srem a1:regs a2:regs));
+//);
+
+//define pattern UREM as (
+//  "(urem i32:$a1, i32:$a2)";
+//  (transfer a3:regs (urem a1:regs a2:regs));
+//);
+
 define pattern SHLCONST as (
   "(shl i32:$a1, (tgtimm i32:$a2))";
   (transfer a3:regs (shl a1:regs imm:a2:tgtimm));
@@ -381,6 +405,11 @@ define pattern BRCOND10 as (
 define pattern BR as (
   "(br (basicblock i32:$tgt))";
   (jump imm:tgt:int);
+);
+
+define pattern BRIND as (
+  "(brind (jumptable i32:$tgt))";
+  (jump tgt:regs);
 );
 
 define pattern CONST as (
@@ -527,6 +556,10 @@ define instruction b semantic as (
 define instruction b semantic as (
   let Op1 = "" in
     (call imm:Op2:int);
+) cost 1;
+define instruction bx semantic as (
+  let Op1 = "" in
+    (jump Op2:GPR);
 ) cost 1;
 
 // Data processing instructions

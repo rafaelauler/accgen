@@ -181,7 +181,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 40;
+  const unsigned NodeNamesSz = 46;
   
   const string NodeNames[] = { "load", 
 			       "loadsexti1",
@@ -201,6 +201,10 @@ namespace {
 			       "mulhu",
 			       "smul_lohi",
 			       "umul_lohi",
+			       "sdiv",
+			       "udiv",
+			       "srem",
+			       "urem",
 			       "shl",
 			       "srl",
 			       "sra",
@@ -219,9 +223,11 @@ namespace {
 			       "tglobaladdr",
 			       "globaladdr",
 			       "br",
+			       "brind",
 			       "br_cc",
 			       "condcode",
 			       "basicblock",
+			       "jumptable",
 			       "sign_extend_inreg"
   };
   
@@ -243,6 +249,10 @@ namespace {
 			       "ISD::MULHU",
 			       "ISD::SMUL_LOHI",
 			       "ISD::UMUL_LOHI",
+			       "ISD::SDIV",
+			       "ISD::UDIV",
+			       "ISD::SREM",
+			       "ISD::UREM",
 			       "ISD::SHL",
 			       "ISD::SRL",
 			       "ISD::SRA",
@@ -261,9 +271,11 @@ namespace {
 			       "ISD::TargetGlobalAddress",
 			       "ISD::GlobalAddress",
 			       "ISD::BR",
+			       "ISD::BRIND",
 			       "ISD::BR_CC",
 			       "ISD::CONDCODE",
 			       "ISD::BasicBlock",
+			       "ISD::JumpTable",
 			       "ISD::SIGN_EXTEND_INREG"
   };
   
@@ -285,6 +297,10 @@ namespace {
 			      NULL, // mulhu
 			      NULL, // smul_lohi
 			      NULL, // umul_lohi
+			      NULL, // sdiv
+			      NULL, // udiv
+			      NULL, // srem
+			      NULL, // urem
 			      NULL, // shl
 			      NULL, // srl
 			      NULL, // sra
@@ -303,9 +319,11 @@ namespace {
 			      NULL, // tglobaladdr
 			      GetGlobalAddress, // globaladdr
 			      NULL, // br
+			      NULL, // brind
 			      NULL, // br_cc
 			      NULL, // condcode
 			      NULL, // basicblock
+			      NULL, // jumptable
 			      NULL  // sign_extend_inreg
   };
   
@@ -327,6 +345,10 @@ namespace {
 				  NULL, // mulhu
 				  NULL, // smul_lohi
 				  NULL, // umul_lohi
+				  NULL, // sdiv
+				  NULL, // udiv
+				  NULL, // srem
+				  NULL, // urem
 				  NULL, // shl
 				  NULL, // srl
 				  NULL, // sra
@@ -345,9 +367,11 @@ namespace {
 				  NULL, // tglobaladdr
 				  NULL, // globaladdr
 				  NULL, // br
+				  NULL, // brind
 				  NULL, // br_cc
 				  MatchCondCode, // condcode
 				  NULL,  // basicblock
+				  NULL,  // jumptable
 				  NULL  // sign_extend_inreg
   };
 
@@ -369,6 +393,10 @@ namespace {
 			       true,  // mulhu
 			       true,  // smul_lohi
 			       true,  // umul_lohi
+			       true,  // sdiv
+			       true,  // udiv
+			       true,  // srem
+			       true,  // urem
 			       true,  // shl
 			       true,  // srl
 			       true,  // sra
@@ -387,9 +415,11 @@ namespace {
 			       false, // tglobaladdr
 			       false, // globaladdr
 			       true,  // br
+			       true,  // brind
 			       true,  // br_cc
 			       false, // condcode
 			       false, // basicblock
+			       false, // jumptable
 			       true   // sign_extend_inreg
   };
   
@@ -411,6 +441,10 @@ namespace {
 			  false, // mulhu
 			  false, // smul_lohi
 			  false, // umul_lohi
+			  false, // sdiv
+			  false, // udiv
+			  false, // srem
+			  false, // urem
 			  false, // shl
 			  false, // srl
 			  false, // sra
@@ -429,9 +463,11 @@ namespace {
 			  false, // tglobaladdr
 			  false, // globaladdr
 			  true,  // br
+			  true,  // brind
 			  true,  // br_cc
 			  false, // condcode
 			  false, // basicblock
+			  false, // jumptable
 			  false  // sign_extend_inreg
   };
   
@@ -453,6 +489,10 @@ namespace {
 			    false, // mulhu
 			    false, // smul_lohi
 			    false, // umul_lohi
+			    false, // sdiv
+			    false, // udiv
+			    false, // srem
+			    false, // urem
 			    false, // shl
 			    false, // srl
 			    false, // sra
@@ -471,9 +511,11 @@ namespace {
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br
+			    false, // brind
 			    false, // br_cc
 			    false, // condcode
 			    false, // basicblock
+			    false, // jumptable
 			    false  // sign_extend_inreg
   };
   
@@ -495,6 +537,10 @@ namespace {
 			    false, // mulhu
 			    false, // smul_lohi
 			    false, // umul_lohi
+			    false, // sdiv
+			    false, // udiv
+			    false, // srem
+			    false, // urem
 			    false, // shl
 			    false, // srl
 			    false, // sra
@@ -513,9 +559,11 @@ namespace {
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br
+			    false, // brind
 			    false, // br_cc
 			    false, // condcode
 			    false, // basicblock
+			    false, // jumptable
 			    false  // sign_extend_inreg
   };
   

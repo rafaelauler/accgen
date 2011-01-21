@@ -468,8 +468,7 @@ __arch__`'TargetLowering::`'__arch__`'TargetLowering(TargetMachine &TM)
 __set_up_register_classes__
 
   computeRegisterProperties();
-  
-  /*
+    
   setOperationAction(ISD::MEMBARRIER, MVT::Other, Expand);
   setOperationAction(ISD::FSIN , MVT::f64, Expand);
   setOperationAction(ISD::FCOS , MVT::f64, Expand);
@@ -480,18 +479,22 @@ __set_up_register_classes__
   setOperationAction(ISD::CTPOP, MVT::i32, Expand);
   setOperationAction(ISD::CTTZ , MVT::i32, Expand);
   setOperationAction(ISD::CTLZ , MVT::i32, Expand);
-  setOperationAction(ISD::ROTL , MVT::i32, Expand);
-  setOperationAction(ISD::ROTR , MVT::i32, Expand);
+  /*setOperationAction(ISD::ROTL , MVT::i32, Expand);
+  setOperationAction(ISD::ROTR , MVT::i32, Expand);*/
   setOperationAction(ISD::BSWAP, MVT::i32, Expand);
   setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
   setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
   setOperationAction(ISD::FPOW , MVT::f64, Expand);
   setOperationAction(ISD::FPOW , MVT::f32, Expand);
   
+  setOperationAction(ISD::SDIV, MVT::i32, Expand);
+  setOperationAction(ISD::UDIV, MVT::i32, Expand);
   setOperationAction(ISD::UREM, MVT::i32, Expand);
   setOperationAction(ISD::SREM, MVT::i32, Expand);
   setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
-  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);*/
+  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+  
+  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   
   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
