@@ -16,6 +16,8 @@ define operator +        as arity 2;
 define operator -        as arity 2;
 define operator *        as arity 2;
 define operator ~        as arity 1;
+define operator mulhs    as arity 2;
+define operator mulhu    as arity 2;
 define operator xor      as arity 2;
 define operator transfer as arity 2;
 define operator zext     as arity 2;
@@ -238,6 +240,16 @@ define pattern SUB as (
 define pattern MUL as (
   "(mul i32:$a1, i32:$a2)";
   (transfer a3:regs (* a1:regs a2:regs));
+);
+
+define pattern MULHS as (
+  "(mulhs i32:$a1, i32:$a2)";
+  (transfer a3:regs (mulhs a1:regs a2:regs));
+);
+
+define pattern MULHU as (
+  "(mulhu i32:$a1, i32:$a2)";
+  (transfer a3:regs (mulhu a1:regs a2:regs));
 );
 
 define pattern SHLCONST as (
@@ -586,6 +598,16 @@ define instruction add3 semantic as (
 define instruction mul semantic as (
   let Op1 = "", Op2 = "" in
     (transfer Op3:GPR (* Op4:GPR Op5:GPR));
+) cost 10;
+
+define instruction smull semantic as (
+  let Op1 = "", Op2 = "", Op3 = "r9" in
+    (transfer Op4:GPR (mulhs Op5:GPR Op6:GPR));
+) cost 10;
+
+define instruction umull semantic as (
+  let Op1 = "", Op2 = "", Op3 = "r9" in
+    (transfer Op4:GPR (mulhu Op5:GPR Op6:GPR));
 ) cost 10;
 
 //====-- ORR --====//

@@ -181,7 +181,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 36;
+  const unsigned NodeNamesSz = 40;
   
   const string NodeNames[] = { "load", 
 			       "loadsexti1",
@@ -197,6 +197,10 @@ namespace {
 			       "add",
 			       "sub",
 			       "mul",
+			       "mulhs",
+			       "mulhu",
+			       "smul_lohi",
+			       "umul_lohi",
 			       "shl",
 			       "srl",
 			       "sra",
@@ -235,6 +239,10 @@ namespace {
 			       "ISD::ADD",
 			       "ISD::SUB",
 			       "ISD::MUL",
+			       "ISD::MULHS",
+			       "ISD::MULHU",
+			       "ISD::SMUL_LOHI",
+			       "ISD::UMUL_LOHI",
 			       "ISD::SHL",
 			       "ISD::SRL",
 			       "ISD::SRA",
@@ -273,6 +281,10 @@ namespace {
 			      NULL, // add
 			      NULL, // sub
 			      NULL, // mul
+			      NULL, // mulhs
+			      NULL, // mulhu
+			      NULL, // smul_lohi
+			      NULL, // umul_lohi
 			      NULL, // shl
 			      NULL, // srl
 			      NULL, // sra
@@ -311,6 +323,10 @@ namespace {
 				  NULL, // add
 				  NULL, // sub
 				  NULL, // mul
+				  NULL, // mulhs
+				  NULL, // mulhu
+				  NULL, // smul_lohi
+				  NULL, // umul_lohi
 				  NULL, // shl
 				  NULL, // srl
 				  NULL, // sra
@@ -349,6 +365,10 @@ namespace {
 			       true,  // add
 			       true,  // sub
 			       true,  // mul
+			       true,  // mulhs
+			       true,  // mulhu
+			       true,  // smul_lohi
+			       true,  // umul_lohi
 			       true,  // shl
 			       true,  // srl
 			       true,  // sra
@@ -387,6 +407,10 @@ namespace {
 			  false, // add
 			  false, // sub
 			  false, // mul
+			  false, // mulhs
+			  false, // mulhu
+			  false, // smul_lohi
+			  false, // umul_lohi
 			  false, // shl
 			  false, // srl
 			  false, // sra
@@ -425,6 +449,10 @@ namespace {
 			    false, // add
 			    false, // sub
 			    false, // mul
+			    false, // mulhs
+			    false, // mulhu
+			    false, // smul_lohi
+			    false, // umul_lohi
 			    false, // shl
 			    false, // srl
 			    false, // sra
@@ -463,6 +491,10 @@ namespace {
 			    false, // add
 			    false, // sub
 			    false, // mul
+			    false, // mulhs
+			    false, // mulhu
+			    false, // smul_lohi
+			    false, // umul_lohi
 			    false, // shl
 			    false, // srl
 			    false, // sra
