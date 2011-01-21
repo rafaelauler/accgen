@@ -277,6 +277,31 @@ define pattern RORCONST as (
   (transfer a3:regs (ror a1:regs imm:a2:tgtimm));
 );
 
+define pattern SHL as (
+  "(shl i32:$a1, i32:$a2)";
+  (transfer a3:regs (shl a1:regs a2:regs));
+);
+
+define pattern SHR as (
+  "(srl i32:$a1, i32:$a2)";
+  (transfer a3:regs (shr a1:regs a2:regs));
+);
+
+define pattern SRA as (
+  "(sra i32:$a1, i32:$a2)";
+  (transfer a3:regs (asr a1:regs a2:regs));
+);
+
+define pattern ROL as (
+  "(rotl i32:$a1, i32:$a2)";
+  (transfer a3:regs (rol a1:regs a2:regs));
+);
+
+define pattern ROR as (
+  "(rotr i32:$a1, i32:$a2)";
+  (transfer a3:regs (ror a1:regs a2:regs));
+);
+
 define pattern OR as (
   "(or i32:$a1, i32:$a2)";
   (transfer a3:regs (or a1:regs a2:regs));

@@ -877,10 +877,21 @@ string TemplateManager::generateFISwitchToNBit(SearchResult* LoadConstPatt) {
   Defs["a1"] = "Imm";
   //SS << generateIdent(12) << "if (AtBegin) I = MBB.begin(); else I = next(I);"
     // << endl;
-  SS << generateIdent(12) << "a2 = a3;" << endl;
+  SS << generateIdent(10) << "a2 = " << ArchName << "::" 
+     << (*AuxiliarRegs.begin())->getName() << ";" << endl;
+  
   SS << PatTrans.genEmitMI(LoadConstPatt, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 12, NULL, "MBB", "I",
 			   "TII.get");  
+  // Emit generic add
+  Defs.clear();
+  Defs["a1"] = "Reg";
+  Defs["a2"] = "Reg";
+  Defs["a3"] = "Reg";
+  SS << generateIdent(12) << "a1 = AuxReg;" << endl;  
+  SS << PatTrans.genEmitMI(InferenceResults.AddSR, Defs, &LMap, true, 
+			   false, &AuxiliarRegs, 12, NULL, "MBB", "I",
+			   "TII.get");
   SS << generateIdent(12) << "Patched = true;" << endl;
   SS << generateIdent(10) << "} // end if (isRawFI)" << endl;
   SS << generateIdent(8) << "} // end else (idStore)" << endl;
