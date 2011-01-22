@@ -80,6 +80,8 @@ class TemplateManager {
     // register class
     MoveListTy MoveRegToRegList;
   } InferenceResults;
+
+  bool ForceCacheUsage;
   
   std::string generateAddImm(const std::string& DestName,
 			       const std::string& BaseName,
@@ -136,11 +138,11 @@ class TemplateManager {
   explicit TemplateManager(TransformationRules &TR, InstrManager &IM,
 			   RegClassManager& RM, OperandTableManager &OM,
 			   OperatorTableManager &ORM,
-			   PatternManager& PM, unsigned Version):
+			   PatternManager& PM, unsigned Version, bool FCU):
   NumRegs(0), IsBigEndian(true), WordSize(32), RuleManager(TR),
     InstructionManager(IM), RegisterClassManager(RM), OperandTable(OM),
     OperatorTable(ORM), PatMan(PM), PatTrans(OM), WorkingDir(NULL),
-    Version(Version) {
+    Version(Version), ForceCacheUsage(FCU) {
       CommentChar = '#';
       TypeCharSpecifier = '@';
       InferenceResults.StoreToStackSlotSR = NULL;

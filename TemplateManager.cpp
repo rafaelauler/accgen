@@ -1454,7 +1454,7 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
   start = std::time(0);
   Log << "Pattern implementation inference will start now. This may take"
       << " several\nminutes.\n\n";
-  if (Cache.CheckVersion() != Version) {
+  if (!ForceCacheUsage && Cache.CheckVersion() != Version) {
     Cache.ClearFileAndSetVersion(Version);
     invalidCache = true;
   }

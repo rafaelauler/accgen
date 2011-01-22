@@ -358,14 +358,24 @@ void create_dir(const char *path) {
 
 int main(int argc, char **argv) {
   unsigned Version;
+  bool ForceCacheUsage = false;
   std::cout << "ArchC LLVM Backend Generator (version 0.1).\n";
-  if (argc != 4) {
+  if (argc != 4 && argc != 5) {
     std::cerr << "Wrong number of parameters.\n";
     std::cerr << "Usage is: " << argv[0] << " <project folder> <project file>"
 	      << " <backend info file>\n\n";
     std::cerr << "Example: " << argv[0] << " /l/ArchC/ARM/ arm.ac" 
 	      << "arm-be.ac\n\n";
     exit(EXIT_FAILURE);
+  }
+
+  if (argc == 5) {
+    std::string Param(argv[4]);
+    if (Param != "-f") {
+      std::cerr << "Unrecognized parameter: " << Param << "\n";
+      exit(EXIT_FAILURE);
+    }
+    ForceCacheUsage = true;
   }
 
   helper::CMemWatcher *MemWatcher = helper::CMemWatcher::Instance();
@@ -405,7 +415,8 @@ int main(int argc, char **argv) {
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
-		     OperandTable, OperatorTable, PatMan, Version);
+		     OperandTable, OperatorTable, PatMan, Version,
+		     ForceCacheUsage);
   TM.SetArchName("sparc16");
   TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
   TM.SetNumRegs(48);

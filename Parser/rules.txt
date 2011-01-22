@@ -110,7 +110,7 @@ define pattern STORETRUNC16 as (
 );
 
 define pattern STOREFICONST as (
-  "(store (imm i32:$src), (frameindex i32:$val))";
+  "(store (tgtimm i32:$src), (frameindex i32:$val))";
   (transfer (memref (+ val:regs imm:val:tgtimm)) imm:src:tgtimm);
 );
 
@@ -131,7 +131,7 @@ define pattern STOREFI as (
 
 // Built-in pattern: STOREADDCONST is used to help emit prologue
 define pattern STOREADDCONST as (
-  "(store i32:$src, (add i32:$a1, (imm i32:$a2)))";
+  "(store i32:$src, (add i32:$a1, (tgtimm i32:$a2)))";
   (transfer (memref (+ a1:regs imm:a2:tgtimm)) src:regs);
 );
 
@@ -176,7 +176,7 @@ define pattern LOADFI as (
 
 // Built-in pattern: LOADADDCONST is used to help emit epilogue
 define pattern LOADADDCONST as (
-  "(load (add i32:$a1, (imm i32:$a2)))";
+  "(load (add i32:$a1, (tgtimm i32:$a2)))";
   (transfer dest:regs (memref (+ a1:regs imm:a2:tgtimm)));
 );
 
