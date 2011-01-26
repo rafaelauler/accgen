@@ -35,6 +35,7 @@ namespace llvm {
 
       CALL,        // A call instruction.
       Select_CC,
+      DummyReference,
       RET_FLAG     // Return with a flag operand.
     };
   }
@@ -48,6 +49,7 @@ namespace llvm {
     SDValue LowerGLOBALADDRESS(SDValue Op, SelectionDAG &DAG);
     SDValue LowerCONSTANTPOOL(SDValue Op, SelectionDAG &DAG);
     SDValue LowerFORMAL_ARGUMENTS(SDValue Op, SelectionDAG &DAG);
+    SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG);
 
   public:
     __arch__`'TargetLowering(TargetMachine &TM);

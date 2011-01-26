@@ -20,7 +20,11 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
+#include "llvm/Target/TargetAsmInfo.h"
 #include "llvm/ADT/VectorExtras.h"
+#include "llvm/GlobalVariable.h"
+#include "llvm/DerivedTypes.h"
+#include <sstream>
 using namespace llvm;
 
 
@@ -496,6 +500,8 @@ __set_up_register_classes__
   
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   
+  setOperationAction(ISD::JumpTable, MVT::i32, Custom);
+  
   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
   
@@ -556,10 +562,54 @@ void __arch__`'TargetLowering::computeMaskedBitsForTargetNode(const SDValue Op,
   KnownZero = KnownOne = APInt(Mask.getBitWidth(), 0);   // Don't know anything.
 
 }
-#include <iostream>
+
+SDValue `'__arch__`'TargetLowering::
+LowerJumpTable(SDValue Op, SelectionDAG &DAG) 
+{  
+  std::stringstream Name;
+          
+  MVT PtrVT = Op.getValueType();
+  JumpTableSDNode *JT  = cast<JumpTableSDNode>(Op);
+  //DAG.getMachineFunction().getFunction()->getName()
+  Name //<< getTargetMachine().getTargetAsmInfo()->getPrivateGlobalPrefix()
+       << "JTI_MFUNCNUM__" << JT->getIndex();
+  // GlobalAlias ctor - If a parent module is specified, the alias is
+  // automatically inserted into the end of the specified module's alias list.
+  //GlobalAlias(const Type *Ty, LinkageTypes Linkage, const std::string &Name = "",
+  //          Constant* Aliasee = 0, Module *Parent = 0);
+  // GlobalVariable ctor - If a parent module is specified, the global is
+  // automatically inserted into the end of the specified modules global list.
+  //GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
+  //               Constant *Initializer = 0, const std::string &Name = "",
+  //               Module *Parent = 0, bool ThreadLocal = false,
+  //               unsigned AddressSpace = 0);
+  // GlobalVariable ctor - This creates a global and inserts it before the
+  // specified other global.
+  //GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
+  //               Constant *Initializer, const std::string &Name,
+  //               GlobalVariable *InsertBefore, bool ThreadLocal = false,
+  //               unsigned AddressSpace = 0);  
+  
+  //SDValue Chain = SDValue(*DAG.getEntryNode().getNode()->use_begin(), 1);
+  SDValue Chain = DAG.getRoot().getNode()->getOperand(0);
+  SDValue Operand = DAG.getTargetJumpTable(JT->getIndex(), PtrVT);;  
+  SDValue Ops[] = {Chain, Operand};
+  SDValue Dummy = DAG.getNode(`'__arch_in_caps__`'ISD::DummyReference, MVT::Other, Ops, 2);
+    
+  //DAG.ReplaceAllUsesWith(DAG.getRoot().getNode()->getOperand(0), &Dummy);
+  //SDValue Ops2[] = {Operand, Chain};
+  DAG.UpdateNodeOperands(DAG.getRoot(), Dummy);
+  
+  return DAG.getGlobalAddress(new GlobalVariable(IntegerType::get(32),
+	false,
+	GlobalValue::PrivateLinkage, 0, Name.str()), PtrVT);
+	
+  
+}
+
 SDValue __arch__`'TargetLowering::
 LowerOperation(SDValue Op, SelectionDAG &DAG) {
-  std::cout << "Operation name:" << Op.getNode()->getOperationName() << "\n";
+  llvm::cout << "Operation name:" << Op.getNode()->getOperationName() << "\n";
 
   switch(Op.getOpcode()) {
   default: assert(0 && "Should not custom lower this!");
@@ -572,6 +622,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) {
   case ISD::RET:                return LowerRET(Op, DAG);
   case ISD::FORMAL_ARGUMENTS:   return LowerFORMAL_ARGUMENTS(Op, DAG);
   case ISD::SELECT_CC:          return LowerSELECT_CC(Op, DAG);
+  case ISD::JumpTable:          return LowerJumpTable(Op, DAG);
   }
 
 }
@@ -583,6 +634,11 @@ __arch__`'TargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
 
   switch (MI->getOpcode()) {
   default: //assert(false && "Unexpected instr type to insert");
+  case `'__arch_in_caps__`'ISD::DummyReference: {
+    MachineFunction *F = BB->getParent();
+    F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
+    return BB;
+  }
   case `'__arch_in_caps__`'ISD::Select_CC: {
     // To "insert" a SELECT_CC instruction, we actually have to insert the
     // diamond control-flow pattern.  The incoming instruction knows the

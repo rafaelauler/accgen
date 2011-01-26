@@ -408,9 +408,15 @@ define pattern BR as (
 );
 
 define pattern BRIND as (
-  "(brind (jumptable i32:$tgt))";
+  "(brind i32:$tgt)";
   (jump tgt:regs);
 );
+
+//define pattern JUMPTABLE as (
+  //"(jumptable i32:$addr)";
+  //(transfer a3:regs (memref (+ addr:regs imm:addr:short)));
+  //(transfer a3:regs imm:addr:tgtimm);
+//);
 
 define pattern CONST as (
   "(tgtimm i32:$a1)";

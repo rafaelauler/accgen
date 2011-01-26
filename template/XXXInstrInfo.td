@@ -22,6 +22,7 @@ def SDT_CallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 def SDT_selectcc :  SDTypeProfile<1, 5, [SDTCisSameAs<0, 1>, 
                      SDTCisSameAs<1, 2>, SDTCisSameAs<2, 3>, 
                      SDTCisSameAs<3, 4>, SDTCisVT<4, i32>]>;
+def SDT_dummyref : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
 
 //===----------------------------------------------------------------------===//
 // Target specific nodes
@@ -34,6 +35,8 @@ def call : SDNode<"`'__arch_in_caps__`'ISD::CALL",SDT_Call, [SDNPHasChain,
                          SDNPOutFlag]>;
 def selecticc : SDNode<"`'__arch_in_caps__`'ISD::Select_CC", SDT_selectcc,
                        []>;
+def dummyref : SDNode<"`'__arch_in_caps__`'ISD::DummyReference", SDT_dummyref,
+                       [SDNPHasChain]>;
 // This operand is used in our MachineDAG to represent literals to be coded
 // in the target assembly language. It corresponds to "IsLiteral" flag
 // used in the PatternTranslator class of the LLVM backend generator.
@@ -69,6 +72,10 @@ def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 			    
 let usesCustomDAGSchedInserter = 1 in {   // Expanded by the scheduler.
 __select_cc_patts__  
+
+def DummyReference
+   : Pseudo<(outs), (ins i32imm:$T),
+       "; DUMMY REFERENCE!", [(dummyref timm:$T)]>;
 }
 
 //===----------------------------------------------------------------------===//

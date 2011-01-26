@@ -149,9 +149,11 @@ emitFunctionStart(MachineFunction &MF)
 void __arch__`'AsmPrinter::
 emitFunctionEnd(MachineFunction &MF) 
 {
+  std::stringstream ss;
   __arch__`'FunctionInfo *FI = 
     MF.getInfo<`'__arch__`'FunctionInfo>();
-  FI->printGlobalValues(O, Mang);
+  ss << getFunctionNumber();
+  FI->printGlobalValues(O, Mang, ss.str());
 }
 
 /// runOnMachineFunction - This uses the printMachineInstruction()
@@ -365,7 +367,7 @@ printOperand(const MachineInstr *MI, int opNum)
       << MO.getIndex();
     break;
   default:
-    O << "<unknown operand type>"; abort (); break;
+    assert(0 && "unknown operand type"); break;
   }
 }
 
