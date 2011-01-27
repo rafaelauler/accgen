@@ -535,7 +535,8 @@ string TemplateManager::generateInsnSizeTable() {
   stringstream SS;
 
   SS << "static unsigned InsnSizeTable[] = {" << endl;
-  SS << "0,0,0,0,0,0,0,0,0,0,0,0," << endl;
+  // MUST UPDATE WHEN THE NUMBER OF PSEUDO INCREASES
+  SS << "0,0,0,0,0,0,0,0,0,0,0,0,0,0," << endl; 
   for (InstrIterator I = InstructionManager.getBegin(), 
 	 E = InstructionManager.getEnd(), Prev = InstructionManager.getEnd();
        I != E; Prev = I++) {

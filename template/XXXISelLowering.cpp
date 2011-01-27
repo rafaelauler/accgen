@@ -641,13 +641,16 @@ __arch__`'TargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
   const TargetInstrInfo &TII = *(getTargetMachine().getInstrInfo());
 
   switch (MI->getOpcode()) {
-  default: //assert(false && "Unexpected instr type to insert");
-  case `'__arch_in_caps__`'ISD::DummyReference: {
-    MachineFunction *F = BB->getParent();
-    F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
+  default: 
+    llvm::cerr << "Unexpected EmitInstrWithCustomInserter:\n";
+    MI->dump();
+    assert(false && "Unexpected instr type to insert");
+  case `'__arch__`'::DummyReference: {
+    //MachineFunction *F = BB->getParent();
+    //F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
     return BB;
   }
-  case `'__arch_in_caps__`'ISD::Select_CC: {
+  case `'__arch__`'::SELECT_CC_0: {
     // To "insert" a SELECT_CC instruction, we actually have to insert the
     // diamond control-flow pattern.  The incoming instruction knows the
     // destination vreg to set, the condition code register to branch on, the

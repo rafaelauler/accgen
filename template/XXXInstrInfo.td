@@ -73,10 +73,11 @@ def ADJCALLSTACKUP : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 let usesCustomDAGSchedInserter = 1 in {   // Expanded by the scheduler.
 __select_cc_patts__  
 
+}
+
 def DummyReference
    : Pseudo<(outs), (ins GPR:$T),
-       "; DUMMY REFERENCE!", [(dummyref GPR:$T)]>;
-}
+       "", [(dummyref GPR:$T)]>;
 
 //===----------------------------------------------------------------------===//
 // Non-Instruction Patterns
