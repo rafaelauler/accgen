@@ -213,6 +213,11 @@ define pattern CALL2 as (
   (call imm:tgt:int);
 );
 
+define pattern CALL3 as (
+  "(call i32:$tgt)";
+  (call tgt:regs);
+);
+
 // Built-in pattern: ADDCONST is used to adjust stack when target-immediate
 // size values are used.
 define pattern ADDCONST as (
@@ -566,6 +571,10 @@ define instruction b semantic as (
 define instruction bx semantic as (
   let Op1 = "" in
     (jump Op2:GPR);
+) cost 1;
+define instruction blx2 semantic as (
+  let Op1 = "" in
+    (call Op2:GPR);
 ) cost 1;
 
 // Data processing instructions
