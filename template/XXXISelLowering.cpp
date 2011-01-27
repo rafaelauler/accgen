@@ -598,7 +598,15 @@ LowerJumpTable(SDValue Op, SelectionDAG &DAG)
     
   //DAG.ReplaceAllUsesWith(DAG.getRoot().getNode()->getOperand(0), &Dummy);
   //SDValue Ops2[] = {Operand, Chain};
-  DAG.UpdateNodeOperands(DAG.getRoot(), Dummy);
+  SDNode* No = DAG.getRoot().getNode();
+  SmallVector<SDValue, 16> OpValues;
+  
+  for (SDNode::op_iterator I = No->op_begin(), E = No->op_end(); I != E; ++I) {
+    OpValues.push_back(I->get());
+  }
+  OpValues[0] = Dummy;
+  
+  DAG.UpdateNodeOperands(DAG.getRoot(), &OpValues[0], OpValues.size());
   
   return DAG.getGlobalAddress(new GlobalVariable(IntegerType::get(32),
 	false,

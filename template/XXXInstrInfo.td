@@ -22,7 +22,7 @@ def SDT_CallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 def SDT_selectcc :  SDTypeProfile<1, 5, [SDTCisSameAs<0, 1>, 
                      SDTCisSameAs<1, 2>, SDTCisSameAs<2, 3>, 
                      SDTCisSameAs<3, 4>, SDTCisVT<4, i32>]>;
-def SDT_dummyref : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_dummyref : SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
 
 //===----------------------------------------------------------------------===//
 // Target specific nodes
@@ -74,8 +74,8 @@ let usesCustomDAGSchedInserter = 1 in {   // Expanded by the scheduler.
 __select_cc_patts__  
 
 def DummyReference
-   : Pseudo<(outs), (ins i32imm:$T),
-       "; DUMMY REFERENCE!", [(dummyref timm:$T)]>;
+   : Pseudo<(outs), (ins GPR:$T),
+       "; DUMMY REFERENCE!", [(dummyref GPR:$T)]>;
 }
 
 //===----------------------------------------------------------------------===//
