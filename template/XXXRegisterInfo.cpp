@@ -179,8 +179,7 @@ void __arch__`'RegisterInfo::adjustStackFrame(MachineFunction &MF) const
   int StackOffset = 0-StackSize;
   unsigned RegSize = __wordsize__ / 8;
  
-  //StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);
-
+  //StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);  
 
   if (hasFP(MF)) {
     StackOffset -= RegSize;
@@ -198,6 +197,13 @@ void __arch__`'RegisterInfo::adjustStackFrame(MachineFunction &MF) const
     FI->setRAStackOffset(StackOffset);
     //TopCPUSavedRegOff = StackOffset;    
   }
+  
+  //Allocate space for parameter passing via stack
+  StackOffset -= FI->getParamAreaSize();
+  
+  //llvm::cerr << "ParamAreaSize: "  << FI->getParamAreaSize() << "\n";
+  
+  //Align
   StackOffset = (-1)*(((-1)*StackOffset+StackAlign-1)/StackAlign*StackAlign);
 
   // Update frame info
@@ -220,9 +226,9 @@ hasFP(const MachineFunction &MF) const {
 void __arch__`'RegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
-#if 1
-  MachineInstr &MI = *I;
-  int Size = MI.getOperand(0).getImm();
+#if 0 
+  MachineInstr &MI = *I; 
+  int Size = MI.getOperand(0).getImm();  
   if (MI.getOpcode() == __arch__`'::ADJCALLSTACKDOWN)
     Size = -Size;
   if (Size > 0) {
@@ -311,11 +317,11 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   int stackSize  = MF.getFrameInfo()->getStackSize();
   int spOffset   = MF.getFrameInfo()->getObjectOffset(FrameIndex);
 
-  #ifndef NDEBUG
-  DOUT << "FrameIndex : " << FrameIndex << "\n";
-  DOUT << "spOffset   : " << spOffset << "\n";
-  DOUT << "stackSize  : " << stackSize << "\n";
-  #endif
+#if 0
+  llvm::cerr << "FrameIndex : " << FrameIndex << "\n";
+  llvm::cerr << "spOffset   : " << spOffset << "\n";
+  llvm::cerr << "stackSize  : " << stackSize << "\n";
+#endif
   
   int Offset = ((spOffset < 0) ? (stackSize + spOffset) : (spOffset));
   if (!hasFP(MF))

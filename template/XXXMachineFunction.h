@@ -39,6 +39,9 @@ private:
   /// saved. This is used on Prologue and Epilogue to emit RA save/restore
   int RAStackOffset;
   
+  /// Holds the ammount of space reserved in stack for parameter passing.
+  int ParamAreaSize;
+  
   struct GlobalValueElement {
     const GlobalValue* gv;
     int index;
@@ -60,8 +63,12 @@ private:
   std::string DefaultExp;
 public:
   __arch__`'FunctionInfo(MachineFunction& MF) 
-  : FPStackOffset(0), RAStackOffset(0), DefaultExp("GVGOESHERE")
+  : FPStackOffset(0), RAStackOffset(0), ParamAreaSize(0), 
+    DefaultExp("GVGOESHERE")
   {}
+  
+  int getParamAreaSize() const { return ParamAreaSize; }
+  void setParamAreaSize(int i) { ParamAreaSize = i; }
 
   int getFPStackOffset() const { return FPStackOffset; }
   void setFPStackOffset(int Off) { FPStackOffset = Off; }

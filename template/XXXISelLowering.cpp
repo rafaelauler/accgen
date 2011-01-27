@@ -13,6 +13,7 @@
 
 `#include "'__arch__`ISelLowering.h"'
 `#include "'__arch__`TargetMachine.h"'
+`#include "'__arch__`'MachineFunction.h"
 #include "llvm/Function.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -112,6 +113,8 @@ LowerCALL(SDValue Op, SelectionDAG &DAG)
   unsigned CC = TheCall->getCallingConv();
 
   MachineFrameInfo *MFI = MF.getFrameInfo();
+  
+  __arch__`'FunctionInfo *FI = MF.getInfo<`'__arch__`'FunctionInfo>();
 
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;
@@ -130,7 +133,7 @@ LowerCALL(SDValue Op, SelectionDAG &DAG)
   // First/LastArgStackLoc contains the first/last 
   // "at stack" argument location.
   int LastArgStackLoc = 0;
-  unsigned FirstStackArgLoc = 0;
+  unsigned FirstStackArgLoc = 0;    
 
   // Walk the register/memloc assignments, inserting copies/stores.
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
@@ -166,15 +169,20 @@ LowerCALL(SDValue Op, SelectionDAG &DAG)
     
     // Create the frame index object for this incoming parameter
     LastArgStackLoc = (FirstStackArgLoc + VA.getLocMemOffset());
+    
     int FI = MFI->CreateFixedObject(VA.getValVT().getSizeInBits()/8,
-                                    LastArgStackLoc);
-
+                                    LastArgStackLoc);     
+    
     SDValue PtrOff = DAG.getFrameIndex(FI,getPointerTy());
 
     // emit ISD::STORE whichs stores the 
     // parameter value to a stack Location
     MemOpChains.push_back(DAG.getStore(Chain, Arg, PtrOff, NULL, 0));
   }
+  //Reserve stack area for parameter size.
+  if (FI->getParamAreaSize() < (int)NumBytes)
+    FI->setParamAreaSize((int)NumBytes);
+  
 
   // Transform all store nodes into one single node because all store
   // nodes are independent of each other.
@@ -570,34 +578,13 @@ LowerJumpTable(SDValue Op, SelectionDAG &DAG)
           
   MVT PtrVT = Op.getValueType();
   JumpTableSDNode *JT  = cast<JumpTableSDNode>(Op);
-  //DAG.getMachineFunction().getFunction()->getName()
-  Name //<< getTargetMachine().getTargetAsmInfo()->getPrivateGlobalPrefix()
-       << "JTI_MFUNCNUM__" << JT->getIndex();
-  // GlobalAlias ctor - If a parent module is specified, the alias is
-  // automatically inserted into the end of the specified module's alias list.
-  //GlobalAlias(const Type *Ty, LinkageTypes Linkage, const std::string &Name = "",
-  //          Constant* Aliasee = 0, Module *Parent = 0);
-  // GlobalVariable ctor - If a parent module is specified, the global is
-  // automatically inserted into the end of the specified modules global list.
-  //GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
-  //               Constant *Initializer = 0, const std::string &Name = "",
-  //               Module *Parent = 0, bool ThreadLocal = false,
-  //               unsigned AddressSpace = 0);
-  // GlobalVariable ctor - This creates a global and inserts it before the
-  // specified other global.
-  //GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
-  //               Constant *Initializer, const std::string &Name,
-  //               GlobalVariable *InsertBefore, bool ThreadLocal = false,
-  //               unsigned AddressSpace = 0);  
-  
-  //SDValue Chain = SDValue(*DAG.getEntryNode().getNode()->use_begin(), 1);
+  Name << "JTI_MFUNCNUM__" << JT->getIndex();
+
   SDValue Chain = DAG.getRoot().getNode()->getOperand(0);
   SDValue Operand = DAG.getTargetJumpTable(JT->getIndex(), PtrVT);;  
   SDValue Ops[] = {Chain, Operand};
   SDValue Dummy = DAG.getNode(`'__arch_in_caps__`'ISD::DummyReference, MVT::Other, Ops, 2);
     
-  //DAG.ReplaceAllUsesWith(DAG.getRoot().getNode()->getOperand(0), &Dummy);
-  //SDValue Ops2[] = {Operand, Chain};
   SDNode* No = DAG.getRoot().getNode();
   SmallVector<SDValue, 16> OpValues;
   
