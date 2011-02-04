@@ -47,6 +47,9 @@ void TemplateManager::CreateM4File()
   const Register* FP = RegisterClassManager.getFramePointer();
   const Register* PC = RegisterClassManager.getProgramCounter();
   const Register* SP = RegisterClassManager.getStackPointer();
+  
+  assert (LR != NULL && FP !=  NULL && PC != NULL && SP != NULL &&
+          "Missing basic abi info in model file");
   int PCOffset = RegisterClassManager.getPCOffset();
   std::transform(ArchName.begin(), ArchName.end(), 
 		 std::back_inserter(ArchNameCaps), 
@@ -1319,9 +1322,9 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
 	  SS << "  if";
 	else
 	  SS << "else if";
-      SS << " (DestRC == Sparc16::" << (*I)->getName() << "RegisterClass"
+      SS << " (DestRC == __arch__`'::" << (*I)->getName() << "RegisterClass"
          << endl;
-      SS << "     && SrcRC == Sparc16::" << (*I2)->getName() 
+      SS << "     && SrcRC == __arch__`'::" << (*I2)->getName() 
          << "RegisterClass) {" << endl;
       SearchResult *SR = FindImplementation(Exp, Log);
       if (SR == NULL) {
@@ -1633,114 +1636,136 @@ void TemplateManager::CreateBackendFiles()
 {
   int ret;
   std::string MacroFileName = WorkingDir;
-  std::string RegisterInfoIn = "./template/XXXRegisterInfo.td";
+  std::string RegisterInfoIn = TemplateDir;
   std::string RegisterInfoOut = WorkingDir;
-  std::string RegisterInfo2In = "./template/XXXRegisterInfo.cpp";
+  std::string RegisterInfo2In = TemplateDir;
   std::string RegisterInfo2Out = WorkingDir;
-  std::string RegisterInfo3In = "./template/XXXRegisterInfo.h";
+  std::string RegisterInfo3In = TemplateDir;
   std::string RegisterInfo3Out = WorkingDir;
-  std::string InstrInfoIn = "./template/XXXInstrInfo.td";
+  std::string InstrInfoIn = TemplateDir;
   std::string InstrInfoOut = WorkingDir;
-  std::string InstrInfo2In = "./template/XXXInstrInfo.cpp";
+  std::string InstrInfo2In = TemplateDir;
   std::string InstrInfo2Out = WorkingDir;
-  std::string InstrInfo3In = "./template/XXXInstrInfo.h";
+  std::string InstrInfo3In = TemplateDir;
   std::string InstrInfo3Out = WorkingDir;
-  std::string ISelDAGToDAGIn = "./template/XXXISelDAGToDAG.cpp";
+  std::string ISelDAGToDAGIn = TemplateDir;
   std::string ISelDAGToDAGOut = WorkingDir;
-  std::string ISelLoweringIn = "./template/XXXISelLowering.cpp";
+  std::string ISelLoweringIn = TemplateDir;
   std::string ISelLoweringOut = WorkingDir;
-  std::string ISelLowering2In = "./template/XXXISelLowering.h";
+  std::string ISelLowering2In = TemplateDir;
   std::string ISelLowering2Out = WorkingDir;
-  std::string TargetIn = "./template/XXX.td";
+  std::string TargetIn = TemplateDir;
   std::string TargetOut = WorkingDir;
-  std::string Target2In = "./template/XXX.h";
+  std::string Target2In = TemplateDir;
   std::string Target2Out = WorkingDir;
-  std::string SubtargetIn = "./template/XXXSubtarget.cpp";
+  std::string SubtargetIn = TemplateDir;
   std::string SubtargetOut = WorkingDir;
-  std::string Subtarget2In = "./template/XXXSubtarget.h";
+  std::string Subtarget2In = TemplateDir;
   std::string Subtarget2Out = WorkingDir;
-  std::string TargetMachineIn = "./template/XXXTargetMachine.cpp";
+  std::string TargetMachineIn = TemplateDir;
   std::string TargetMachineOut = WorkingDir;
-  std::string TargetMachine2In = "./template/XXXTargetMachine.h";
+  std::string TargetMachine2In = TemplateDir;
   std::string TargetMachine2Out = WorkingDir;
-  std::string TargetAsmInfoIn = "./template/XXXTargetAsmInfo.cpp";
+  std::string TargetAsmInfoIn = TemplateDir;
   std::string TargetAsmInfoOut = WorkingDir;
-  std::string TargetAsmInfo2In = "./template/XXXTargetAsmInfo.h";
+  std::string TargetAsmInfo2In = TemplateDir;
   std::string TargetAsmInfo2Out = WorkingDir;
-  std::string AsmPrinterIn = "./template/XXXAsmPrinter.cpp";
+  std::string AsmPrinterIn = TemplateDir;
   std::string AsmPrinterOut = WorkingDir;
-  std::string CallingConvIn = "./template/XXXCallingConv.td";
+  std::string CallingConvIn = TemplateDir;
   std::string CallingConvOut = WorkingDir;
-  std::string MachineFunctionIn = "./template/XXXMachineFunction.h";
+  std::string MachineFunctionIn = TemplateDir;
   std::string MachineFunctionOut = WorkingDir;
-  std::string CMakeListsIn = "./template/CMakeLists.txt";
+  std::string CMakeListsIn = TemplateDir;
   std::string CMakeListsOut = WorkingDir;
-  std::string MakefileIn = "./template/Makefile";
+  std::string MakefileIn = TemplateDir;
   std::string MakefileOut = WorkingDir; 
 
   MacroFileName += "/macro.m4";
+  RegisterInfoIn += "/XXXRegisterInfo.td";  
   RegisterInfoOut += "/";
   RegisterInfoOut += ArchName;
   RegisterInfoOut += "RegisterInfo.td";
+  RegisterInfo2In += "/XXXRegisterInfo.cpp";
   RegisterInfo2Out += "/";
   RegisterInfo2Out += ArchName;
   RegisterInfo2Out += "RegisterInfo.cpp";
+  RegisterInfo3In += "/XXXRegisterInfo.h";
   RegisterInfo3Out += "/";
   RegisterInfo3Out += ArchName;
   RegisterInfo3Out += "RegisterInfo.h";
+  InstrInfoIn += "/XXXInstrInfo.td";
   InstrInfoOut += "/";
   InstrInfoOut += ArchName;
   InstrInfoOut += "InstrInfo.td";
+  InstrInfo2In += "/XXXInstrInfo.cpp";
   InstrInfo2Out += "/";
   InstrInfo2Out += ArchName;
   InstrInfo2Out += "InstrInfo.cpp";
+  InstrInfo3In += "/XXXInstrInfo.h";
   InstrInfo3Out += "/";
   InstrInfo3Out += ArchName;
   InstrInfo3Out += "InstrInfo.h";
+  ISelDAGToDAGIn += "/XXXISelDAGToDAG.cpp";
   ISelDAGToDAGOut += "/";
   ISelDAGToDAGOut += ArchName;
   ISelDAGToDAGOut += "ISelDAGToDAG.cpp";
+  ISelLoweringIn += "/XXXISelLowering.cpp";
   ISelLoweringOut += "/";
   ISelLoweringOut += ArchName;
   ISelLoweringOut += "ISelLowering.cpp";
+  ISelLowering2In += "/XXXISelLowering.h";
   ISelLowering2Out += "/";
   ISelLowering2Out += ArchName;
   ISelLowering2Out += "ISelLowering.h";
+  CallingConvIn += "/XXXCallingConv.td";
   CallingConvOut += "/";
   CallingConvOut += ArchName;
   CallingConvOut += "CallingConv.td";
+  TargetIn += "/XXX.td";
   TargetOut += "/";
   TargetOut += ArchName;
   TargetOut += ".td";
+  Target2In += "/XXX.h";
   Target2Out += "/";
   Target2Out += ArchName;
   Target2Out += ".h";
+  SubtargetIn += "/XXXSubtarget.cpp";
   SubtargetOut += "/";
   SubtargetOut += ArchName;
   SubtargetOut += "Subtarget.cpp";
+  Subtarget2In += "/XXXSubtarget.h";
   Subtarget2Out += "/";
   Subtarget2Out += ArchName;
   Subtarget2Out += "Subtarget.h";
+  TargetMachineIn += "/XXXTargetMachine.cpp";
   TargetMachineOut += "/";
   TargetMachineOut += ArchName;
   TargetMachineOut += "TargetMachine.cpp";
+  TargetMachine2In += "/XXXTargetMachine.h";
   TargetMachine2Out += "/";
   TargetMachine2Out += ArchName;
   TargetMachine2Out += "TargetMachine.h";
+  TargetAsmInfoIn += "/XXXTargetAsmInfo.cpp";
   TargetAsmInfoOut += "/";
   TargetAsmInfoOut += ArchName;
   TargetAsmInfoOut += "TargetAsmInfo.cpp";
+  TargetAsmInfo2In += "/XXXTargetAsmInfo.h";
   TargetAsmInfo2Out += "/";
   TargetAsmInfo2Out += ArchName;
   TargetAsmInfo2Out += "TargetAsmInfo.h";
+  AsmPrinterIn += "/XXXAsmPrinter.cpp";
   AsmPrinterOut += "/";
   AsmPrinterOut += ArchName;
   AsmPrinterOut += "AsmPrinter.cpp";
+  MachineFunctionIn += "/XXXMachineFunction.h";
   MachineFunctionOut += "/";
   MachineFunctionOut += ArchName;
   MachineFunctionOut += "MachineFunction.h";
 
+  CMakeListsIn += "/CMakeLists.txt";
   CMakeListsOut += "/CMakeLists.txt";
+  MakefileIn += "/Makefile";
   MakefileOut += "/Makefile";
 
   // First creates our macro file to insert target specific data

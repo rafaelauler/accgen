@@ -261,8 +261,8 @@ namespace {
 			       "ISD::OR",
 			       "ISD::AND",
 			       "ISD::XOR",
-			       "SPARC16ISD::CALL", // BUG: Hardwired!
-			       "SPARC16ISD::RETFLAG", // BUG: Hardwired!
+			       "`'__arch_in_caps__`'ISD::CALL",
+			       "`'__arch_in_caps__`'ISD::RETFLAG", 
 			       "ISD::FrameIndex",
 			       "ISD::Constant",
 			       "ISD::Constant",

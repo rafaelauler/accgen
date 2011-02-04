@@ -10,10 +10,14 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <dirent.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cassert>
+#include <cctype>
+#include <cstdio>
 
 #include "InsnFormat.h"
 #include "Instruction.h"
@@ -23,6 +27,8 @@
 #include "SaveAgent.h"
 #include "InsnSelector/Semantic.h"
 #include <map>
+
+#include <boost/regex.hpp>
 
 extern "C" { 
   #include "acpp.h"
@@ -42,57 +48,116 @@ extern backendgen::TransformationRules RuleManager;
 extern backendgen::expression::RegClassManager RegisterManager;
 extern backendgen::expression::PatternManager PatMan;
 
-char *file_name = NULL; /* name of the main ArchC file */
-char *isa_filename_with_path = NULL;
-
 using namespace backendgen;
+using std::string;
+
+namespace {
+
+struct StartupInfo {
+  string ProjectFolder;
+  string ProjectFile;
+  string BackendFile;
+  string RulesFile;
+  string TemplateDir;
+  string LLVMDir;
+  string ArchName;
+  string ISAFilename;
+  bool ForceCacheFlag;
+  bool GenerateBackendFlag;
+  bool GeneratePatternsFlag;
+  bool GenerateProfilingFlag;
+};
+
+}
+
+inline bool CopyFile(FILE *dst, FILE *src) {
+  unsigned char *buf = (unsigned char*) malloc(sizeof(unsigned char)*100);
+  size_t num = 0;
+  while ((num = std::fread(buf, sizeof(unsigned char), 100, src)) > 0) {
+    if (std::fwrite(buf, sizeof(unsigned char), num, dst) != num) {
+      std::cerr << "Error writing to temporary file.\n";
+      free(buf);
+      return false;
+    }
+  }
+  free(buf);
+  return true;
+}
 
 // Function responsible for parsing backend generation information
 // available in FileName
-bool ParseBackendInformation(const char* FileName) {
-  yybein = fopen(FileName, "r");
-  if (yybein == NULL) { 
-    std::cerr << "Could not open backend information file\"" << FileName 
+bool ParseBackendInformation(const char* RuleFileName, const char* BackendFileName) {
+  FILE *fp = std::tmpfile();
+  FILE *rfp = std::fopen(RuleFileName, "r");
+  FILE *bfp = std::fopen(BackendFileName, "r");
+  
+  if (rfp == NULL) { 
+    std::cerr << "Could not open rule information file \"" << RuleFileName 
 	   << "\".\n";
     exit(EXIT_FAILURE);
   }
+  if (bfp == NULL) { 
+    std::cerr << "Could not open backend information file \"" << BackendFileName 
+	   << "\".\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  CopyFile(fp, rfp);
+  CopyFile(fp, bfp);
+  
+  std::fclose(rfp);
+  std::fclose(bfp);
+  std::rewind(fp);
+  
+  yybein = fp;  
   yybeparse();
+  
+  std::fclose(fp);  
+  
   return !HasError;
 }
 
-void parse_archc_description(char **argv) {
+void parse_archc_description(StartupInfo* SI) {
   /* Initializes the pre-processor */
   acppInit(1);
-  file_name = (char *)malloc(strlen(argv[1]) + strlen(argv[2]) + 1);
-  strcpy(file_name, argv[1]);
-  strcpy(file_name + strlen(argv[1]), argv[2]);
+  
+  string fn = SI->ProjectFolder;
+  fn += '/';
+  fn.append(SI->ProjectFile);  
+  
+  char *tempfn = strdup(fn.c_str());  
   
   /* Parse the ARCH file */
-  if (!acppLoad(file_name)) {
-    fprintf(stderr, "Invalid file: '%s'.\n", file_name);
-    exit(1);
+  if (!acppLoad(tempfn)) {
+    std::cerr << "Invalid main model file: '" << fn << "'.\n";
+    free(tempfn);
+    exit(EXIT_FAILURE);
   }
+  free(tempfn);
 
   if (acppRun()) {
-    fprintf(stderr, "Parser error in ARCH file.\n");
-    exit(1);
+    std::cerr << "Parser error in ARCH file.\n";
+    exit(EXIT_FAILURE);
   }
   acppUnload();
 
   /* Parse the ISA file */
-  isa_filename_with_path = (char *)malloc(strlen(argv[1]) + strlen(isa_filename)
-					  + 1);
-  strcpy(isa_filename_with_path, argv[1]);
-  strcpy(isa_filename_with_path + strlen(argv[1]), isa_filename);
-  
-  if (!acppLoad(isa_filename_with_path)) {
+  SI->ISAFilename = SI->ProjectFolder;
+  SI->ISAFilename += '/';
+  SI->ISAFilename.append(isa_filename);
     
-    fprintf(stderr, "Invalid ISA file: '%s'.\n", isa_filename);
-    exit(1);
+  tempfn = strdup(SI->ISAFilename.c_str());
+  
+  if (!acppLoad(tempfn)) {
+    std::cerr << "Invalid ISA file: '" << SI->ISAFilename << "'.\n";
+    free(tempfn);
+    exit(EXIT_FAILURE);
   }
+  free(tempfn);
+  
   if (acppRun()) {
-    fprintf(stderr, "Parser error in ISA file.\n");
-    exit(1);
+    std::cerr << "Parser error in ISA file.\n";
+    exit(EXIT_FAILURE);
   }
   acppUnload();
 }
@@ -349,6 +414,253 @@ void DeallocateACParser() {
   }
 }
 
+void PrintUsage(string AppName, string Message) {
+  std::cerr << Message;
+  std::cerr << "Usage is: " << AppName << " <project file>"
+	    << " [flags]\n\n";
+  std::cerr << "Example: " << AppName << " armv5e.ac\n\n";
+}
+
+string ExtractArchName(string ProjectFileName) {
+  unsigned i;
+  for (i = 0; i < ProjectFileName.size(); ++i) {
+    if (ProjectFileName[i] == '.')
+      break;
+  }
+  assert (i < ProjectFileName.size() && 
+          "Inconsistent project file name - missing extension");
+  string ArchName = ProjectFileName.substr(0,i);
+  return ArchName;
+}
+
+StartupInfo * ProcessArguments(int argc, char **argv) {
+  StartupInfo *Result = new StartupInfo();  
+  char *cur_dir = (char *) malloc(sizeof(char)*200);
+  // Process implicit parameters
+  if (!getcwd(cur_dir, 200)) {
+    perror("getcwd failed");
+    exit(EXIT_FAILURE);
+  }
+  Result->ProjectFolder = cur_dir;
+  free(cur_dir);
+  Result->BackendFile = "compiler_info.ac";
+  
+  // Process input parameters 
+  if (argc == 1) {
+    PrintUsage(argv[0], "Expecting model file name.\n");
+    delete Result;
+    return NULL;
+  }
+  int num = argc;
+  do {
+    --num;
+    // Special case, expecting project file (model.ac)
+    if (num == 1) {
+      Result->ProjectFile = argv[num];
+      if (Result->ProjectFile[0] == '-') {
+	PrintUsage(argv[0], "Unexpected flag. Expecting project file name.\n");
+	delete Result;
+	return NULL;
+      }
+      continue;
+    }
+    // Process flag
+    string Param(argv[num]);
+    if (Param[0] != '-') {
+      PrintUsage(argv[0], "Expecting flag.\n");
+      delete Result;
+      return NULL;
+    }
+    char c = Param[1];
+    switch(c) {
+      default:
+	PrintUsage(argv[0], "Unrecognized flag.\n");
+	delete Result;
+	return NULL;
+      case 'f':
+	std::cout << "Force cache usage flag used.\n";
+	Result->ForceCacheFlag = true;
+	break;
+      case 't':
+	std::cout << "Generate patterns mode selected.\n";
+	Result->GeneratePatternsFlag = true;
+	assert(Result->GenerateBackendFlag == false && 
+	       Result->GenerateProfilingFlag == false &&
+	       "Only one mode can be selected.");
+	break;
+      case 'p':
+	std::cout << "Generate assembly profile mode selected.\n";
+	Result->GenerateProfilingFlag = true;
+	assert(Result->GenerateBackendFlag == false && 
+	       Result->GeneratePatternsFlag == false &&
+	       "Only one mode can be selected.");
+	break;
+      case 'b':
+	std::cout << "Generate compiler backend mode selected.\n";
+	Result->GenerateBackendFlag = true;
+	assert(Result->GenerateProfilingFlag == false && 
+	       Result->GeneratePatternsFlag == false &&
+	       "Only one mode can be selected.");
+	break;
+    }    
+  } while (num > 1);
+  
+  if (Result->ProjectFile.size() == 0) {
+    PrintUsage(argv[0], "Expecting project file name.\n");
+    delete Result;
+    return NULL;
+  }
+  
+  Result->ArchName = ExtractArchName(Result->ProjectFile);
+  
+  if (! (Result->GenerateBackendFlag || Result->GenerateProfilingFlag 
+      || Result->GeneratePatternsFlag)) {
+    Result->GenerateBackendFlag = true;
+    std::cout << "Generate compiler backend mode selected.\n";
+  }
+  
+  // Extract information from environment variables 
+  if (Result->GenerateBackendFlag) {
+    char *LLVMDIRENV = getenv("LLVMDIR");
+    if (!LLVMDIRENV) {
+      std::cerr << "LLVMDIR environment variable must be set in order"
+      " to start backend generation process.\n";
+      delete Result;
+      return NULL;
+    }
+    Result->LLVMDir = LLVMDIRENV;    
+  }
+  
+  char *RULESFILEENV = getenv("RULESFILE");
+  if (!RULESFILEENV) {
+    std::cerr << "RULESFILE environment variable must be set"
+      ".\n";
+    delete Result;
+    return NULL;
+  }
+  Result->RulesFile = RULESFILEENV;
+  
+  if (Result->GenerateBackendFlag) {
+    char *TEMPLATEDIRENV = getenv("TEMPLATEDIR");
+    if (!TEMPLATEDIRENV) {
+      std::cerr << "TEMPLATEDIR environment variable must be set in order"      
+	" to start backend generation process.\n";
+      delete Result;
+      return NULL;
+    }
+    Result->TemplateDir = TEMPLATEDIRENV;
+  }
+  
+  return Result;
+}
+
+
+void CopyFile(const char *dst, const char *src) {
+  std::ifstream ifs(src, std::ios::in | std::ios::binary);
+  std::ofstream ofs(dst, std::ios::out | std::ios::binary | std::ios::trunc);
+
+  ofs << ifs.rdbuf();
+  ifs.close();
+  ofs.close();
+}
+
+bool PatchLLVMConfigure(StartupInfo *SI, const string &ArchName) {
+  // Now patch LLVM configure file 
+  string ConfFN = SI->LLVMDir;
+  ConfFN += "/configure";
+  std::ifstream confs(ConfFN.c_str(), std::ios::in);
+  string TmpFN = ConfFN;
+  TmpFN += ".tmp";
+  std::ofstream tmps(TmpFN.c_str(), std::ios::out);
+  boost::regex e("^.*all\\)[ ]*TARGETS\\_TO\\_BUILD=\"((?:\\w+ ?)+)\".*$");
+  boost::regex e2("cpp\\)[ ]*TARGETS\\_TO\\_BUILD=\"CppBackend \\$TARGETS\\_TO\\_BUILD\" ;;");
+  string rep("  all) TARGETS_TO_BUILD=\"\\1 ");
+  rep += ArchName;
+  rep += "\" ;;";
+  boost::smatch m;
+  bool alreadyPatched = false;
+  char buf[1024];
+
+  while (confs.getline(buf, 1024)) {
+    string curLine = buf;    
+    if (boost::regex_search(curLine, m, e2)) {
+      tmps << curLine << "\n";
+      tmps << "        " << SI->ArchName << ")     TARGETS_TO_BUILD=\"" 
+	   << ArchName << " $TARGETS_TO_BUILD\" ;;\n";
+    } else if (boost::regex_search(curLine, m, e)) {
+      //unsigned i;
+      //for (i = 0; i < m.size(); ++i) {	
+      //std::cout << m[i] << "|";
+      //}
+      string a = m[1];
+      std::stringstream ss(a);
+      while (ss >> a) {
+	if (a == ArchName)
+	  alreadyPatched = true;
+      }
+      if (alreadyPatched) {
+	std::cout << "LLVM configure file is already patched. No need to modify it."
+	  " Now you may build backend \"" << ArchName << "\" using LLVM build system.\n";
+	return true;
+      }
+      // Needs patching      
+      a = boost::regex_replace(curLine, e, rep, boost::match_default);
+      tmps << a << "\n";
+      //std::cout << "Teste\n";
+    } else {
+      tmps << curLine << "\n";
+    }
+  }
+
+  confs.close();
+  tmps.close();
+  CopyFile(ConfFN.c_str(), TmpFN.c_str());
+  std::cout << "LLVM configure file successfully patched. Now you may build backend \"" 
+	    << ArchName << "\" using LLVM build system.\n";
+
+  return true;
+
+}
+
+// This function will install a generated backend into LLVM source tree.
+// Returns false if installation fails.
+bool PatchLLVM(StartupInfo *SI, const char *SrcFilesDir) {
+  struct stat sb;
+  string BackendPath = SI->LLVMDir;
+  BackendPath += "/lib/Target/";
+  string ArchNameUcase = SI->ArchName;
+  ArchNameUcase[0] = toupper(ArchNameUcase[0]);
+  BackendPath += ArchNameUcase;
+  
+  // First, copy backend files
+  if (stat(BackendPath.c_str(), &sb) == -1) {
+    mkdir(BackendPath.c_str(), 0777);
+  } else {
+    std::cout << "Info: \"" << BackendPath << "\" already exists."
+      " This operation overwrites all backend files.\n";
+  }
+  
+  DIR *srcdir = opendir(SrcFilesDir);
+  if (!srcdir) {
+    std::cerr << "Unable to open llvmbackend source files directory.\n";
+    return false;
+  }
+  
+  struct dirent *de;
+  while ((de = readdir(srcdir))) {
+    string namesrc = SrcFilesDir;
+    string namedst = BackendPath;
+    namesrc += '/';
+    namesrc += de->d_name;
+    namedst += '/';
+    namedst += de->d_name;
+    CopyFile(namedst.c_str(), namesrc.c_str());    
+  }    
+  closedir(srcdir);
+    
+  return PatchLLVMConfigure(SI, ArchNameUcase);
+}
+
 void create_dir(const char *path) {
   struct stat sb;
   if (stat(path, &sb) == -1) {
@@ -359,44 +671,37 @@ void create_dir(const char *path) {
 int main(int argc, char **argv) {
   unsigned Version;
   bool ForceCacheUsage = false;
-  std::cout << "ArchC LLVM Backend Generator (version 0.1).\n";
-  if (argc != 4 && argc != 5) {
-    std::cerr << "Wrong number of parameters.\n";
-    std::cerr << "Usage is: " << argv[0] << " <project folder> <project file>"
-	      << " <backend info file>\n\n";
-    std::cerr << "Example: " << argv[0] << " /l/ArchC/ARM/ arm.ac" 
-	      << "arm-be.ac\n\n";
+  std::cout << "\e[1;31mArchC LLVM Backend Generator (version 1.0).\e[0m\n";
+  StartupInfo * SI = ProcessArguments(argc, argv);
+  if (!SI) {    
     exit(EXIT_FAILURE);
-  }
+  }    
 
-  if (argc == 5) {
-    std::string Param(argv[4]);
-    if (Param != "-f") {
-      std::cerr << "Unrecognized parameter: " << Param << "\n";
-      exit(EXIT_FAILURE);
-    }
-    ForceCacheUsage = true;
-  }
+  ForceCacheUsage = SI->ForceCacheFlag;
 
+  std::cout << "Parsing input files...\n";
+  
   helper::CMemWatcher *MemWatcher = helper::CMemWatcher::Instance();
   // FIXME: Temporary fix for myriad of leaks. DeallocateACParser()
   // should be used instead.
   MemWatcher->InstallHooks();
-  parse_archc_description(argv);
-  Version = SaveAgent::CalculateVersion(isa_filename_with_path,
-					SaveAgent::CalculateVersion(argv[3]));
-  free(file_name);
-  free(isa_filename_with_path);
+  parse_archc_description(SI);  
+  Version = SaveAgent::CalculateVersion(SI->ISAFilename.c_str(),
+					SaveAgent::CalculateVersion(argv[3]));  
   MemWatcher->UninstallHooks();
   //print_formats();  
   //print_insns();
   const char *TmpDir = "llvmbackend";
   create_dir(TmpDir);
+  
+  std::cout << "Building internal structures...\n";
 
   // Build information needed to parse backend generation file
   BuildFormats();
   BuildInsn();  
-  if (!ParseBackendInformation(argv[3])) {
+  
+  std::cout << "Parsing compiler info file...\n";
+  if (!ParseBackendInformation(SI->RulesFile.c_str(), SI->BackendFile.c_str())) {
     DeallocateFormats();
     MemWatcher->ReportStatistics(std::cout);
     MemWatcher->FreeAll();
@@ -404,26 +709,37 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  // Create the LLVM Instruction Formats file for Sparc16
-  const char *FormatsFile = "llvmbackend/Sparc16InstrFormats.td";
+  // Create the LLVM Instruction Formats file for target architecture
+  string FormatsFile = "llvmbackend/";
+  string ArchNameUcase = SI->ArchName;
+  ArchNameUcase[0] = toupper(ArchNameUcase[0]);
+  FormatsFile.append(ArchNameUcase);
+  FormatsFile.append("InstrFormats.td");
   std::ofstream O;
   ArchEmitter AEmitter = ArchEmitter();
-  O.open(FormatsFile, std::ios::out | std::ios::trunc); 
+  O.open(FormatsFile.c_str(), std::ios::out | std::ios::trunc); 
   AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O, 
-				       "Sparc16");
+				       ArchNameUcase.c_str());
   O.close();
 
   // Create LLVM backend files based on template files
   TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
 		     OperandTable, OperatorTable, PatMan, Version,
 		     ForceCacheUsage);
-  TM.SetArchName("sparc16");
+  TM.SetArchName(SI->ArchName.c_str());
   TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
   TM.SetNumRegs(48);
   TM.SetWorkingDir(TmpDir);
+  TM.SetTemplateDir(SI->TemplateDir.c_str());
   TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);
   TM.SetWordSize(wordsize);
   TM.CreateBackendFiles();
+
+  std::cout << "Patching LLVM source tree...\n";
+  if (!PatchLLVM(SI, TmpDir)) {
+    std::cout << "LLVM source tree patch Failed.\n";
+    exit(EXIT_FAILURE);
+  }
 
   DeallocateFormats();
   MemWatcher->ReportStatistics(std::cout);

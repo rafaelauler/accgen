@@ -37,6 +37,7 @@ class TemplateManager {
   // Working directory where macro files are created and output
   // is stored.
   const char * WorkingDir;
+  const char * TemplateDir;
   LiteralMap LMap;
   std::list<const Register*> AuxiliarRegs;
   const unsigned Version;
@@ -181,6 +182,7 @@ class TemplateManager {
 
   void SetNumRegs (int nregs) { NumRegs = nregs; }
   void SetWorkingDir (const char * wdir) { WorkingDir = wdir; }
+  void SetTemplateDir (const char * wdir) { TemplateDir = wdir; }
   void SetIsBigEndian (bool val) { IsBigEndian = val; }
   void SetWordSize(unsigned val) { WordSize = val; }
 

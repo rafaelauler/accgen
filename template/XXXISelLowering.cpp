@@ -536,6 +536,8 @@ __set_up_register_classes__
   //setOperationAction(ISD::GlobalTLSAddress, `MVT::i'__wordsize__`', Custom);
   //setOperationAction(ISD::ConstantPool , `MVT::i'__wordsize__`', Custom);
   
+  //ValueTypeActions.setTypeAction(MVT::f64, Custom);
+  
   // RET must be custom lowered, to meet ABI requirements
   setOperationAction(ISD::RET               , MVT::Other, Custom);
 }

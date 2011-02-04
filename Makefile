@@ -60,7 +60,7 @@ lex.yybe.c: Parser/acllvm.l
 #
 
 genllvmbe: genllvmbe.cpp InsnFormat.h $(objects)
-	$(CXX) $(CXXFLAGS) -Wall -Werror $^ -o $@ -lacpp 
+	$(CXX) $(CXXFLAGS) -Wall -Werror $^ -o $@ -lacpp -lboost_regex
 
 clean:
 	rm -f *.o *.gch genllvmbe $(objects) acllvm.tab.h acllvm.tab.c lex.h lex.yybe.c *~ InsnSelector/*.gch
