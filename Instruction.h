@@ -134,6 +134,7 @@ class InstrManager {
   InstrIterator getBegin() const;
   InstrIterator getEnd() const;
   void SortInstructions();
+  void SetLLVMNames();
  private:
   std::vector<Instruction*> Instructions;
   unsigned OrderNum; // Order of appearance in archc isa file for current ins

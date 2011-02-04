@@ -25,6 +25,7 @@
 #include "TemplateManager.h"
 #include "CMemWatcher.h"
 #include "SaveAgent.h"
+#include "AsmProfileGen.h"
 #include "InsnSelector/Semantic.h"
 #include <map>
 
@@ -319,7 +320,7 @@ void BuildInsn() {
     InstructionManager.addInstruction(I);
   }
   InstructionManager.SortInstructions();
-
+  InstructionManager.SetLLVMNames();
   //DebugInsn();
 }
 
@@ -671,7 +672,7 @@ void create_dir(const char *path) {
 int main(int argc, char **argv) {
   unsigned Version;
   bool ForceCacheUsage = false;
-  std::cout << "\e[1;31mArchC LLVM Backend Generator (version 1.0).\e[0m\n";
+  std::cout << "\e[1;37mArchC LLVM Backend Generator (version 1.0).\e[0m\n";
   StartupInfo * SI = ProcessArguments(argc, argv);
   if (!SI) {    
     exit(EXIT_FAILURE);
@@ -684,15 +685,13 @@ int main(int argc, char **argv) {
   helper::CMemWatcher *MemWatcher = helper::CMemWatcher::Instance();
   // FIXME: Temporary fix for myriad of leaks. DeallocateACParser()
   // should be used instead.
-  MemWatcher->InstallHooks();
-  parse_archc_description(SI);  
+  MemWatcher->InstallHooks();  
+  parse_archc_description(SI);
   Version = SaveAgent::CalculateVersion(SI->ISAFilename.c_str(),
-					SaveAgent::CalculateVersion(argv[3]));  
+			SaveAgent::CalculateVersion(SI->RulesFile.c_str()));  
   MemWatcher->UninstallHooks();
   //print_formats();  
-  //print_insns();
-  const char *TmpDir = "llvmbackend";
-  create_dir(TmpDir);
+  //print_insns();  
   
   std::cout << "Building internal structures...\n";
 
@@ -708,37 +707,56 @@ int main(int argc, char **argv) {
     helper::CMemWatcher::Destroy();
     exit(EXIT_FAILURE);
   }
-
-  // Create the LLVM Instruction Formats file for target architecture
-  string FormatsFile = "llvmbackend/";
-  string ArchNameUcase = SI->ArchName;
-  ArchNameUcase[0] = toupper(ArchNameUcase[0]);
-  FormatsFile.append(ArchNameUcase);
-  FormatsFile.append("InstrFormats.td");
-  std::ofstream O;
-  ArchEmitter AEmitter = ArchEmitter();
-  O.open(FormatsFile.c_str(), std::ios::out | std::ios::trunc); 
-  AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O, 
+  
+  if (SI->GenerateBackendFlag || SI->GeneratePatternsFlag) {
+    const char *TmpDir = "llvmbackend";
+    create_dir(TmpDir);
+    
+    // Create the LLVM Instruction Formats file for target architecture
+    string FormatsFile = "llvmbackend/";
+    string ArchNameUcase = SI->ArchName;
+    ArchNameUcase[0] = toupper(ArchNameUcase[0]);
+    FormatsFile.append(ArchNameUcase);
+    FormatsFile.append("InstrFormats.td");
+    std::ofstream O;
+    ArchEmitter AEmitter = ArchEmitter();
+    O.open(FormatsFile.c_str(), std::ios::out | std::ios::trunc); 
+    AEmitter.EmitInstrutionFormatClasses(FormatMap, BaseFormatNames, O, 
 				       ArchNameUcase.c_str());
-  O.close();
+    O.close();
 
-  // Create LLVM backend files based on template files
-  TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
-		     OperandTable, OperatorTable, PatMan, Version,
-		     ForceCacheUsage);
-  TM.SetArchName(SI->ArchName.c_str());
-  TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
-  TM.SetNumRegs(48);
-  TM.SetWorkingDir(TmpDir);
-  TM.SetTemplateDir(SI->TemplateDir.c_str());
-  TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);
-  TM.SetWordSize(wordsize);
-  TM.CreateBackendFiles();
-
-  std::cout << "Patching LLVM source tree...\n";
-  if (!PatchLLVM(SI, TmpDir)) {
-    std::cout << "LLVM source tree patch Failed.\n";
-    exit(EXIT_FAILURE);
+    // Create LLVM backend files based on template files
+    TemplateManager TM(RuleManager, InstructionManager, RegisterManager,
+		       OperandTable, OperatorTable, PatMan, Version,
+		       ForceCacheUsage);
+    TM.SetArchName(SI->ArchName.c_str());
+    TM.SetCommentChar(ac_asm_get_comment_chars()[0]);
+    TM.SetNumRegs(48);
+    TM.SetWorkingDir(TmpDir);
+    TM.SetTemplateDir(SI->TemplateDir.c_str());
+    TM.SetIsBigEndian(ac_tgt_endian == 1? true: false);
+    TM.SetWordSize(wordsize);
+    TM.CreateBackendFiles();
+  }
+  
+  if (SI->GenerateBackendFlag) {
+    const char *TmpDir = "llvmbackend";
+    std::cout << "Patching LLVM source tree...\n";
+    if (!PatchLLVM(SI, TmpDir)) {
+      std::cout << "LLVM source tree patch Failed.\n";
+      exit(EXIT_FAILURE);
+    }    
+  }
+  
+  if (SI->GenerateProfilingFlag) {
+    const char *TmpDir = "asmprof";
+    create_dir(TmpDir);
+    std::cout << "Generating assembly profiling files...\n";
+    AsmProfileGen APG(RuleManager, InstructionManager, RegisterManager,
+		      OperandTable, OperatorTable, PatMan);
+    APG.SetWorkingDir(TmpDir);
+    APG.SetCommentChar(ac_asm_get_comment_chars()[0]);
+    APG.Generate();
   }
 
   DeallocateFormats();

@@ -398,21 +398,9 @@ string TemplateManager::generateRegisterClassesDefinitions() {
 // Generate tablegen instructions definitions for XXXInstrInfo.td
 string TemplateManager::generateInstructionsDefs() {
   stringstream SS;
-
-  unsigned CurInsVersion = 0;
+  
   for (InstrIterator I = InstructionManager.getBegin(), 
-	 E = InstructionManager.getEnd(), Prev = InstructionManager.getEnd();
-       I != E; Prev = I++) {
-    if (Prev != E && (*Prev)->getName() != (*I)->getName())
-      CurInsVersion = 0;
-    // Define the instruction's LLVM name, a string tag used whenever we
-    // reference this instruction in LLVM generated code.
-    {
-      stringstream SStmp;
-      SStmp << (*I)->getName() << "_" << ++CurInsVersion;
-      string LLVMName = SStmp.str();
-      (*I)->setLLVMName(LLVMName);
-    }
+	 E = InstructionManager.getEnd(); I != E; I++) {
     // Here we print defs and uses for this instruction
     CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
     bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn(),

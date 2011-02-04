@@ -220,6 +220,7 @@ namespace backendgen {
       OperandType getOperandType() const;
       ConstIterator getBegin() const;
       ConstIterator getEnd() const;
+      const Register* getRegAt(unsigned i) const;
       unsigned getNumRegs() const {return Registers.size();}
     private:
       std::set<Register *> Registers;    

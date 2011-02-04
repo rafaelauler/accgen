@@ -671,5 +671,22 @@ operand or memory reference.");
     std::sort(Instructions.begin(), Instructions.end(), 
 	      InstructionsComparator());
   }
+  
+  void InstrManager::SetLLVMNames()
+  {
+    unsigned CurInsVersion = 0;
+    for (InstrIterator I = this->getBegin(), 
+	 E = this->getEnd(), Prev = this->getEnd();
+	  I != E; Prev = I++) {
+      if (Prev != E && (*Prev)->getName() != (*I)->getName())
+	CurInsVersion = 0;
+      // Define the instruction's LLVM name, a string tag used whenever we
+      // reference this instruction in LLVM generated code.      
+      std::stringstream SStmp;
+      SStmp << (*I)->getName() << "_" << ++CurInsVersion;
+      std::string LLVMName = SStmp.str();
+      (*I)->setLLVMName(LLVMName);    
+    }
+  }
 
 }

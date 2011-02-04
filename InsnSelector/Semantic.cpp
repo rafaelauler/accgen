@@ -331,6 +331,19 @@ namespace backendgen {
     RegisterClass::ConstIterator RegisterClass::getEnd() const {
       return Registers.end();
     }
+    
+    const Register* RegisterClass::getRegAt(unsigned i) const {
+      unsigned count = 0;
+      RegisterClass::ConstIterator reg = getBegin();
+      for (RegisterClass::ConstIterator I = getBegin(), E = getEnd();
+	   I != E; ++I) {
+	reg = I;
+	if (i == count)
+	  break;
+	++count;
+      }	
+      return *reg;
+    }
 
 
     // RegClassManager member functions

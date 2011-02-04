@@ -22,7 +22,7 @@ else
 endif
 
 
-objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o PatternTranslator.o LLVMDAGInfo.o SaveAgent.o
+objects = ArchEmitter.o TemplateManager.o lex.o parser.o Semantic.o TransformationRules.o Search.o Instruction.o CMemWatcher.o PatternTranslator.o LLVMDAGInfo.o SaveAgent.o AsmProfileGen.o
 all: $(objects) genllvmbe
 
 %.o: %.cpp %.h
