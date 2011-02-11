@@ -193,6 +193,25 @@ namespace backendgen {
       return 0;
     return NULL;
   }
+  bool SubstituteRoot(Tree** T, AnnotatedTreeList* List,
+		       const OperandTransformationList& OpTransList) {
+    if ((*T)->isOperand()) {
+      Operand *O = dynamic_cast<Operand*>(*T);
+      bool Matched = false;
+      for (AnnotatedTreeList::const_iterator I = List->begin(),
+	     E = List->end(); I != E; ++I)
+	{
+	  if (I->first == O->getOperandName()) {	    
+	    Matched = true;	    
+	    delete *T;
+	    *T = I->second->clone();	    
+	    break;
+	  }
+	}
+      return Matched;
+    }
+    return false;
+  }
 
   // Traverse tree looking for leafs and its instantiation names.
   // When found, substitute the node with one provided by the
@@ -201,27 +220,29 @@ namespace backendgen {
   // using generic names defined in rules. When generating a name,
   // stores it in the anotated tree, so as to properly substitute
   // similar names with the same generated names.
-  void SubstituteLeafs(Tree** T, AnnotatedTreeList* List,
-		       const OperandTransformationList& OpTransList) {
-    if ((*T)->isOperator()) {      
-      Operator *O = dynamic_cast<Operator*>(*T);
+  void SubstituteLeafs(Tree* T, AnnotatedTreeList* List,
+		       const OperandTransformationList& OpTransList, 
+		       Operator* Parent = 0, int ChildIndex = -1) {
+    if (T->isOperator()) {      
+      Operator *O = dynamic_cast<Operator*>(T);
       for (int I = 0, E = O->getArity(); I != E; ++I)
 	{
-	  SubstituteLeafs(&(*O)[I], List, OpTransList);	   
+	  SubstituteLeafs((*O)[I], List, OpTransList, O, I);
 	}
       return;
     }
 
-    if ((*T)->isOperand()) {
-      Operand *O = dynamic_cast<Operand*>(*T);
+    if (T->isOperand()) {
+      Operand *O = dynamic_cast<Operand*>(T);
       bool Matched = false;
       for (AnnotatedTreeList::const_iterator I = List->begin(),
 	     E = List->end(); I != E; ++I)
 	{
-	  if (I->first == O->getOperandName()) {
-	    delete *T;
+	  if (I->first == O->getOperandName()) {	    
 	    Matched = true;
-	    *T = I->second->clone();
+	    assert (Parent != 0 && "Cannot change root node");
+	    Parent->setChild(ChildIndex, I->second->clone());
+	    delete T;
 	    break;
 	  }
 	}
@@ -278,7 +299,8 @@ namespace backendgen {
       return NULL;
 
     Tree *Result = Patt2->clone();
-    SubstituteLeafs(&Result, List, OpTransList);
+    if (!SubstituteRoot(&Result, List, OpTransList))
+      SubstituteLeafs(Result, List, OpTransList);
     delete List;
 
     return Result;

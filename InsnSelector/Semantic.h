@@ -440,13 +440,15 @@ namespace backendgen {
       static Operator* BuildOperator(OperatorTableManager &Man,
 				     OperatorType OpType);
       // Subscripting directly access one of this node's children.
-      Node*& operator[] (int index) {
+      //Node*& operator[] (int index) {
 	//if (index >= Type.Arity)
-	//std::cerr << "Danger: accessing unexisting element\n";	
-	assert ((Type.Type != AssignOp || index != 0)
-	        && "Illegal use of operator[] to change transfer destination");
-	return Children[index];
-      }
+	//std::cerr << "Danger: accessing unexisting element\n";
+	//if (Type.Type == AssignOp && index == 0)
+	//  std::cerr << "Teste.\n";
+	//assert ((Type.Type != AssignOp || index != 0)
+	//        && "Illegal use of operator[] to change transfer destination");
+	//return Children[index];
+      //}      
       Node* operator[] (int index) const {
 	//if (index >= Type.Arity)
 	//std::cerr << "Danger: accessing unexisting element\n";	
@@ -455,13 +457,16 @@ namespace backendgen {
       bool isAssignOp() const {
 	return Type.Type == AssignOp;
       }
-      void ChangeTransferDestination(Node *NewDestination) {
-	assert(Type.Type == AssignOp);
-	if (Children[0] != 0) 
-	  Children[0]->setIsTransferDestination(false);	
-	if (NewDestination != 0)
-	  NewDestination->setIsTransferDestination(true);
-	Children[0] = NewDestination;
+      void setChild(int index, Node *N) {
+	if (Type.Type == AssignOp && index == 0) {
+	  if (Children[0] != 0) 
+	    Children[0]->setIsTransferDestination(false);	
+	  if (N != 0)
+	    N->setIsTransferDestination(true);
+	  Children[0] = N;
+	  return;
+	}
+	Children[index] = N;
       }
       virtual void print(std::ostream &S) const {
 	S << "(" << Manager.getOperatorName(Type) <<  " ";
@@ -485,10 +490,7 @@ namespace backendgen {
 	Operator* Pointer = new Operator(*this);
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
-	    if (Pointer->isAssignOp() && I == 0)
-	      Pointer->ChangeTransferDestination(Children[0]->clone());
-	    else
-	      (*Pointer)[I] = Children[I]->clone();
+	    Pointer->setChild(I, Children[I]->clone());
 	  }	
 	return Pointer; 
       }

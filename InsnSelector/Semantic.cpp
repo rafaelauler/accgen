@@ -609,8 +609,9 @@ namespace backendgen {
 	    !dynamic_cast<const ImmediateOperand*>(O_and))
 	  return true;
 
-	if (LeafsName->empty())
+	if (LeafsName->empty()) {
 	  return false;
+	}
 
 	O_and->changeOperandName(LeafsName->front());
 	LeafsName->pop_front();
@@ -659,6 +660,7 @@ namespace backendgen {
 	// Return false to flag an error
 	if (Pos == Man.getEnd()) 
 	  return false;	
+	//(*Pos->second)[0]->print(std::cerr);
 
 	std::list<std::string> Names = Op->getParameterList();
 	bool ChangeLeafNames = true;
@@ -670,11 +672,12 @@ namespace backendgen {
 	  if (old != NULL)
 	    delete old;
 	  
-	  O_ator[FragIndex] = (*(Pos->second))[I]->clone();
+	  O_ator.setChild(FragIndex, (*(Pos->second))[I]->clone());
 	  if (ChangeLeafNames)
 	    if (!ApplyToLeafs<Tree*, Operator*,RenameLeafsFunctor>
-		(O_ator[FragIndex], RenameLeafsFunctor(&Names)))
+		(O_ator[FragIndex], RenameLeafsFunctor(&Names))) {
 	      return false;	
+	    }
 	}
 	return true;
       }
@@ -748,9 +751,8 @@ namespace backendgen {
       RegisterOperand *RHS = new RegisterOperand(OM, RegClassSrc, Src);
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      Assign->ChangeTransferDestination(LHS);
-      //(*Assign)[0] = LHS;
-      (*Assign)[1] = RHS;
+      Assign->setChild(0, LHS);
+      Assign->setChild(1, RHS);
       return Assign;
     }
     
@@ -775,13 +777,12 @@ namespace backendgen {
 	Ty = OpMan.getType(SubOpStr);
       Operator* RHS = Operator::BuildOperator(OpMan, Ty);
       RegisterClass *SrcRegClass = RegMan.getRegClass(SrcRC);
-      (*RHS)[0] = new RegisterOperand(OM, SrcRegClass, Src);
-      (*RHS)[1] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
+      (*RHS).setChild(0, new RegisterOperand(OM, SrcRegClass, Src));
+      (*RHS).setChild(1, new ImmediateOperand(OM, OM.getType("tgtimm"), Imm));
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      //(*Assign)[0] = LHS;
-      Assign->ChangeTransferDestination(LHS);
-      (*Assign)[1] = RHS;
+      Assign->setChild(0, LHS);
+      Assign->setChild(1, RHS);
       return Assign;
     }
     
@@ -797,12 +798,11 @@ namespace backendgen {
       OperatorType Ty;      
       Ty = OpMan.getType(NegOpStr);
       Operator* NegOp = Operator::BuildOperator(OpMan, Ty);
-      (*NegOp)[0] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
+      (*NegOp).setChild(0, new ImmediateOperand(OM, OM.getType("tgtimm"), Imm));
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      Assign->ChangeTransferDestination(LHS);
-      //(*Assign)[0] = LHS;
-      (*Assign)[1] = NegOp;
+      Assign->setChild(0, LHS);
+      Assign->setChild(1, NegOp);
       return Assign;
     }
 

@@ -584,10 +584,7 @@ exp:      LPAREN operator explist RPAREN
                       }    
 	              --i;
                       while (i >= 0) {
-                        if (dynamic_cast<Operator*>($2)->isAssignOp() && i == 0)
-			  dynamic_cast<Operator*>($2)->ChangeTransferDestination(Stack.top());
-			else
-                          (*dynamic_cast<Operator*>($2))[i] = Stack.top();
+			dynamic_cast<Operator*>($2)->setChild(i, Stack.top());
                         Stack.pop();
 		        --i;
                       }
@@ -608,10 +605,7 @@ exp:      LPAREN operator explist RPAREN
                       }
                       --i;
                       while (i >= 0) {
-                        if (dynamic_cast<Operator*>($2)->isAssignOp() && i == 0)
-			  dynamic_cast<Operator*>($2)->ChangeTransferDestination(Stack.top());
-			else
-                          (*dynamic_cast<Operator*>($2))[i] = Stack.top();
+			dynamic_cast<Operator*>($2)->setChild(i, Stack.top());
                         Stack.pop();
                         --i;
                       }
