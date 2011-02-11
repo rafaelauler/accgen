@@ -108,6 +108,7 @@ patdef:            DEFINE PATTERN ID AS LPAREN QUOTEDSTR SEMICOLON
                    {
 		     std::string input($6);
 		     PatMan.AddPattern($3, input.substr(1, input.length()-2), $8);
+		     /* ($8)->print(std::cerr);*/
                      free($3);
                      free($6);
                    }

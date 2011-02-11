@@ -38,8 +38,8 @@ namespace backendgen {
       virtual Node* clone() const = 0;
       virtual unsigned getHash(unsigned hash_chain) const =  0;
       virtual unsigned getHash() const { return getHash(0); }
-      virtual bool isTransferDestination() const { return false; }
-      virtual void setIsTransferDestination(bool NewVal) { return; }
+      virtual bool isTransferDestination() const = 0;
+      virtual void setIsTransferDestination(bool NewVal) = 0;
     };
 
     // An expression tree, representing a single assertion of an
@@ -130,6 +130,8 @@ namespace backendgen {
       }
       virtual void print(std::ostream &S) const {	
 	S << OperandName << ":" << Manager.getTypeName(Type);  
+	if (IsTransferDestination)
+	  S << "*";
       }
       virtual bool isOperand() const { return true; }
       virtual unsigned getType() const { return Type.Type; }
@@ -359,6 +361,8 @@ namespace backendgen {
       virtual void print(std::ostream &S)  const { 
 	S << OperandName << ":" << MyRegClass->getName() << ":" 
 	  << Manager.getTypeName(Type);
+	if (IsTransferDestination)
+	  S << "*";
       };
       virtual Node* clone() const { return new RegisterOperand(*this); }
       const RegisterClass *getRegisterClass() const;
@@ -475,7 +479,10 @@ namespace backendgen {
 	    Children[I]->print(S);
 	    S << " ";
 	  }	
-	S << ") ";
+	if (IsTransferDestination)
+	  S << ")* ";
+	else
+	  S << ") ";
       }
       virtual bool isOperator() const { return true; }
       virtual unsigned getType() const { return (unsigned) Type.Type; }
