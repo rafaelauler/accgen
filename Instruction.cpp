@@ -208,6 +208,7 @@ namespace {
 	return I;
       ++curPos;
     }
+    throw InvalidIteratorPosException();
     assert (0 && "Invalid iterator position for this instruction"); 
   }
   
@@ -668,7 +669,7 @@ operand or memory reference.");
   };
 
   void InstrManager::SortInstructions() {
-    std::sort(Instructions.begin(), Instructions.end(), 
+    std::stable_sort(Instructions.begin(), Instructions.end(), 
 	      InstructionsComparator());
   }
   

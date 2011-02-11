@@ -630,7 +630,7 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   // Increasing search depth loop - first try with low depth to speed up
   // easy matches
   while (R == NULL || R->Instructions->size() == 0) {
-    if (SearchDepth == SEARCH_DEPTH)
+    if (SearchDepth >= SEARCH_DEPTH)
       break;
     if (TID != 0)
       Log << "Thread " << TID << ": ";
@@ -1488,7 +1488,12 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 #endif
     if (SR == NULL) {
       std::cerr << "Failed: Could not find implementation for pattern " <<
-	I->Name << "\n";
+	I->Name << "\n\n";
+      std::cerr << "The semantic DAG below represents the required pattern.\nDAG: ";
+      I->TargetImpl->print(std::cerr);      
+      std::cerr << "\n\nPlease check if your machine has enough instructions to perform"
+      " these operations. Alternatively, you may update the RULES file to teach the "
+      "system how to do it with your instructions.\n";
       abort();
     }    
     if (!CacheHit)

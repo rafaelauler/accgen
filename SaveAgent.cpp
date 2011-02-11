@@ -14,6 +14,7 @@
 
 
 #include "SaveAgent.h"
+#include "Support.h"
 #include "InsnSelector/TransformationRules.h"
 #include <string>
 #include <limits>
@@ -157,7 +158,13 @@ SearchResult* SaveAgent::LoadRecord(const string &Name) {
       delete SR;
       throw SaveException();
     }
-    SemanticIterator SI = ins->getIteratorAtPos(buf4);
+    SemanticIterator SI;
+    try {
+      SI = ins->getIteratorAtPos(buf4);
+    } catch (InvalidIteratorPosException) {
+      AbortOn("Error: Cache file is corrupted. Delete cache.file or avoid"
+	      " using \"-f\" flag.\n");
+    } 
     Instructions->push_back(make_pair(ins, SI));
   }
   File.ignore(std::numeric_limits<int>::max(), '\n');

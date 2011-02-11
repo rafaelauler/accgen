@@ -221,7 +221,11 @@ namespace backendgen {
     // Operator member functions
     Operator* Operator::BuildOperator(OperatorTableManager &Man,
 				      OperatorType OpType) {      
-      return new Operator(Man, OpType);
+      Operator* newop = new Operator(Man, OpType);
+      for (unsigned I = 0, E = newop->Type.Arity; I < E; ++I)  {	    
+	newop->Children[I] = NULL;
+      }
+      return newop;
     }
 
     void Operator::setReturnType (const OperandType &OType) {
@@ -744,7 +748,8 @@ namespace backendgen {
       RegisterOperand *RHS = new RegisterOperand(OM, RegClassSrc, Src);
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      (*Assign)[0] = LHS;
+      Assign->ChangeTransferDestination(LHS);
+      //(*Assign)[0] = LHS;
       (*Assign)[1] = RHS;
       return Assign;
     }
@@ -774,7 +779,8 @@ namespace backendgen {
       (*RHS)[1] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      (*Assign)[0] = LHS;
+      //(*Assign)[0] = LHS;
+      Assign->ChangeTransferDestination(LHS);
       (*Assign)[1] = RHS;
       return Assign;
     }
@@ -794,7 +800,8 @@ namespace backendgen {
       (*NegOp)[0] = new ImmediateOperand(OM, OM.getType("tgtimm"), Imm);
       Operator* Assign = Operator::BuildOperator(OpMan,
 						 OpMan.getType(AssignOpStr));
-      (*Assign)[0] = LHS;
+      Assign->ChangeTransferDestination(LHS);
+      //(*Assign)[0] = LHS;
       (*Assign)[1] = NegOp;
       return Assign;
     }

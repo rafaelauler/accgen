@@ -259,6 +259,43 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
   } while (swapped);
 }
 
+namespace {
+void ReportOperandsMismatch(std::ostream &S, CnstOperandsList *AllOps,
+			    BindingsList *Bindings, NameListType *OpNames,
+			    InstrList::const_iterator I) {
+  S << "Error using instruction \"" << (*I).first->getLLVMName();
+  if (Bindings == NULL) {
+    S << "\". Described semantics uses " << AllOps->size()
+      << " operands, but search algorithm expected "
+      << OpNames->size() << ".\n";
+  } else {
+    S << "\". Described semantics uses " << (AllOps->size() + Bindings->size())
+      << " operands, but search algorithm expected "
+      << OpNames->size() << ".\n";
+  }  
+      
+  int u = 0;
+  S << "Printing list of extracted semantic operands:\n";
+  for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
+    E2 = AllOps->end(); I2 != E2; ++I2) {
+    S << "Node " << u << ": ";
+    (*I2)->print(S);
+    S << "\n";
+    ++u;
+  }
+  if (Bindings != NULL) {
+    u = 0;   
+    for (BindingsList::const_iterator I2 = Bindings->begin(),
+	 E = Bindings->end(); I2 != E; ++I2) {
+      S << "Binding " << u << ": ";
+      S << I2->first;
+      S << "\n";
+      ++u;      
+    }
+  }
+}
+}
+
 // Translate a SearchResult with a pattern implementation to DAG-like
 // syntax used when defining a "Pattern" object in XXXInstrInfo.td
 // This DAG is connected by uses relations and nodes contain only "ins"
@@ -305,23 +342,17 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
     }
     unsigned i = 0;
     if (Bindings != NULL) {
-#if 0 // debug!	
-      std::cerr << OpNames->size() << " " << Bindings->size() << " " << AllOps->size() << "\n";
-      
-      int u = 0;
-      for (CnstOperandsList::const_iterator I2 = AllOps->begin(), 
-	   E2 = AllOps->end(); I2 != E2; ++I2) {
-	std::cerr << "Node " << u << ": ";
-	(*I2)->print(std::cerr);
-	std::cerr << "\n";
-	++u;
-      }
-#endif
-      assert(OpNames->size() + Bindings->size() == AllOps->size()
-	     && "Inconsistency. Missing sufficient bindings?");
+      if (OpNames->size() + Bindings->size() != AllOps->size()) {
+	std::stringstream sstmp;
+	ReportOperandsMismatch(sstmp, AllOps, Bindings, OpNames, I);
+	AbortOn(sstmp.str());
+      }       
     } else {
-      assert(OpNames->size() == AllOps->size() 
-	     && "Inconsistency. Missing sufficient bindings?");
+      if (OpNames->size() != AllOps->size()) {
+	std::stringstream sstmp;
+	ReportOperandsMismatch(sstmp, AllOps, Bindings, OpNames, I);
+	AbortOn(sstmp.str());
+      }      
     }
     NameListType::const_iterator NI = OpNames->begin();
     bool HasDef = false;

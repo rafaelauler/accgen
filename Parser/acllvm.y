@@ -31,6 +31,7 @@ FragmentManager FragMan;
 PatternManager  PatMan;
 std::map<std::string,unsigned> InsnOccurrencesMap;
 unsigned LineNumber = 1;
+unsigned RulesNumLines = 0;
 bool HasError = false;
 // String list used to store fragment instance parameters
 std::list<std::string> StrList;
@@ -48,6 +49,7 @@ std::stack<Register *> RegStack;
 std::stack<Register *> SubRegStack;
 // Clear stack and cleanly deallocated elements when an error occur
 void ClearStack();
+unsigned getLineNumber();
 
 %}
 
@@ -189,11 +191,11 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       ($3, InsnOccurrencesMap[$3]++);
 		     if (Instr == NULL) {
 		       if (InsnOccurrencesMap[$3] > 2) {
-			 std::cerr << "Line " << LineNumber << 
+			 std::cerr << "Line " << getLineNumber() << 
 			   ": Excessive semantic overload for" <<
 			   " instruction \"" << $3 << "\".\n";
 		       } else {
-			 std::cerr << "Line " << LineNumber << 
+			 std::cerr << "Line " << getLineNumber() << 
 			   ": Undefined instruction \"" << $3 << "\".\n";
 		       }
 		       free($3);
@@ -208,7 +210,7 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       Tree* root = S.SemanticExpression;
 		       if (!FragMan.expandTree(&root))
 			 {
-			   std::cerr << "Line " << LineNumber <<
+			   std::cerr << "Line " << getLineNumber() <<
 			     ": Failure to expand pattern fragments into " 
 				     << "instruction \"" << $3 << 
 			     "\" semantic.\n"; 
@@ -385,7 +387,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
 	       if (RegisterManager.getReturnRegister()) {
-	         std::cerr << "Line " << LineNumber << ": Return "
+	         std::cerr << "Line " << getLineNumber() << ": Return "
 		           << "register redefinition.\n ";
 		 ClearStack();
 		 YYERROR;
@@ -397,7 +399,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
 	       if (RegisterManager.getProgramCounter()) {
-	         std::cerr << "Line " << LineNumber << ": Program "
+	         std::cerr << "Line " << getLineNumber() << ": Program "
 		           << "counter redefinition.\n ";
 		 ClearStack();
 		 YYERROR;
@@ -409,7 +411,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
 	       if (RegisterManager.getStackPointer()) {
-	         std::cerr << "Line " << LineNumber << ": Stack "
+	         std::cerr << "Line " << getLineNumber() << ": Stack "
 		           << "pointer redefinition.\n ";
 		 ClearStack();
 		 YYERROR;
@@ -421,7 +423,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	     {
 	       Register *Reg = RegStack.top();
 	       if (RegisterManager.getFramePointer()) {
-	         std::cerr << "Line " << LineNumber << ": Frame "
+	         std::cerr << "Line " << getLineNumber() << ": Frame "
 		           << "pointer redefinition.\n ";
 		 ClearStack();
 		 YYERROR;
@@ -572,7 +574,7 @@ exp:      LPAREN operator explist RPAREN
                       int i = dynamic_cast<Operator*>($2)->getArity();         
 	              if (i > Stack.size())
                       {
-                        std::cerr << "Line " << LineNumber << ": Number"
+                        std::cerr << "Line " << getLineNumber() << ": Number"
                           << " of operands does not match \"" << 
                         OperatorTable.getOperatorName(
                           dynamic_cast<Operator*>($2)->getOpType()) << "\""
@@ -582,7 +584,10 @@ exp:      LPAREN operator explist RPAREN
                       }    
 	              --i;
                       while (i >= 0) {
-                        (*dynamic_cast<Operator*>($2))[i] = Stack.top();
+                        if (dynamic_cast<Operator*>($2)->isAssignOp() && i == 0)
+			  dynamic_cast<Operator*>($2)->ChangeTransferDestination(Stack.top());
+			else
+                          (*dynamic_cast<Operator*>($2))[i] = Stack.top();
                         Stack.pop();
 		        --i;
                       }
@@ -593,7 +598,7 @@ exp:      LPAREN operator explist RPAREN
                       int i = dynamic_cast<Operator*>($2)->getArity();
                       if (i > Stack.size())
                       {
-                        std::cerr << "Line " << LineNumber << ": Number"
+                        std::cerr << "Line " << getLineNumber() << ": Number"
                           << " of operands does not match \"" << 
                         OperatorTable.getOperatorName(
                           dynamic_cast<Operator*>($2)->getOpType()) << "\""
@@ -603,7 +608,10 @@ exp:      LPAREN operator explist RPAREN
                       }
                       --i;
                       while (i >= 0) {
-                        (*dynamic_cast<Operator*>($2))[i] = Stack.top();
+                        if (dynamic_cast<Operator*>($2)->isAssignOp() && i == 0)
+			  dynamic_cast<Operator*>($2)->ChangeTransferDestination(Stack.top());
+			else
+                          (*dynamic_cast<Operator*>($2))[i] = Stack.top();
                         Stack.pop();
                         --i;
                       }
@@ -620,7 +628,7 @@ exp:      LPAREN operator explist RPAREN
           | CONST COLON ID COLON ID
                     {              
 		      if (OperandTable.getType($3).Type != CondType) {
-			std::cerr << "Line " << LineNumber << ": Unrecognized"
+			std::cerr << "Line " << getLineNumber() << ": Unrecognized"
                           " constant. Value must be integer.\n" ;
 			ClearStack();
                         YYERROR;
@@ -701,10 +709,18 @@ operator: OPERATOR      {
 
 %%
 
-void yyerror (char *error)
+unsigned getLineNumber() 
 {
+  unsigned line = LineNumber;
+  if (line >= RulesNumLines)
+    line -= RulesNumLines;
+  return line;
+}
+
+void yyerror (char *error)
+{ 
   HasError = true;
-  fprintf(stderr, "Line %d: %s\n", LineNumber, error);
+  fprintf(stderr, "Line %d: %s\n", getLineNumber(), error);
 }
 
 void ClearStack() {

@@ -18,6 +18,7 @@
 #include <vector>
 #include <list>
 #include <set>
+#include <cassert>
 
 namespace backendgen {
 	 
@@ -37,6 +38,8 @@ namespace backendgen {
       virtual Node* clone() const = 0;
       virtual unsigned getHash(unsigned hash_chain) const =  0;
       virtual unsigned getHash() const { return getHash(0); }
+      virtual bool isTransferDestination() const { return false; }
+      virtual void setIsTransferDestination(bool NewVal) { return; }
     };
 
     // An expression tree, representing a single assertion of an
@@ -123,6 +126,7 @@ namespace backendgen {
 	OperandName = OpName;
 	SpecificReference = false;
 	AcceptsSpecificReference = false;
+	IsTransferDestination = false;
       }
       virtual void print(std::ostream &S) const {	
 	S << OperandName << ":" << Manager.getTypeName(Type);  
@@ -134,6 +138,12 @@ namespace backendgen {
       }
       virtual Node* clone() const { return new Operand(*this); }
       virtual unsigned getHash(unsigned hash_chain) const;
+      virtual bool isTransferDestination() const {
+	return IsTransferDestination; 
+      }
+      virtual void setIsTransferDestination(bool NewVal) {
+	IsTransferDestination = NewVal;
+      }
       void updateSize() {
 	Type = Manager.getType(Manager.getTypeName(Type));
       }
@@ -158,6 +168,7 @@ namespace backendgen {
       // it refers directly to a specific register in the architecture.
       bool SpecificReference;
       bool AcceptsSpecificReference;
+      bool IsTransferDestination;
       OperandTableManager &Manager;
     };
 
@@ -422,6 +433,7 @@ namespace backendgen {
 	ReturnType.Type = 0;
 	ReturnType.Size = 0;
 	ReturnType.DataType = 0;
+	IsTransferDestination = false;
       }
     public:
       // Operator factory
@@ -431,12 +443,25 @@ namespace backendgen {
       Node*& operator[] (int index) {
 	//if (index >= Type.Arity)
 	//std::cerr << "Danger: accessing unexisting element\n";	
+	assert ((Type.Type != AssignOp || index != 0)
+	        && "Illegal use of operator[] to change transfer destination");
 	return Children[index];
       }
       Node* operator[] (int index) const {
 	//if (index >= Type.Arity)
 	//std::cerr << "Danger: accessing unexisting element\n";	
 	return Children[index];
+      }
+      bool isAssignOp() const {
+	return Type.Type == AssignOp;
+      }
+      void ChangeTransferDestination(Node *NewDestination) {
+	assert(Type.Type == AssignOp);
+	if (Children[0] != 0) 
+	  Children[0]->setIsTransferDestination(false);	
+	if (NewDestination != 0)
+	  NewDestination->setIsTransferDestination(true);
+	Children[0] = NewDestination;
       }
       virtual void print(std::ostream &S) const {
 	S << "(" << Manager.getOperatorName(Type) <<  " ";
@@ -450,11 +475,20 @@ namespace backendgen {
       virtual bool isOperator() const { return true; }
       virtual unsigned getType() const { return (unsigned) Type.Type; }
       virtual unsigned getSize() const { return ReturnType.Size; }
+      virtual bool isTransferDestination() const {
+	return IsTransferDestination; 
+      }
+      virtual void setIsTransferDestination(bool NewVal) {
+	IsTransferDestination = NewVal;
+      }
       virtual Node* clone() const { 
 	Operator* Pointer = new Operator(*this);
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {
-	    (*Pointer)[I] = Children[I]->clone();
+	    if (Pointer->isAssignOp() && I == 0)
+	      Pointer->ChangeTransferDestination(Children[0]->clone());
+	    else
+	      (*Pointer)[I] = Children[I]->clone();
 	  }	
 	return Pointer; 
       }
@@ -467,6 +501,8 @@ namespace backendgen {
       }
       virtual unsigned getHash(unsigned hash_chain) const;
       void detachNode() { 
+	if (Type.Type == AssignOp && Children[0] != 0)
+	  Children[0]->setIsTransferDestination(false);	  
 	for (unsigned I = 0, E = Type.Arity; I < E; ++I) 
 	  {	    
 	    Children[I] = NULL;
@@ -482,6 +518,7 @@ namespace backendgen {
       OperatorType Type;
       OperandType ReturnType;
       OperatorTableManager &Manager;
+      bool IsTransferDestination;
     };     
 
     struct PatternElement {

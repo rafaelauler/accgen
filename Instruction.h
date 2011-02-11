@@ -54,6 +54,8 @@ typedef std::list<const Operand*> CnstOperandsList;
 
 typedef unsigned CostType;
 
+struct InvalidIteratorPosException{};
+
 // Class representing an instruction and its semantics.
 // A semantic may comprise several expression trees, ran
 // in parallel.

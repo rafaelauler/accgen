@@ -15,6 +15,11 @@
 
 namespace backendgen {
   
+inline void AbortOn(const std::string &S) {
+  std::cerr << S;
+  std::abort();
+}
+  
 inline void generateIdent(std::ostream& O, unsigned ident) {
   for (unsigned i = 0; i < ident; ++i)
     O << " ";

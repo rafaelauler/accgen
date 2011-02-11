@@ -40,6 +40,7 @@ extern "C" {
 extern FILE* yybein;
 extern int yybeparse();
 extern bool HasError;
+extern unsigned RulesNumLines;
 
 // Defined in semantics parser 
 extern backendgen::InstrManager InstructionManager;
@@ -67,6 +68,14 @@ struct StartupInfo {
   bool GenerateBackendFlag;
   bool GeneratePatternsFlag;
   bool GenerateProfilingFlag;
+  bool VerboseFlag;
+  StartupInfo() {
+    ForceCacheFlag = false;
+    VerboseFlag = false;
+    GenerateBackendFlag = false;
+    GeneratePatternsFlag = false;
+    GenerateProfilingFlag = false;
+  }
 };
 
 }
@@ -85,6 +94,17 @@ inline bool CopyFile(FILE *dst, FILE *src) {
   return true;
 }
 
+inline unsigned CountNumLines(FILE *fp) {
+  int c;
+  unsigned count = 0;
+  while ((c = std::fgetc(fp)) != EOF) {
+    if (c == '\n')
+      ++count;
+  }
+  std::rewind(fp);
+  return count;
+}
+
 // Function responsible for parsing backend generation information
 // available in FileName
 bool ParseBackendInformation(const char* RuleFileName, const char* BackendFileName) {
@@ -92,6 +112,8 @@ bool ParseBackendInformation(const char* RuleFileName, const char* BackendFileNa
   FILE *rfp = std::fopen(RuleFileName, "r");
   FILE *bfp = std::fopen(BackendFileName, "r");
   
+  RulesNumLines = CountNumLines(rfp);
+
   if (rfp == NULL) { 
     std::cerr << "Could not open rule information file \"" << RuleFileName 
 	   << "\".\n";
@@ -288,7 +310,7 @@ void DebugInsn() {
   }
 }
 
-void BuildInsn() {
+void BuildInsn(bool Debug) {
   ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
   ac_operand_list *operand;
   ac_asm_insn_field *field;
@@ -302,6 +324,8 @@ void BuildInsn() {
 				     pinsn->op_literal_unformatted, 
 				     FormatMap[pinsn->insn->format],
 				     pinsn->mnemonic);    
+    //std::cerr << pinsn->insn->name << " ";
+    //std::cerr << pinsn->op_literal_unformatted << "\n";
     unsigned startbit, endbit;
     for (operand = pinsn->operands; operand != NULL; operand = operand->next) {
       InsnOperand *IO = new InsnOperand(operand->str);
@@ -321,7 +345,8 @@ void BuildInsn() {
   }
   InstructionManager.SortInstructions();
   InstructionManager.SetLLVMNames();
-  //DebugInsn();
+  if (Debug)
+    DebugInsn();
 }
 
 void print_insns() {
@@ -482,7 +507,11 @@ StartupInfo * ProcessArguments(int argc, char **argv) {
 	std::cout << "Force cache usage flag used.\n";
 	Result->ForceCacheFlag = true;
 	break;
-      case 't':
+      case 'v':
+	std::cout << "Verbose flag used.\n";
+	Result->VerboseFlag = true;
+	break;
+      case 't':	
 	std::cout << "Generate patterns mode selected.\n";
 	Result->GeneratePatternsFlag = true;
 	assert(Result->GenerateBackendFlag == false && 
@@ -671,7 +700,7 @@ void create_dir(const char *path) {
 
 int main(int argc, char **argv) {
   unsigned Version;
-  bool ForceCacheUsage = false;
+  bool ForceCacheUsage = false;  
   std::cout << "\e[1;37mArchC LLVM Backend Generator (version 1.0).\e[0m\n";
   StartupInfo * SI = ProcessArguments(argc, argv);
   if (!SI) {    
@@ -688,16 +717,17 @@ int main(int argc, char **argv) {
   MemWatcher->InstallHooks();  
   parse_archc_description(SI);
   Version = SaveAgent::CalculateVersion(SI->ISAFilename.c_str(),
-			SaveAgent::CalculateVersion(SI->RulesFile.c_str()));  
+	    SaveAgent::CalculateVersion(SI->RulesFile.c_str(),
+	    SaveAgent::CalculateVersion(SI->BackendFile.c_str())));  
   MemWatcher->UninstallHooks();
   //print_formats();  
-  //print_insns();  
+  //print_insns();    
   
   std::cout << "Building internal structures...\n";
 
   // Build information needed to parse backend generation file
   BuildFormats();
-  BuildInsn();  
+  BuildInsn(SI->VerboseFlag);  
   
   std::cout << "Parsing compiler info file...\n";
   if (!ParseBackendInformation(SI->RulesFile.c_str(), SI->BackendFile.c_str())) {

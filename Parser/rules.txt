@@ -67,12 +67,17 @@ define operand bit    as size 1  like int;
 
 //============================-- Rules --=====================================//
 
-AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
-
 //AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 (transfer (memref AnyOperator1:any) (memref AnyOperator2:any)) => 
   (dec (transfer AReg:regs (memref AnyOperator2:any)) (transfer (memref AnyOperator1:any) AReg:regs));
+  
+  //(transfer a3:regs (* a1:regs a2:regs));
+(transfer DestReg:regs AnyOperator:any) => 
+  (dec (transfer AReg:regs^ AnyOperator:any) (transfer DestReg:regs AReg:regs^) );
+  
+//AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
+
 
 //const:int:0 => (xor Reg:regs Reg:regs);
 
