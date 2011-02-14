@@ -86,6 +86,9 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
 // expansion rules
 (rol child1:any child2:any) => 
   (or (shl child1:any child2:any) (shr child1:any (- const:byte:32 child2:any)));
+  
+(ror child1:any child2:any) => 
+  (or (shr child1:any child2:any) (shl child1:any (- const:byte:32 child2:any)));
 
 // split large immediate rule
 imm:oper:int => (dec (transfer AReg:regs (+ (shl imm:op1:short const:byte:16) imm:op2:short)) AReg:regs)
