@@ -728,15 +728,15 @@ int main(int argc, char **argv) {
   // Build information needed to parse backend generation file
   BuildFormats();
   BuildInsn(SI->VerboseFlag);  
-  
-  std::cout << "Parsing compiler info file...\n";
+    
+  std::cout << "Parsing compiler info file...\n";  
   if (!ParseBackendInformation(SI->RulesFile.c_str(), SI->BackendFile.c_str())) {
     DeallocateFormats();
     MemWatcher->ReportStatistics(std::cout);
     MemWatcher->FreeAll();
     helper::CMemWatcher::Destroy();
     exit(EXIT_FAILURE);
-  }
+  }  
   
   if (SI->GenerateBackendFlag || SI->GeneratePatternsFlag) {
     const char *TmpDir = "llvmbackend";

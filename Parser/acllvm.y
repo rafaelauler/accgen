@@ -108,7 +108,8 @@ patdef:            DEFINE PATTERN ID AS LPAREN QUOTEDSTR SEMICOLON
                    {
 		     std::string input($6);
 		     PatMan.AddPattern($3, input.substr(1, input.length()-2), $8);
-		     /* ($8)->print(std::cerr);*/
+		     //($8)->print(std::cerr);
+		     //std::cerr << "\n";
                      free($3);
                      free($6);
                    }
@@ -324,7 +325,7 @@ abidef:      DEFINE ABI AS LPAREN abistufflist RPAREN SEMICOLON
              ;
 
 abistufflist: /* empty */
-              | abistufflist abistuff
+              | abistufflist abistuff {}
               ;
 
 abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
@@ -532,6 +533,10 @@ ruledef:  exp EQUIVALENCE exp SEMICOLON
           | exp LEADSTO exp SEMICOLON
              {
                RuleManager.createRule($1, $3, false);
+	      //($1)->print(std::cerr);
+	      //std::cerr << " -> ";
+	      //($3)->print(std::cerr);
+	      //std::cerr << "\n";
              }
           | exp LEADSTO exp LPAREN optranslist RPAREN SEMICOLON
              {	       

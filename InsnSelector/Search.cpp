@@ -71,6 +71,8 @@ namespace backendgen {
 	 I != E; ++I) {
       if (I->first == Element.first && I->second != Element.second)
 	return false;
+      else if (I->first == Element.first && I->second == Element.second)
+	return true;
     }
     VR->push_back(Element);
     return true;
@@ -96,6 +98,12 @@ namespace backendgen {
     }
 
     return false;
+  }
+  
+  inline 
+  void MergeVRList(VirtualToRealMap* Destination, const VirtualToRealMap* Source){
+    if (Source != 0) 
+      Destination->insert(Destination->begin(), Source->begin(), Source->end());
   }
 
   // Miscellaneous auxiliary functions
@@ -643,6 +651,7 @@ namespace backendgen {
       return NULL;
 
     SearchResult* CandidateSolution = new SearchResult();
+    MergeVRList(CandidateSolution->VirtualToReal, VR);
 
     for (std::list<Tree*>::reverse_iterator I = DecomposeList->rbegin(),
 	   E = DecomposeList->rend(); I != E; ++I)
@@ -652,9 +661,11 @@ namespace backendgen {
 	// will be matched as goal and all is lost!
 	if (Goal != NULL) {
 	  VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
+	  MergeVRList(VirtualBindings, CandidateSolution->VirtualToReal);
 	  if (Compare<true>(Goal, *I, VirtualBindings) == true &&
-	      !HasConflictingVRDefinitions(VR, VirtualBindings) &&
-	      MatchedGoal == NULL) {
+	      !HasConflictingVRDefinitions(CandidateSolution->VirtualToReal,
+					   VirtualBindings) &&
+	      MatchedGoal == NULL) {	    
 	    delete CandidateSolution->VirtualToReal;
 	    CandidateSolution->VirtualToReal = VirtualBindings;
 	    MatchedGoal = (*I)->clone();
@@ -663,7 +674,8 @@ namespace backendgen {
 	    delete VirtualBindings;
 	  }
 	}
-	SearchResult* ChildResult = (*this)(*I, CurDepth + 1, VR);
+	SearchResult* ChildResult = (*this)(*I, CurDepth + 1, 
+					    CandidateSolution->VirtualToReal);
 	// Failed to find an implementatin for this child?
 	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
 	  delete CandidateSolution;	  
@@ -694,7 +706,8 @@ namespace backendgen {
 				      const VirtualToRealMap *VR) {    
     // First check the top level node
     VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
-    if (Compare<true>(Transformed, InsnSemantic, VirtualBindings) == false) {
+    if (!(Compare<true>(Transformed, InsnSemantic, VirtualBindings) &&
+        !HasConflictingVRDefinitions(VR, VirtualBindings))) {
       delete VirtualBindings;
       return false;
     }
@@ -717,10 +730,12 @@ namespace backendgen {
     // Now for every operator, prove their children equal
     const Operator* O = dynamic_cast<const Operator*>(Transformed);
     const Operator* OIns = dynamic_cast<const Operator*>(InsnSemantic);
+    MergeVRList(TempResults->VirtualToReal, VR);
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	SearchResult* SRChild = 
-	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1, VR);
+	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1,
+			      TempResults->VirtualToReal);
 	
 	// Failed
 	if (SRChild->Cost == INT_MAX) {
@@ -888,6 +903,8 @@ namespace backendgen {
 	  continue;
 	}
 	
+	MergeVRList(ChildResult->VirtualToReal, VR);
+	
 	// Now we decomposed and have a implementation of the remaining
 	// trees. We just need to assert that the transformed tree
 	// is really what we want.
@@ -896,7 +913,7 @@ namespace backendgen {
 	// This may involve recursive calls to this function (to transform
 	// and adapt the children nodes).
 	if (TransformExpressionAux(Transformed, InsnSemantic, Result,
-				   CurDepth, VR) == true)
+				 CurDepth, ChildResult->VirtualToReal) == true)
 	  {
 	    DbgIndent(CurDepth);
 	    DbgPrint("Decomposition was successful\n");	    

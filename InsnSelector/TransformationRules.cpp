@@ -80,9 +80,9 @@ namespace backendgen {
 	((R->getType() == E->getType() &&
 	(R->getSize() == E->getSize() || R->getSize() == 0 || 
 	 E->getSize() == 0)) ||
-	 (R->getType() == 0 && ((E->isOperator() == false 
+	 (R->getType() == 0 && (E->isOperator() == false 
 	                     || E->getType() != MemRefOp)
-	                     && !E->isTransferDestination())) ) )
+	                     && E->isTransferDestination() == false) ) )
       {
 	AnnotatedTreeList* Result = NULL;
 	if (!JustCompare) Result = new AnnotatedTreeList();

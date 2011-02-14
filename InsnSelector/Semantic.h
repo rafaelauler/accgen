@@ -463,8 +463,8 @@ namespace backendgen {
       }
       void setChild(int index, Node *N) {
 	if (Type.Type == AssignOp && index == 0) {
-	  if (Children[0] != 0) 
-	    Children[0]->setIsTransferDestination(false);	
+	  //if (Children[0] != 0) 
+	    //Children[0]->setIsTransferDestination(false);	
 	  if (N != 0)
 	    N->setIsTransferDestination(true);
 	  Children[0] = N;
