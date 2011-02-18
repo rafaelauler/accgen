@@ -14,7 +14,7 @@
 #include <climits>
 #include <cassert>
 
-//#define DEBUG
+#define DEBUG
 #define DEBUG_SEARCH_RESULTS
 #define USETRANSCACHE
 

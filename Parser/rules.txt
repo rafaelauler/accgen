@@ -47,6 +47,12 @@ define operator jump     as arity 1;
 // comparator operator and the third, the target
 define operator cjump    as arity 3;
 define operator comp     as arity 2;
+//JUMPNZ is a special conditional jump node which jumps to the address
+//in operand 2 iff operand 1 is not zero.
+//SETIF sets its results to 1 if condition in operand 1 is observed
+// in operand 2 compared to operator 3.
+define operator jumpnz   as arity 2;
+define operator setif    as arity 3;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -79,7 +85,26 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
   (dec (transfer AReg:regs^ AnyOperator:any) (transfer DestReg:regs AReg:regs^) );
   
 
-
+(cjump CondOp:cond (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (jumpnz (setif CondOp:cond lhs:regs rhs:regs) imm:tgt:int);
+  
+(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:le (comp rhs:regs lhs:regs) imm:tgt:int);
+  
+(cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:lt (comp rhs:regs lhs:regs) imm:tgt:int);
+  
+(cjump const:cond:le (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:lt (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  
+(cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:ule (comp rhs:regs lhs:regs) imm:tgt:int);
+  
+(cjump const:cond:ule (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:ult (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  
+(cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:ult (comp rhs:regs lhs:regs) imm:tgt:int);
 
 //const:int:0 => (xor Reg:regs Reg:regs);
 
