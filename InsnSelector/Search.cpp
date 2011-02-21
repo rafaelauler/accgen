@@ -14,7 +14,7 @@
 #include <climits>
 #include <cassert>
 
-#define DEBUG
+//#define DEBUG
 #define DEBUG_SEARCH_RESULTS
 #define USETRANSCACHE
 
@@ -862,24 +862,49 @@ namespace backendgen {
 	  // Apply
 	  Tree* Transformed = Forward? I->ForwardApply(Expression) :
 	    I->BackwardApply(Expression);
-	
+	    
+	  // Try to chain other transformations at the same level (without
+	  // descending to children), limiting the number of trials by
+	  // successfully increasing CurDepth.
+	  // This recursive call eventually will also test for children
+	  // transformations because of a call to TransformExpressionAux 
+	  // early in this function.
+	  SearchResult* SRChild = 
+	    TransformExpression(Transformed, InsnSemantic, CurDepth+1, VR);
+	  // If success
+	  if (SRChild != NULL && SRChild->Cost != INT_MAX) {
+	    delete Result;
+	    Result = SRChild;
+	    Result->RulesApplied->push_back(I->RuleID);
+	    if (Forward)
+	      Result->OpTrans
+		->push_back(I->ForwardApplyGetOpTrans(Expression));
+	    else
+	      Result->OpTrans
+		->push_back(I->BackwardApplyGetOpTrans(Expression));
+	    delete Transformed;
+	    return Result;
+	  }
+	  // Failed
+	  if (SRChild != NULL)
+	    delete SRChild;
 	  // Calls auxiliary to confirm that the transformed expression
 	  // equals our goal
 	  // This may involve recursive calls to this function (to transform
 	  // and adapt the children nodes).
-	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
-				     CurDepth, VR) == true)
-	    {	      
-	      Result->RulesApplied->push_back(I->RuleID);
-	      if (Forward)
-		Result->OpTrans
-		  ->push_back(I->ForwardApplyGetOpTrans(Expression));
-	      else
-		Result->OpTrans
-		  ->push_back(I->BackwardApplyGetOpTrans(Expression));
-	      delete Transformed;
-	      return Result;
-	    }
+	  //if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
+		//		     CurDepth, VR) == true)
+	    //{	      
+	      //Result->RulesApplied->push_back(I->RuleID);
+	      //if (Forward)
+		//Result->OpTrans
+		  //->push_back(I->ForwardApplyGetOpTrans(Expression));
+	      //else
+		//Result->OpTrans
+		  //->push_back(I->BackwardApplyGetOpTrans(Expression));
+	      //delete Transformed;
+	      //return Result;
+	    //}	  
 	  delete Transformed;
 	  continue;
 	} 	

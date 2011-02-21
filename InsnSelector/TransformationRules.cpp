@@ -94,7 +94,8 @@ namespace backendgen {
 	    
 	    const Constant* C1 = dynamic_cast<const Constant*>(R);
 	    const Constant* C2 = dynamic_cast<const Constant*>(E);
-	    if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL)) {
+	    // If rule is not constant, it may as well match a constant
+	    if (C1 != NULL && C2 == NULL) {
 	      if (!JustCompare) delete Result;
 	      return NULL;
 	    }

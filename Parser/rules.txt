@@ -73,6 +73,12 @@ define operand bit    as size 1  like int;
 
 //============================-- Rules --=====================================//
 
+//NOTE: The system does not chain 2 or more rules to the same node
+// (When a rule is applied, it is able to transform its children, not the root
+//  anymore, so 2 rules are never chained to the same node). Change this? May
+//  increase search times and cause infinite loops. - NOT if each rule application
+//  increases the search depth, which is limited.
+
 //AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
 AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
@@ -90,6 +96,9 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
   
 (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
   (cjump const:cond:le (comp rhs:regs lhs:regs) imm:tgt:int);
+
+(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:lt (comp rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);
   
 (cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int) =>
   (cjump const:cond:lt (comp rhs:regs lhs:regs) imm:tgt:int);
