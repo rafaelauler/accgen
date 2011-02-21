@@ -17,6 +17,7 @@
 //#define DEBUG
 #define DEBUG_SEARCH_RESULTS
 #define USETRANSCACHE
+//#define EXTENSIVESEARCH
 
 namespace backendgen {
 
@@ -766,7 +767,8 @@ namespace backendgen {
 					    unsigned CurDepth, 
 					    const VirtualToRealMap *VR)
   {   
-    DbgIndent(CurDepth);
+    //DbgIndent(CurDepth);
+    Dbg(for (unsigned i = 0; i < CurDepth; ++i) std::cerr << "*";);
     DbgPrint("Entering TransformExpression\n        Expression: ");
     Dbg(Expression->print(std::cerr));
     DbgPrint("\n        Goal:");
@@ -791,7 +793,8 @@ namespace backendgen {
       return Result;
     }
 #endif
-    
+
+#ifndef EXTENSIVESEARCH
     const unsigned PO = PrimaryOperatorType(Expression);
 
     // Prune unworthy trials (heuristic)
@@ -800,6 +803,7 @@ namespace backendgen {
       DbgPrint("CloseSemantic heuristic pruned this trial.\n");
       return Result;
     }
+#endif
 
     // See if we already have a match
     VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
@@ -837,6 +841,7 @@ namespace backendgen {
       {
 	bool Forward = true;
 	// See if makes sense applying this rule
+#ifndef EXTENSIVESEARCH	
 	if (!I->ForwardMatch(Expression) || 
 	    !EqualTypes(PrimaryOperatorType(I->RHS),
 			PrimaryOperatorType(InsnSemantic))) 
@@ -847,6 +852,14 @@ namespace backendgen {
 	      continue;
 	    Forward = false;
 	  }
+#else
+	if (!I->ForwardMatch(Expression)) 
+	  {
+	    if (!I->BackwardMatch(Expression))
+	      continue;
+	    Forward = false;
+	  }
+#endif
 
 	// Case analysis 1: Suppose this rule does not decompose the
 	// tree
@@ -862,7 +875,8 @@ namespace backendgen {
 	  // Apply
 	  Tree* Transformed = Forward? I->ForwardApply(Expression) :
 	    I->BackwardApply(Expression);
-	    
+
+#ifdef EXTENSIVESEARCH
 	  // Try to chain other transformations at the same level (without
 	  // descending to children), limiting the number of trials by
 	  // successfully increasing CurDepth.
@@ -888,29 +902,30 @@ namespace backendgen {
 	  // Failed
 	  if (SRChild != NULL)
 	    delete SRChild;
+#else
 	  // Calls auxiliary to confirm that the transformed expression
 	  // equals our goal
 	  // This may involve recursive calls to this function (to transform
 	  // and adapt the children nodes).
-	  //if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
-		//		     CurDepth, VR) == true)
-	    //{	      
-	      //Result->RulesApplied->push_back(I->RuleID);
-	      //if (Forward)
-		//Result->OpTrans
-		  //->push_back(I->ForwardApplyGetOpTrans(Expression));
-	      //else
-		//Result->OpTrans
-		  //->push_back(I->BackwardApplyGetOpTrans(Expression));
-	      //delete Transformed;
-	      //return Result;
-	    //}	  
+	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
+				     CurDepth, VR) == true)
+	    {	      
+	      Result->RulesApplied->push_back(I->RuleID);
+	      if (Forward)
+		Result->OpTrans
+		  ->push_back(I->ForwardApplyGetOpTrans(Expression));
+	      else
+		Result->OpTrans
+		  ->push_back(I->BackwardApplyGetOpTrans(Expression));
+	      delete Transformed;
+	      return Result;
+	    }	  
+#endif
 	  delete Transformed;
 	  continue;
 	} 	
 	// Case analysis 2: This rule decomposes the tree
-	//DbgIndent(CurDepth);
-	Dbg(for (unsigned i = 0; i < CurDepth; ++i) std::cerr << "*";);
+	DbgIndent(CurDepth);	
 	DbgPrint("Applying decomposing rule\n");
 	DbgIndent(CurDepth);
 	Dbg(I->Print(std::cerr));	

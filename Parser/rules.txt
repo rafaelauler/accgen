@@ -95,25 +95,43 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
   (jumpnz (setif CondOp:cond lhs:regs rhs:regs) imm:tgt:int);
   
 (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:le (comp rhs:regs lhs:regs) imm:tgt:int);
-
-(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:lt (comp rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);
+  (jumpnz (setif const:cond:lt rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);
   
 (cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:lt (comp rhs:regs lhs:regs) imm:tgt:int);
+  (jumpnz (setif const:cond:lt rhs:regs lhs:regs) imm:tgt:int);
   
 (cjump const:cond:le (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:lt (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  (jumpnz (setif const:cond:lt lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
   
 (cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:ule (comp rhs:regs lhs:regs) imm:tgt:int);
+  (jumpnz (setif const:cond:ult rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);
   
 (cjump const:cond:ule (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:ult (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  (jumpnz (setif const:cond:ult lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
   
 (cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (cjump const:cond:ult (comp rhs:regs lhs:regs) imm:tgt:int);
+  (jumpnz (setif const:cond:ult rhs:regs lhs:regs) imm:tgt:int);
+
+//(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:le (comp rhs:regs lhs:regs) imm:tgt:int);
+
+//(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:lt (comp rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);
+  
+//(cjump const:cond:ge (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:lt (comp rhs:regs lhs:regs) imm:tgt:int);
+  
+//(cjump const:cond:le (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:lt (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  
+//(cjump const:cond:ugt (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:ule (comp rhs:regs lhs:regs) imm:tgt:int);
+  
+//(cjump const:cond:ule (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:ult (comp lhs:regs (+ rhs:regs const:byte:1)) imm:tgt:int);
+  
+//(cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int) =>
+//  (cjump const:cond:ult (comp rhs:regs lhs:regs) imm:tgt:int);
 
 //const:int:0 => (xor Reg:regs Reg:regs);
 

@@ -317,8 +317,9 @@ namespace backendgen {
     return false;
   }
 
-  bool Rule::BackwardMatch(const expression::Tree* Expression) const {
-    if (reinterpret_cast<long>(MatchExpByRule<true>(RHS, Expression)) == 1L)
+  bool Rule::BackwardMatch(const expression::Tree* Expression) const {    
+    if (Equivalence && reinterpret_cast<long>(MatchExpByRule<true>(RHS, 
+      Expression)) == 1L)
       return true;
     return false;
   }
