@@ -60,14 +60,14 @@ void TemplateManager::CreateM4File()
   // Creates logtable macro
   O << "m4_define(`m4log', `m4_ifelse($1,1,1,m4_ifelse($1,2,1,m4_ifelse($1," <<
     "4,2,m4_ifelse($1,8,3,m4_ifelse($1,16,4,m4_ifelse($1,24,5,m4_ifelse($1," <<
-    "32,5,m4_ifelse($1,48,6,m4_ifelse($1,64,6)))))))))')m4_dnl\n";
+    "32,5,m4_ifelse($1,48,6,m4_ifelse($1,64,6,7)))))))))')m4_dnl\n";
 
   // Defines an expansion for each target specific data
   O << "m4_define(`__arch__',`" << ArchName << "')m4_dnl\n"; 
   O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
   O << "m4_define(`__wordsize__',`" << WordSize << "')m4_dnl\n"; 
-  O << "m4_define(`__comment_char__',`" << CommentChar << "')m4_dnl\n"; 
+	O << "m4_define(`__comment_char__',`" << CommentChar << "')m4_dnl\n"; 
   O << "m4_define(`__type_char_specifier__',`" << TypeCharSpecifier 
     << "')m4_dnl\n"; 
   O << "m4_define(`__ra_register__',`" << ArchName << "::"
@@ -168,7 +168,7 @@ void TemplateManager::CreateM4File()
 inline void DefineRegister(stringstream &SS, Register *R,
 			   unsigned Counter) {
   SS << "  def " << R->getName() << " : AReg<" << Counter;
-  SS << ", \"" << R->getName() << "\", [], [";
+  SS << ", \"" << R->getAssemblyName() << "\", [], [";
   // Has subregisters
   if (R->getSubsBegin() != R->getSubsEnd()) {
     for (list<Register*>::const_iterator I = R->getSubsBegin(),
@@ -424,7 +424,7 @@ string TemplateManager::generateInstructionsDefs() {
 	       E2 = Defs->end(); I2 != E2; ++I2) {
 	  if (I2 != Defs->begin())
 	    SS << ",";	  
-	  SS << (*I2)->getOperandName();      
+	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
 	}
 	if (isCall) {
 	  std::list<const Register*>* RList = 
@@ -446,7 +446,7 @@ string TemplateManager::generateInstructionsDefs() {
 	       E2 = Uses->end(); I2 != E2; ++I2) {
 	  if (I2 != Uses->begin())
 	    SS << ",";	  
-	  SS << (*I2)->getOperandName();      
+	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
 	}
 	if (isCall) {
 	  std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
@@ -1231,56 +1231,56 @@ string TemplateManager::generateEmitSelectCC() {
   Defs["rhs"] = "Reg";
   Defs["tgt"] = "MBB";
   SS << generateIdent(4) << "switch (CondCode) {"<< endl;
-  SS << generateIdent(4) << "default: case ISD::SETLT: "<< endl;  
+  SS << generateIdent(4) << "default: case ISD::SETLT: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond1SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETGT: "<< endl;  
+  SS << generateIdent(6) << "break;}" << endl;
+  SS << generateIdent(4) << "case ISD::SETGT: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond2SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETLE: "<< endl;  
+  SS << generateIdent(6) << "break;}" << endl;
+  SS << generateIdent(4) << "case ISD::SETLE: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond3SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETGE: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETGE: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond4SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETULT: "<< endl;  
+  SS << generateIdent(6) << "break;}" << endl;
+  SS << generateIdent(4) << "case ISD::SETULT: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond5SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETUGT: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETUGT: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond6SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETUGE: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETUGE: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond7SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETULE: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETULE: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond8SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETNE: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETNE: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond9SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");
-  SS << generateIdent(6) << "break;" << endl;
-  SS << generateIdent(4) << "case ISD::SETEQ: "<< endl;  
+  SS << generateIdent(6) << "break; }" << endl;
+  SS << generateIdent(4) << "case ISD::SETEQ: {"<< endl;  
   SS << PatTrans.genEmitMI(InferenceResults.BranchCond10SR, Defs, &LMap,
 			   true, false, &AuxiliarRegs, 6, NULL, "BB", "",
 			   "TII.get");  
-  SS << generateIdent(6) << "break;" << endl;
+  SS << generateIdent(6) << "break; }" << endl;
   SS << generateIdent(4) << "} // end switch (CondCode)"<< endl;
   return SS.str();
 }
@@ -1764,6 +1764,14 @@ void TemplateManager::CreateBackendFiles()
   // First creates our macro file to insert target specific data
   // into templates
   CreateM4File();
+
+  // Escape special characters to M4
+  // sed -e '3,$ s/\\$/\\\\$/g'
+  ret = system(("sed -i -e \"s/\\$\\([0-9]\\)/\\$\\`\\'\\1/g\" " + MacroFileName).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao filtrar arquivo utilizando sed.\n";
+    exit(1);
+  }
 
   // Creates XXXRegisterInfo.td, h, cpp files
   ret = system(("m4 -P " + MacroFileName + " " + RegisterInfoIn +

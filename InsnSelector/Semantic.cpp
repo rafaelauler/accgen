@@ -264,7 +264,25 @@ namespace backendgen {
 
     // Register member functions
     Register::Register(const std::string &RegName) {
-      Name = RegName;
+      AssemblyName = RegName;
+      buildName();
+    }
+
+    void Register::buildName() {      
+      Name = "";
+      for (std::string::iterator I = AssemblyName.begin(),
+	     E = AssemblyName.end(); I != E; ++I) {
+	if (*I == '$' || *I == '%')
+	  continue;
+	Name += *I;
+      }
+      assert (Name.size() > 0 && "Missing register name");
+      // Prefix with 'r' reg. names which begin with numbers
+      if (Name[0] >= '0' && Name[0] <= '9') {
+	std::string temp = "r";
+	temp += Name;
+	Name = temp;
+      }
     }
 
     void Register::addSubClass(Register *Reg) {
@@ -281,6 +299,10 @@ namespace backendgen {
 
     const std::string &Register::getName() const {
       return Name;
+    }
+
+    const std::string &Register::getAssemblyName() const {
+      return AssemblyName;
     }
 
     // RegisterClass member functions
@@ -307,12 +329,12 @@ namespace backendgen {
     bool RegisterClass::hasRegisterName(const std::string &RegName) {
       for (ConstIterator I = getBegin(), E = getEnd(); I != E; ++I) {
 	Register *Element = *I;
-	if (Element->getName() == RegName)
+	if (Element->getAssemblyName() == RegName)
 	  return true;
 	for (Register::ConstIterator I2 = Element->getSubsBegin(), 
 	       E2 = Element->getSubsEnd(); I2 != E2; ++I2) {
 	  Register *SubEl = *I2;
-	  if (SubEl->getName() == RegName)
+	  if (SubEl->getAssemblyName() == RegName)
 	    return true;
 	}
       }
@@ -469,7 +491,7 @@ namespace backendgen {
 	     E = Registers.end(); I != E; ++I)
 	{
 	  Register *pointer = *I;
-	  if (pointer->getName() == RegisterName)
+	  if (pointer->getAssemblyName() == RegisterName)
 	    return pointer;
 	}
       return NULL;    

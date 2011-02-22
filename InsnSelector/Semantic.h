@@ -211,10 +211,12 @@ namespace backendgen {
       Register(const std::string &RegName);
       void addSubClass(Register *Reg);
       const std::string &getName() const;
+      const std::string &getAssemblyName() const;
       ConstIterator getSubsBegin() const;
       ConstIterator getSubsEnd() const;
     private:
-      std::string Name;
+      void buildName();
+      std::string AssemblyName, Name;
       std::list<Register*> SubClasses;      
     };
     

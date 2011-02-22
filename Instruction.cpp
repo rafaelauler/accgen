@@ -134,6 +134,11 @@ namespace {
 	IgnoreFlag = false;
 	hasGroup = false;
       }
+      if (OperandFmts[I] == '$') {
+	NewFmts += '\\';
+	NewFmts += '$';
+	continue;
+      }  
       if (OperandFmts[I] == '\\') {
 	if (!OperandFmts.substr(I, 2).compare("\\%")) {
 	  NewFmts += '\\';

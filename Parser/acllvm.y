@@ -671,7 +671,7 @@ exp:      LPAREN operator explist RPAREN
 								 RegClass, $1);
                         if (RegClass->hasRegisterName($1)) {
 			  RO->setSpecificReference(true);
-                        }
+                        } 
                         $$ = RO;
 		      }
 		      if ($4 == 1) {
