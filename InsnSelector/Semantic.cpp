@@ -171,8 +171,12 @@ namespace backendgen {
 	  NewType.Type = JumpOp;
 	else if (TypeName == CJumpOpStr)
 	  NewType.Type = CJumpOp;
+	else if (TypeName == JumpNZOpStr)
+	  NewType.Type = JumpNZOp;
 	else if (TypeName == ReturnOpStr)
 	  NewType.Type = ReturnOp;
+	else if (TypeName == NopOpStr)
+	  NewType.Type = NopOp;
 	else { // User defined operator
 	  NewType.Type = hash<std::string>(TypeName, 0);
 	  if (NewType.Type < LastOp)
@@ -827,6 +831,100 @@ namespace backendgen {
       Assign->setChild(1, NegOp);
       return Assign;
     }
+
+		const Tree*
+    PatternManager::genIncRegPat(OperatorTableManager& OpMan,
+																 OperandTableManager& OM,
+																 RegClassManager& RegMan,
+																 const std::string& DestRC,
+																 const std::string& Dest) {
+      RegisterClass *RegClass = RegMan.getRegClass(DestRC);
+      Operand *LHS;
+			if (RegClass == NULL) 
+				LHS = new Operand(OM, OM.getType(DestRC), Dest);
+			else
+				LHS = new RegisterOperand(OM, RegClass, Dest);
+      OperatorType Ty;      
+      Ty = OpMan.getType(AddOpStr);
+      Operator* AddOp = Operator::BuildOperator(OpMan, Ty);
+			AddOp->setChild(0, LHS->clone());
+      AddOp->setChild(1, new Constant(OM, 1, OM.getType("byte")));
+      Operator* Assign = Operator::BuildOperator(OpMan,
+																								 OpMan.getType(AssignOpStr));
+      Assign->setChild(0, LHS);
+      Assign->setChild(1, AddOp);
+      return Assign;
+    }
+
+    const Tree*
+    PatternManager::genZeroRegPat(OperatorTableManager& OpMan,
+				 OperandTableManager& OM,
+				 RegClassManager& RegMan,
+				 const std::string& DestRC,
+				 const std::string& Dest) {
+      RegisterClass *RegClass = RegMan.getRegClass(DestRC);
+			Operand* LHS;
+			if (RegClass == NULL) 
+				LHS = new Operand(OM, OM.getType(DestRC), Dest);
+			else
+				LHS = new RegisterOperand(OM, RegClass, Dest);
+			Constant *RHS = new Constant(OM, 0, OM.getType("byte"));
+      Operator* Assign = Operator::BuildOperator(OpMan,
+						 OpMan.getType(AssignOpStr));
+      Assign->setChild(0, LHS);
+      Assign->setChild(1, RHS);
+      return Assign;
+    }
+
+    const Tree*
+    PatternManager::genCallPat(OperatorTableManager& OpMan,
+															 OperandTableManager& OM,															
+															 const std::string& Func) {
+      Operator* CallOp = Operator::BuildOperator(OpMan,
+																								 OpMan.getType("call"));
+      CallOp->setChild(0, new ImmediateOperand(OM, OM.getType("int"),
+																							 Func));
+      return CallOp;
+    }
+
+    const Tree*
+    PatternManager::genNopPat(OperatorTableManager& OpMan,
+															 OperandTableManager& OM) {
+      Operator* NopOp = Operator::BuildOperator(OpMan,
+																								OpMan.getType(NopOpStr));
+      return NopOp;
+    }
+
+
+    const Tree*
+    PatternManager::genBranchLtImmPat(OperatorTableManager& OpMan,
+																			OperandTableManager& OM,
+																			RegClassManager& RegMan,
+																			const std::string& ValRC,
+																			const std::string& Val,
+																			const std::string& BranchTgt,
+																			ConstType Threshold) {
+      RegisterClass *RegClass = RegMan.getRegClass(ValRC);
+			Operand* LHS;
+			if (RegClass == NULL) 
+				LHS = new Operand(OM, OM.getType(ValRC), Val);
+			else
+				LHS = new RegisterOperand(OM, RegClass, Val);
+			Operand* RHS = new Constant(OM, Threshold, OM.getType("tgtimm"));			
+      Operator* CompOp = Operator::BuildOperator(OpMan,
+																								 OpMan.getType("comp"));
+			CompOp->setChild(0, LHS);
+			CompOp->setChild(1, RHS);			
+      Operator* CjumpOp = Operator::BuildOperator(OpMan,
+																									OpMan.getType("cjump"));
+			CjumpOp->setChild(0, new Constant(OM, LtCondVal, OM.getType("cond")));
+			CjumpOp->setChild(1, CompOp);
+			CjumpOp->setChild(2, new ImmediateOperand(OM, OM.getType("int"),
+																								BranchTgt));
+      return CjumpOp;
+    }
+
+
 
     PatternManager::Iterator PatternManager::begin() {
       return PatList.begin();

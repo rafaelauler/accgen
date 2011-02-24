@@ -19,4 +19,5 @@ add_llvm_target(`'__arch__`'
   __arch__`'Subtarget.cpp
   __arch__`'TargetAsmInfo.cpp
   __arch__`'TargetMachine.cpp
+	__arch__`'DelaySlotFiller.cpp
   )

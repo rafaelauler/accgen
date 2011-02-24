@@ -52,13 +52,14 @@ namespace backendgen {
       }
   }
 
-  void Instruction::replaceStr(std::string &s, std::string Src, 
+  bool Instruction::replaceStr(std::string &s, std::string Src, 
 			       std::string New, size_t initPos) const {
     size_t pos = s.find(Src, initPos);
     if (pos == std::string::npos)
-      return;
+      return false;
     s.erase(pos, Src.size());
     s.insert(pos, New);
+		return true;
   }
 
   typedef std::list<const Operand*>::iterator ConstOpIt;
@@ -434,7 +435,8 @@ operand or memory reference.");
   }
   
   bool Instruction::isJump() const {
-    return hasOperator(JumpOp) || hasOperator(CJumpOp);
+    return hasOperator(JumpOp) || hasOperator(CJumpOp) 
+			|| hasOperator(JumpNZOp);
   }
 
   // Extract all defined registers in this instruction (defs)
@@ -562,6 +564,11 @@ operand or memory reference.");
 	OperandName = *OI;
       replaceStr(AssemblyOperands, "%", OperandName);
     }
+		// Eliminate unnecessary escape specific to LLVM backends
+		bool res = false;
+		do {
+			res = replaceStr(AssemblyOperands, "\\$", "$");
+		} while (res);
     S << AssemblyOperands;
     S << "\n";
   }

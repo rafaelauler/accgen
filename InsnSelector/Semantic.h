@@ -387,7 +387,8 @@ namespace backendgen {
     // Encodes special (specific) operators that we must know in order to
     // perform some transformations
     enum KnownOperators {AddOp=1, SubOp, NegOp, DecompOp, IfOp, AssignOp,
-			 MemRefOp, CallOp, JumpOp, CJumpOp, ReturnOp, LastOp};
+												 MemRefOp, CallOp, JumpOp, CJumpOp, JumpNZOp,
+												 ReturnOp, NopOp, LastOp};
 
     const std::string AddOpStr = "+";
     const std::string SubOpStr = "-";
@@ -399,7 +400,10 @@ namespace backendgen {
     const std::string CallOpStr = "call";
     const std::string JumpOpStr = "jump";
     const std::string CJumpOpStr = "cjump";
+    const std::string JumpNZOpStr = "jumpnz";
     const std::string ReturnOpStr = "ret";
+    const std::string NopOpStr = "nop";
+
 
     // Operator types' interface.
     // One different OperatorTypes may exist for each type defined 
@@ -570,21 +574,50 @@ namespace backendgen {
 	const std::string& SrcRC, const std::string& Src);
       static const Tree* 
       genCopyAddSubImmPat(OperatorTableManager& OpMan,
-			  OperandTableManager& OM,
-			  RegClassManager& RegMan,
-			  bool isAddition,
-			  const std::string& DestRC,
-			  const std::string& Dest,
-			  const std::string& SrcRC,
-			  const std::string& Src,
-			  const std::string& Imm);
+													OperandTableManager& OM,
+													RegClassManager& RegMan,
+													bool isAddition,
+													const std::string& DestRC,
+													const std::string& Dest,
+													const std::string& SrcRC,
+													const std::string& Src,
+													const std::string& Imm);
+			static const Tree*
+			genIncRegPat(OperatorTableManager& OpMan,
+									 OperandTableManager& OM,
+									 RegClassManager& RegMan,
+									 const std::string& DestRC,
+									 const std::string& Dest);
       static const Tree*
       genNegRegPat(OperatorTableManager& OpMan,
-		   OperandTableManager& OM,
-		   RegClassManager& RegMan,
-		   const std::string& DestRC,
-		   const std::string& Dest,
-		   const std::string& Imm);
+									 OperandTableManager& OM,
+									 RegClassManager& RegMan,
+									 const std::string& DestRC,
+									 const std::string& Dest,
+									 const std::string& Imm);
+			static const Tree*
+			genCallPat(OperatorTableManager& OpMan,
+								 OperandTableManager& OM,															
+								 const std::string& Func);
+			static const Tree*
+			genZeroRegPat(OperatorTableManager& OpMan,
+										OperandTableManager& OM,
+										RegClassManager& RegMan,
+										const std::string& DestRC,
+										const std::string& Dest);
+			static const Tree*
+			genBranchLtImmPat(OperatorTableManager& OpMan,
+												OperandTableManager& OM,
+												RegClassManager& RegMan,
+												const std::string& ValRC,
+												const std::string& Val,
+												const std::string& BranchTgt,
+												ConstType Threshold);
+			static const Tree*
+			genNopPat(OperatorTableManager& OpMan,
+								OperandTableManager& OM);
+
+
     };
 
   } // end namespace expression

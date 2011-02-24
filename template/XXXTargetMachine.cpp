@@ -75,6 +75,7 @@ bool __arch__`'TargetMachine::addInstSelector(PassManagerBase &PM, bool Fast) {
 /// passes immediately before machine code is emitted.  This should return
 /// true if -print-machineinstrs should print out the code after the passes.
 bool __arch__`'TargetMachine::addPreEmitPass(PassManagerBase &PM, bool Fast) {
+  PM.add(create`'__arch__`'DelaySlotFillerPass(*this));
   return true;
 }
 

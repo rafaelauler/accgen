@@ -72,14 +72,14 @@ void yyerror(char *error);
 %token<num> EQUIVALENCE LEADSTO ALIAS OPERAND SIZE LIKE COLON ANY ABI
 %token<num> REGISTERS AS COMMA SEMANTIC INSTRUCTION TRANSLATE IMM COST
 %token<num> CALLEE SAVE RESERVED RETURN CONVENTION FOR STACK ALIGNMENT
-%token<num> CALLING FRAGMENT 
+%token<num> CALLING FRAGMENT HASDELAYSLOT
 %token<num> LBRACE RBRACE PARAMETERS LEADSTO2 LET ASSIGN IN PATTERN REGISTER
 %token<num> PROGRAMCOUNTER STACKPOINTER FRAMEPOINTER GROWS DOWN UP PCOFFSET
 %token<num> AUXILIAR ASTERISK REDEFINE TO BINDS USING
 
 %type<treenode> exp operator;
 %type<str> oper;
-%type<num> explist convtype strlist srindicator;
+%type<num> explist convtype strlist srindicator dsindicator;
 
 %%
 
@@ -183,7 +183,7 @@ fragdef:           DEFINE SEMANTIC FRAGMENT ID AS LPAREN explist SEMICOLON
 /* Instruction semantic description. */
 
 semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
-                   RPAREN COST NUM SEMICOLON
+                   RPAREN COST NUM dsindicator SEMICOLON
                    {
 		     if (InsnOccurrencesMap.find($3) 
 			 == InsnOccurrencesMap.end())
@@ -204,6 +204,8 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       ClearStack();
 		       YYERROR;
 		     }
+         if ($11)
+           Instr->setHasDelaySlot(true);
 		     Instr->setCost($10);
                      int I = SemanticStack.size() - 1;
                      while (I >= 0) {
@@ -227,6 +229,10 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		     free($3);
                    }
                    ;
+
+dsindicator:			 /* empty */           { $$ = 0; }
+                   |  COMMA HASDELAYSLOT { $$ = 1; }
+
 
 semanticlist:      /* empty */
                    | semanticlist semantic

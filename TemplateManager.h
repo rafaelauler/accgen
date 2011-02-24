@@ -118,6 +118,7 @@ class TemplateManager {
 					       bool isPositive);
   std::string generateEmitPrologue(std::ostream &Log);
   std::string generateEmitEpilogue(std::ostream &Log);
+  std::string generateEmitNOP(std::ostream &Log);
   std::string generateInsertBranch();
   std::string generateEmitSelectCC();
   std::string generateSelectCCTGenPatts();

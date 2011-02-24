@@ -265,6 +265,11 @@ IDENT [a-zA-Z\$\_][a-zA-Z0-9\$\_]*
   return USING;
 }
 
+<INITIAL>"has_delay_slot" {
+  yylval->num = 0;
+  return HASDELAYSLOT;
+}
+
 <INITIAL>";" {
 
   /* Some small tokens */

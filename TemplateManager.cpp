@@ -130,6 +130,8 @@ void TemplateManager::CreateM4File()
   O << generateEmitPrologue(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__emit_epilogue__',`";
   O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__emit_nop__',`";
+  O << generateEmitNOP(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__insert_branch__',`";
   O << generateInsertBranch() << "')m4_dnl\n";
   O << "m4_define(`__emit_select_cc__',`";
@@ -404,66 +406,73 @@ string TemplateManager::generateInstructionsDefs() {
     // Here we print defs and uses for this instruction
     CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
     bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn(),
-         isJump = (*I)->isJump();
-    if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn) {
+			isJump = (*I)->isJump(), hasDelay = (*I)->HasDelaySlot();
+    if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn
+				|| isJump || hasDelay) {
       SS << "let ";
+			if (hasDelay) {
+				SS << "hasDelaySlot = 1";
+				if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn
+						|| isJump)
+					SS << ", ";
+			}
       if (isCall) {
-	SS << "isCall = 1, ";
+				SS << "isCall = 1, ";
       } else if (isJump) {
-	SS << "isBranch = 1, isTerminator = 1";
-	if (Defs->size() > 0 || Uses->size() > 0)
-	  SS << ", ";
+				SS << "isBranch = 1, isTerminator = 1";
+				if (Defs->size() > 0 || Uses->size() > 0)
+					SS << ", ";
       } else if (isReturn) {
-	SS << "isReturn = 1, isTerminator = 1";
-	if (Defs->size() > 0 || Uses->size() > 0)
-	  SS << ", ";
+				SS << "isReturn = 1, isTerminator = 1";
+				if (Defs->size() > 0 || Uses->size() > 0)
+					SS << ", ";
       }
       if (Defs->size() > 0 || isCall) {
-	SS << "Defs = [";
-	for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
-	       E2 = Defs->end(); I2 != E2; ++I2) {
-	  if (I2 != Defs->begin())
-	    SS << ",";	  
-	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
-	}
-	if (isCall) {
-	  std::list<const Register*>* RList = 
-	    RegisterClassManager.getCallerSavedRegs();
-	  for (std::list<const Register*>::const_iterator I2 =
-	    RList->begin(), E2 = RList->end(); I2 != E2; ++I2) {
-	    if (I2 != RList->begin() || Defs->size() != 0)
-	      SS << ",";	  
-	    SS << (*I2)->getName();
-	  }
-	  delete RList;
-	}
-	SS << "]";
-	if (Uses->size() > 0 || isCall) SS << ", ";
+				SS << "Defs = [";
+				for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
+							 E2 = Defs->end(); I2 != E2; ++I2) {
+					if (I2 != Defs->begin())
+						SS << ",";	  
+					SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
+				}
+				if (isCall) {
+					std::list<const Register*>* RList = 
+						RegisterClassManager.getCallerSavedRegs();
+					for (std::list<const Register*>::const_iterator I2 =
+								 RList->begin(), E2 = RList->end(); I2 != E2; ++I2) {
+						if (I2 != RList->begin() || Defs->size() != 0)
+							SS << ",";	  
+						SS << (*I2)->getName();
+					}
+					delete RList;
+				}
+				SS << "]";
+				if (Uses->size() > 0 || isCall) SS << ", ";
       }
       if (Uses->size() > 0 || isCall) {
-	SS << "Uses = [";
-	for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
-	       E2 = Uses->end(); I2 != E2; ++I2) {
-	  if (I2 != Uses->begin())
-	    SS << ",";	  
-	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
-	}
-	if (isCall) {
-	  std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
-	    .getCCBegin();
-	  while (I2 != RegisterClassManager.getCCEnd() && 
-	    ((*I2)->IsReturnConvention || (*I2)->UseStack)) ++I2;
-	  if (I2 != RegisterClassManager.getCCEnd() && (*I2)->getBegin() 
-	      != (*I2)->getEnd()) {
-	    for (std::list<const Register*>::const_iterator I3 =
-	      (*I2)->getBegin(), E3 = (*I2)->getEnd(); I3 != E3; ++I3) {
-	      if (I3 != (*I2)->getBegin() || Uses->size() != 0)
-		SS << ",";	  
-	      SS << (*I3)->getName();
-	    }
-	  }
-	}
-	SS << "]";
+				SS << "Uses = [";
+				for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
+							 E2 = Uses->end(); I2 != E2; ++I2) {
+					if (I2 != Uses->begin())
+						SS << ",";	  
+					SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
+				}
+				if (isCall) {
+					std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
+						.getCCBegin();
+					while (I2 != RegisterClassManager.getCCEnd() && 
+								 ((*I2)->IsReturnConvention || (*I2)->UseStack)) ++I2;
+					if (I2 != RegisterClassManager.getCCEnd() && (*I2)->getBegin() 
+							!= (*I2)->getEnd()) {
+						for (std::list<const Register*>::const_iterator I3 =
+									 (*I2)->getBegin(), E3 = (*I2)->getEnd(); I3 != E3; ++I3) {
+							if (I3 != (*I2)->getBegin() || Uses->size() != 0)
+								SS << ",";	  
+							SS << (*I3)->getName();
+						}
+					}
+				}
+				SS << "]";
       }
       SS << " in\n";
     }
@@ -1174,6 +1183,28 @@ string TemplateManager::generateEmitEpilogue(std::ostream &Log) {
   return SS.str();
 }
 
+
+// This function generates C++ code to build NOPs when the backend
+// needs.
+string TemplateManager::generateEmitNOP(std::ostream &Log) {
+  const Tree* Exp = PatternManager::genNopPat(OperatorTable,
+																							OperandTable);
+  Log << "\nInfering how to emit NOP...\n";
+  SearchResult *SR = FindImplementation(Exp, Log);
+  if (SR == NULL) {
+    Log << "NOP inference failed. Could not find a instruction\n";
+    Log << "to use as NOP in this architecture.\n";
+    abort();
+  }
+  stringstream SS;
+  StringMap Defs;
+  SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs, 6, 
+													 NULL, "MBB", "J", "TII->get");
+  delete SR;
+  delete Exp;
+  return SS.str();
+}
+
 string TemplateManager::generateSelectCCTGenPatts() {  
   stringstream SS;
   unsigned count = 0;
@@ -1669,6 +1700,8 @@ void TemplateManager::CreateBackendFiles()
   std::string CallingConvOut = WorkingDir;
   std::string MachineFunctionIn = TemplateDir;
   std::string MachineFunctionOut = WorkingDir;
+  std::string DelaySlotIn = TemplateDir;
+  std::string DelaySlotOut = WorkingDir;
   std::string CMakeListsIn = TemplateDir;
   std::string CMakeListsOut = WorkingDir;
   std::string MakefileIn = TemplateDir;
@@ -1755,6 +1788,10 @@ void TemplateManager::CreateBackendFiles()
   MachineFunctionOut += "/";
   MachineFunctionOut += ArchName;
   MachineFunctionOut += "MachineFunction.h";
+  DelaySlotIn += "/XXXDelaySlotFiller.cpp";
+  DelaySlotOut += "/";
+  DelaySlotOut += ArchName;
+  DelaySlotOut += "DelaySlotFiller.cpp";
 
   CMakeListsIn += "/CMakeLists.txt";
   CMakeListsOut += "/CMakeLists.txt";
@@ -1913,6 +1950,15 @@ void TemplateManager::CreateBackendFiles()
     std::cout << "Erro ao criar arquivo XXXMachineFunction.h\n";
     exit(1);
   }
+
+  // Creates XXXDelaySlotFiller.cpp file
+  ret = system(("m4 -P " + MacroFileName + " " + DelaySlotIn +
+		" > " + DelaySlotOut).c_str());
+  if (WEXITSTATUS(ret) != 0) {
+    std::cout << "Erro ao criar arquivo XXXDelaySlotFiller.cpp\n";
+    exit(1);
+  }
+
 
   // Copy CMakeLists and Makefile
   ret = system(("m4 -P " + MacroFileName + " " + CMakeListsIn +

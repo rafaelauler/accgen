@@ -53,6 +53,8 @@ define operator comp     as arity 2;
 // in operand 2 compared to operator 3.
 define operator jumpnz   as arity 2;
 define operator setif    as arity 3;
+//NOP is a built-in special operator which does no effect.
+define operator nop      as arity 0;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -91,8 +93,8 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
   (dec (transfer AReg:regs^ AnyOperator:any) (transfer DestReg:regs AReg:regs^) );
   
 
-(cjump CondOp:cond (comp lhs:regs rhs:regs) imm:tgt:int) =>
-  (jumpnz (setif CondOp:cond lhs:regs rhs:regs) imm:tgt:int);
+(cjump CondOp:any (comp lhs:any rhs:any) tgt:any) =>
+  (jumpnz (setif CondOp:any lhs:any rhs:any) tgt:any);
   
 (cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
   (jumpnz (setif const:cond:lt rhs:regs (+ lhs:regs const:byte:1)) imm:tgt:int);

@@ -14,6 +14,18 @@
 #include <sstream>
 
 namespace backendgen {
+
+inline bool ExtractConstValue(const std::string &N, int *ConstVal) {
+  const std::string conststr("CONST<"); 
+  if (N.size() < 8)
+    return false;
+  if (N.compare(0,6,conststr) == 0) {    
+    *ConstVal = atoi(N.substr(6).c_str());
+    return true;
+  }
+  return false;
+}  
+
   
 inline void AbortOn(const std::string &S) {
   std::cerr << S;
