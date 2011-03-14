@@ -308,6 +308,7 @@ void AsmProfileGen::GenerateAssemblyTest(InstrIterator Ins, std::ostream &O) {
 	O << ".globl main" << endl;
   O << "main:" << endl;
 	const Register* TempReg = GetLastAuxiliar();
+	assert(TempReg != 0 && "Must have auxiliar registers."); 
 	GenerateProlog(O, TempReg->getAssemblyName());
   for (unsigned i = 0; i < NUM_INSTRUCTIONS; ++i) {
     EmitRandomizedInstruction(Ins, SI, O);

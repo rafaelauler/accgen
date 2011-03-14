@@ -479,8 +479,13 @@ string TemplateManager::generateInstructionsDefs() {
     delete Defs;
     delete Uses;
     // No we begin printing the instruction definition per se.
-    SS << "def " << (*I)->getLLVMName() << "\t: " << (*I)->getFormat()
-      ->getName();
+    if ((*I)->getFormat()->getNumGroups() > 0) {
+      SS << "def " << (*I)->getLLVMName() << "\t: " << (*I)->getFormat()
+	->getName(1);
+    } else {
+       SS << "def " << (*I)->getLLVMName() << "\t: " << (*I)->getFormat()
+	->getName(0);
+    }
     SS << "<(outs ";
     CnstOperandsList *Ins = (*I)->getIns(), *Outs = (*I)->getOuts();
     // Prints all defined operands (outs)

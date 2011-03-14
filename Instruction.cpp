@@ -59,7 +59,29 @@ namespace backendgen {
       return false;
     s.erase(pos, Src.size());
     s.insert(pos, New);
-		return true;
+    return true;
+  }
+  
+  bool Instruction::replaceOperandStr(std::string &s, std::string New,
+				      size_t initPos) const {
+    std::string marker("%");
+    bool found = false;
+    size_t pos;
+    do {
+      pos = s.find(marker, initPos);
+      if (pos == std::string::npos)
+	return false;
+      if (pos > 0 && (s[pos-1] == '\\')) {
+	initPos = pos+1;
+	if (initPos >= s.size())
+	  return false;
+	continue;
+      }
+      found = true;
+    } while (!found);
+    s.erase(pos, marker.size());
+    s.insert(pos, New);
+    return true;
   }
 
   typedef std::list<const Operand*>::iterator ConstOpIt;
@@ -85,8 +107,13 @@ namespace backendgen {
       if (*I == &DummyOperand)
 	New.append(getStrForInteger(DummyIndex++));
       New.append("}");
-      replaceStr(Result, "%", New);
+      replaceOperandStr(Result, New);
     }
+    // Eliminate unnecessary escape specific to ArchC format strings
+    bool res = false;
+    do {
+      res = replaceStr(Result, "\\%", "%");
+    } while (res);
     delete ListOps;
     return Result;
   }
@@ -562,13 +589,20 @@ operand or memory reference.");
 	OperandName = "XXX"; // we don't known this operand's value
       else
 	OperandName = *OI;
-      replaceStr(AssemblyOperands, "%", OperandName);
+      bool res = false;
+      do {
+	res = replaceOperandStr(OperandName, "\\%");
+      } while (res);
+      replaceOperandStr(AssemblyOperands, OperandName);
     }
-		// Eliminate unnecessary escape specific to LLVM backends
-		bool res = false;
-		do {
-			res = replaceStr(AssemblyOperands, "\\$", "$");
-		} while (res);
+    // Eliminate unnecessary escape specific to LLVM backends
+    bool res = false;
+    do {
+      res = replaceStr(AssemblyOperands, "\\$", "$");
+    } while (res);
+    do {
+      res = replaceStr(AssemblyOperands, "\\%", "%");
+    } while (res);
     S << AssemblyOperands;
     S << "\n";
   }

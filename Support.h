@@ -145,7 +145,8 @@ inline std::string InferValueType(const expression::RegisterClass *RC) {
 inline std::string InferValueType(const expression::Operand *O) {
   if (O->getDataType() == expression::IntType) {
     std::stringstream SS;
-    SS << "i" << O->getSize();
+    //SS << "i" << O->getSize();
+    SS << "i32";
     return SS.str();
   }
 

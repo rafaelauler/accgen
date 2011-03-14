@@ -26,7 +26,7 @@ extern int LineNumber;
 %option noyywrap
 
 DIGIT -?[0-9]
-IDENT [a-zA-Z\$\_][a-zA-Z0-9\$\_]*
+IDENT [a-zA-Z\$\%\_][a-zA-Z0-9\$\%\_]*
 
 %%
 

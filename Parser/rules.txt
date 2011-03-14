@@ -113,6 +113,12 @@ AnyOperator:any => (dec (transfer AReg:regs^ AnyOperator:any) AReg:regs^);
   
 (cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int) =>
   (jumpnz (setif const:cond:ult rhs:regs lhs:regs) imm:tgt:int);
+  
+(cjump const:cond:uge (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:ule (comp rhs:regs (- lhs:regs const:byte:1)) imm:tgt:int);
+  
+(cjump const:cond:ult (comp lhs:regs rhs:regs) imm:tgt:int) =>
+  (cjump const:cond:ule (comp lhs:regs (- rhs:regs const:byte:1)) imm:tgt:int);
 
 //(cjump const:cond:gt (comp lhs:regs rhs:regs) imm:tgt:int) =>
 //  (cjump const:cond:le (comp rhs:regs lhs:regs) imm:tgt:int);

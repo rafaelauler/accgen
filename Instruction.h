@@ -104,7 +104,9 @@ class Instruction {
   unsigned getNumOperands() const { return Operands.size(); }
   std::string &getOperandsFmts() { return OperandFmts; }
   bool replaceStr(std::string &s, std::string Src, std::string New,
-		  size_t initPos = 0) const;  
+		  size_t initPos = 0) const;
+  bool replaceOperandStr(std::string &s, std::string New,
+			 size_t initPos = 0) const;  
   std::string parseOperandsFmts();
   void emitAssembly(std::list<std::string> Operands, SemanticIterator SI,
 		    std::ostream& S) const;

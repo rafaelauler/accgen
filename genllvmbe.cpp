@@ -25,6 +25,7 @@
 #include "TemplateManager.h"
 #include "CMemWatcher.h"
 #include "SaveAgent.h"
+#include "Support.h"
 #include "AsmProfileGen.h"
 #include "InsnSelector/Semantic.h"
 #include <map>
@@ -69,12 +70,14 @@ struct StartupInfo {
   bool GeneratePatternsFlag;
   bool GenerateProfilingFlag;
   bool VerboseFlag;
+  bool ChangeArchNameFlag;
   StartupInfo() {
     ForceCacheFlag = false;
     VerboseFlag = false;
     GenerateBackendFlag = false;
     GeneratePatternsFlag = false;
     GenerateProfilingFlag = false;
+    ChangeArchNameFlag = false;
   }
 };
 
@@ -344,7 +347,8 @@ void BuildInsn(bool Debug) {
     InstructionManager.addInstruction(I);
   }
   InstructionManager.SortInstructions();
-  InstructionManager.SetLLVMNames();
+  InstructionManager.SetLLVMNames();  
+  
   if (Debug)
     DebugInsn();
 }
@@ -443,7 +447,12 @@ void DeallocateACParser() {
 void PrintUsage(string AppName, string Message) {
   std::cerr << Message;
   std::cerr << "Usage is: " << AppName << " <project file>"
-	    << " [flags]\n\n";
+	    << " [flags]\n";
+  std::cerr << "Flags:\n\t-f\tForce cache usage.\n\t-v\tVerbose\n"
+               "\t-t\tSelect generate patterns mode.\n"
+               "\t-p\tGenerate assembly profile mode.\n"
+               "\t-b\tGenerate compiler backend mode [default].\n"
+               "\t-c\tAvoid name clashes in LLVM build system by changing architecture name.\n\n";
   std::cerr << "Example: " << AppName << " armv5e.ac\n\n";
 }
 
@@ -532,6 +541,12 @@ StartupInfo * ProcessArguments(int argc, char **argv) {
 	       Result->GeneratePatternsFlag == false &&
 	       "Only one mode can be selected.");
 	break;
+      // Flag used to avoid collision with an already existing
+      // LLVM backend using the ArchC model name.
+      case 'c':
+	std::cout << "Change architecture name flag used.\n";
+	Result->ChangeArchNameFlag = true;
+	break;
     }    
   } while (num > 1);
   
@@ -542,6 +557,8 @@ StartupInfo * ProcessArguments(int argc, char **argv) {
   }
   
   Result->ArchName = ExtractArchName(Result->ProjectFile);
+  if (Result->ChangeArchNameFlag)
+    Result->ArchName.append("1");
   
   if (! (Result->GenerateBackendFlag || Result->GenerateProfilingFlag 
       || Result->GeneratePatternsFlag)) {
@@ -736,7 +753,7 @@ int main(int argc, char **argv) {
     MemWatcher->FreeAll();
     helper::CMemWatcher::Destroy();
     exit(EXIT_FAILURE);
-  }  
+  }    
   
   if (SI->GenerateBackendFlag || SI->GeneratePatternsFlag) {
     const char *TmpDir = "llvmbackend";
