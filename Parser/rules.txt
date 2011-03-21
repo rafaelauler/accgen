@@ -10,7 +10,8 @@
 
 //==========================-- Operators --===================================//
 
-// Built-in operators: +, -, ~, transfer, call, ret, memref
+// Built-in operators: +, -, ~, transfer, dec, call, ret, memref, jump, cjump,
+//                     jumpnz, nop, pcrelative
 // These operands must exist
 define operator +        as arity 2;
 define operator -        as arity 2;
@@ -55,6 +56,9 @@ define operator jumpnz   as arity 2;
 define operator setif    as arity 3;
 //NOP is a built-in special operator which does no effect.
 define operator nop      as arity 0;
+// Operator pcrelative adds an operand to the PROGRAM COUNTER value.
+// Its main usage is to take advantage of PC-relative addressing.
+define operator pcrelative as arity 1;
 define operator alias    as add => +;
 define operator alias    as sub => -;
 
@@ -78,8 +82,8 @@ define operand bit    as size 1  like int;
 //NOTE: The system does not chain 2 or more rules to the same node
 // (When a rule is applied, it is able to transform its children, not the root
 //  anymore, so 2 rules are never chained to the same node). Change this? May
-//  increase search times and cause infinite loops. - NOT if each rule application
-//  increases the search depth, which is limited.
+//  increase search times and cause infinite loops. - NOT if each rule
+//  application increases the search depth, which is limited.
 
 //AnyOperator:any <=> (+ const:int:0 AnyOperator:any);
 
@@ -159,6 +163,8 @@ imm:oper:short => (dec (transfer AReg:regs (+ (shl imm:op1:byte const:byte:8) im
 ( oper binds to op1 using "oper >> 8";
   oper binds to op2 using "oper & 0xFF";
 );
+
+(pcrelative aa:any) => (+ (getpc) aa:any);
 
 //=========================-- LLVM Patterns --================================//
 
@@ -261,9 +267,13 @@ define pattern LOAD as (
   (transfer a3:regs (memref addr:regs));
 );
 
+// Built-in pattern: GLOBALADDRESS defines how the target architecture
+// discover the current instruction address and how to handle global values
+// contants.
 define pattern GLOBALADDRESS as (
   "(globaladdr i32:$addr)";
-  (transfer a3:regs (memref (+ addr:regs imm:addr:short)));
+//  (transfer a3:regs (memref (+ addr:regs imm:addr:short)));
+  (transfer a3:regs (memref (pcrelative imm:addr:short)));
 );
 
 // Built-int pattern: FRAMEINDEX is used to identify frameindexes

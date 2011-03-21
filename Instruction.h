@@ -26,6 +26,9 @@ class FormatField;
 class InsnFormat;
 class Instruction;
 
+extern const Operand DummyOperand;
+extern const Operand MemRefOperand;
+
 typedef std::vector<Instruction *> InsnVectTy;
 typedef std::map<unsigned int, InsnVectTy> InsnIdMapTy;
 typedef InsnIdMapTy::iterator InsnIdMapIter;
@@ -89,6 +92,7 @@ class Instruction {
   bool isCall() const;
   bool isReturn() const;
   bool isJump() const;
+  bool isPcRelative() const;
   bool hasOperator(unsigned OperatorOpcode) const;
 
   void setLLVMName(std::string LLVMName) {this->LLVMName = LLVMName;}

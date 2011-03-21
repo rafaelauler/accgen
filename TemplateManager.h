@@ -77,6 +77,8 @@ class TemplateManager {
     SearchResult * BranchCond8SR;
     SearchResult * BranchCond9SR;
     SearchResult * BranchCond10SR;
+    SearchResult * GlobalAddressSR;
+    SearchResult * NopSR;
     // A list of patterns of move instructions, between each pair of possible
     // register class
     MoveListTy MoveRegToRegList;
@@ -119,13 +121,16 @@ class TemplateManager {
   std::string generateEmitPrologue(std::ostream &Log);
   std::string generateEmitEpilogue(std::ostream &Log);
   std::string generateEmitNOP(std::ostream &Log);
+  std::string generateIsNOP();
   std::string generateInsertBranch();
   std::string generateEmitSelectCC();
   std::string generateSelectCCTGenPatts();
   std::string generateCopyRegPatterns(std::ostream &Log);
   std::string generateIsMove();
+  std::string generateGlobalAddressLogic();
   SearchResult* FindImplementation(const expression::Tree *Exp,
-				   std::ostream &Log, int TID);
+				   std::ostream &Log, int TID, 
+				   unsigned MaxDepth);
   std::string PostprocessLLVMDAGString(const std::string &S, SDNode *DAG);
   std::string generateReturnLowering();
   void generateSimplePatterns(std::ostream &Log, std::string **EmitFunctions,
@@ -148,6 +153,7 @@ class TemplateManager {
       CommentChar = '#';
       TypeCharSpecifier = '@';
       InferenceResults.StoreToStackSlotSR = NULL;
+      InferenceResults.NopSR = NULL;
       for (std::set<Register*>::const_iterator 
 	I = RegisterClassManager.getAuxiliarBegin(),
 	E = RegisterClassManager.getAuxiliarEnd(); I != E; ++I) {
@@ -160,6 +166,8 @@ class TemplateManager {
       delete InferenceResults.StoreToStackSlotSR;
     if (InferenceResults.LoadFromStackSlotSR != NULL)
       delete InferenceResults.LoadFromStackSlotSR;
+    if (InferenceResults.NopSR != NULL)
+      delete InferenceResults.NopSR;
     for (MoveListTy::const_iterator I = InferenceResults.MoveRegToRegList
          .begin(), E = InferenceResults.MoveRegToRegList.end(); I != E; ++I) {
       if (I->second != NULL)

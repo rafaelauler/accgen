@@ -54,6 +54,8 @@ namespace {
                    const TargetAsmInfo *T): 
                    AsmPrinter(O, TM, T) {
       Subtarget = &TM.getSubtarget<`'__arch__`'Subtarget>();
+      LabelCounter = 0;
+      EmitLabel = false;
     }
 
     virtual const char *getPassName() const {
@@ -63,6 +65,8 @@ namespace {
     bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo, 
                          unsigned AsmVariant, const char *ExtraCode);
     void printOperand(const MachineInstr *MI, int opNum);
+    int generateNewLabelPostfix();
+    int getCurLabelPostfix();
     void printLiteral(const MachineInstr *MI, int opNum);
     void printGlobalValue(const MachineInstr *MI, int opNum);
     void printUnsignedImm(const MachineInstr *MI, int opNum);
@@ -82,6 +86,11 @@ namespace {
     bool runOnMachineFunction(MachineFunction &F);
     bool doInitialization(Module &M);
     bool doFinalization(Module &M);
+    
+    bool isNop(const MachineInstr *MI);
+    
+    int LabelCounter;
+    bool EmitLabel;
   };
 } // end of anonymous namespace
 
@@ -99,6 +108,12 @@ namespace llvm {
   return new __arch__`'AsmPrinter(o, tm, tm.getTargetAsmInfo());
 }
 
+}
+
+bool __arch__`'AsmPrinter::
+isNop(const MachineInstr *MI) 
+{
+__identify_nop__
 }
 
 //===----------------------------------------------------------------------===//
@@ -187,6 +202,10 @@ runOnMachineFunction(MachineFunction &MF)
     for (MachineBasicBlock::const_iterator II = I->begin(), E = I->end();
          II != E; ++II) {
       // Print the assembly for the instruction.
+      if (EmitLabel && !isNop(II)) {
+	EmitLabel = false;
+	O << ".NI" << getCurLabelPostfix() << ":\n";
+      }
       printInstruction(II);
       ++EmittedInsts;
     }
@@ -213,6 +232,19 @@ PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
 
   printOperand(MI, OpNo);
   return false;
+}
+
+int __arch__`'AsmPrinter::
+generateNewLabelPostfix()
+{
+  EmitLabel = true;
+  return ++LabelCounter;
+}
+
+int __arch__`'AsmPrinter::
+getCurLabelPostfix()
+{
+  return LabelCounter;
 }
 
 void __arch__`'AsmPrinter::
@@ -256,10 +288,9 @@ printGlobalValue(const MachineInstr *MI, int opNum)
     return;
   }  
   // Special handling
-  if (TM.getInstrInfo()->get(MI->getOpcode()).OpInfo[opNum].RegClass != 0) {
-    O << "`'__pc_asm__`'";
-    return;
-  }
+//  if (TM.getInstrInfo()->get(MI->getOpcode()).OpInfo[opNum].RegClass != 0) {
+//    return;
+//  }
   // Calculate the PC offset
   const MachineFunction* MF = MI->getParent()->getParent();
   int index = MF->getInfo<`'__arch__`'FunctionInfo>()->getIndex(GV);
@@ -302,14 +333,15 @@ printGlobalValue(const MachineInstr *MI, int opNum)
       } // end stage 1
       if (stage2 && (I2->findRegisterUseOperandIdx((unsigned)curDefReg) != -1)) {
 	bool found = false;
-	for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
-	  if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
-	    if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
-	      found = true;
-	      break;
-	    }
-	  }
-	}
+__global_address_logic__
+//	for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
+//	  if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
+//	    if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
+//	      found = true;
+//	      break;
+//	    }
+//	  }
+//	}
 	if (found) {
 	  count = true;
 	  stage2 = false;

@@ -86,8 +86,8 @@ namespace backendgen {
 
   typedef std::list<const Operand*>::iterator ConstOpIt;
 
-  static const Operand DummyOperand(OperandTable, OperandType(0,0,0), "dummy");
-  static const Operand MemRefOperand(OperandTable, OperandType(0,0,0), "mem");
+  const Operand DummyOperand(OperandTable, OperandType(0,0,0), "dummy");
+  const Operand MemRefOperand(OperandTable, OperandType(0,0,0), "mem");
 
   std::string Instruction::parseOperandsFmts() {
     std::string Result(OperandFmts);
@@ -465,6 +465,10 @@ operand or memory reference.");
     return hasOperator(JumpOp) || hasOperator(CJumpOp) 
 			|| hasOperator(JumpNZOp);
   }
+
+  bool Instruction::isPcRelative() const {
+    return hasOperator(PcRelativeOp) || hasOperator(GetPcOp);
+  }  
 
   // Extract all defined registers in this instruction (defs)
   std::list<const Operand*>* Instruction::getDefs() const {

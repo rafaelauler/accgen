@@ -159,6 +159,13 @@ void LiteralMap::printAll(std::ostream& O) {
   for (LiteralMap::const_iterator I = this->begin(), E = this->end();
        I != E; ++I) {
     O << "  case " << I->first << ":" << endl;  
+    // Special case: Special literals ($nextinstruction$) print
+    // different things.
+    if (I->second == "$nextinstruction$") {
+      O << "    O << \".NI\" << generateNewLabelPostfix();" << endl;
+      O << "    break;" << endl;
+      continue;
+    }
     O << "    O << \"" << I->second << "\";" << endl;
     O << "    break;" << endl;    
   }
@@ -262,6 +269,57 @@ void PatternTranslator::sortOperandsDefs(NameListType* OpNames,
 }
 
 namespace {
+
+// Auxiliar function used when a virtual register occurs in the operands
+// defs list, but also has a definition in VirtualToReal map. In this case,
+// this function eliminates the occurence in operands defs list of the virtual
+// register and puts it as a binding in the BindingsList for this instruction.
+//
+// Before:
+// OperandsDefs:  AReg3876
+// Bindings:      NULL
+// VirtualToReal: AReg3876 => $31
+//
+// After:
+// OperandsDefs:  NULL
+// Bindings:      Op1 = "$31"
+// VirtualToReal: AReg3876 => $31
+//
+
+//
+//  UNUSED AUXILIARY FUNCTION - deprecated
+//
+void bindOperands(SearchResult *SR, NameListType *OpNames,
+		  BindingsList **Bindings, CnstOperandsList* AllOps) {
+  unsigned index = 1;
+  NameListType::iterator NI = OpNames->begin();
+  for (CnstOperandsList::iterator I = AllOps->begin(), 
+	 E = AllOps->end(); I != E;) {
+    const Operand *Element = *I;
+    if (Element->getType() == 0) {
+      ++index;
+      ++I;
+      continue;
+    }
+    VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI);
+    if (VI == SR->VirtualToReal->end()) {
+      ++index;
+      ++NI;
+      ++I;
+      continue;
+    }
+    if (*Bindings == NULL)
+      *Bindings = new list<ABinding>();
+    std::stringstream SS;
+    SS << "Op" << index;
+    (*Bindings)->push_back(make_pair(SS.str(), VI->second));
+    NI = OpNames->erase(NI);
+    AllOps->insert(I, &DummyOperand);
+    I = AllOps->erase(I);
+    ++index;
+  }
+}
+
 void ReportOperandsMismatch(std::ostream &S, CnstOperandsList *AllOps,
 			    BindingsList *Bindings, NameListType *OpNames,
 			    InstrList::const_iterator I) {
@@ -316,14 +374,14 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
   // and thus "glueing" the defs as in the DAG like syntax. The last def
   // is the root of the DAG.
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
-  for (InstrList::const_iterator I = SR->Instructions->begin(),
+  for (InstrList::iterator I = SR->Instructions->begin(),
 	 E = SR->Instructions->end(); I != E; ++I) {
     CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
     CnstOperandsList* Outs = I->first->getOuts();    
-    BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
     NameListType* OpNames = *(OI++);
     sortOperandsDefs(OpNames, I->second);
+    BindingsList* Bindings = I->second->OperandsBindings;
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());    
     // Building DAG Node for this instruction
@@ -401,6 +459,17 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
 	++i;
 	continue;
       }
+      // Is this operand a virtual register bound to a real register
+      // in VirtualToReal?
+      VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI);
+      if (VI != SR->VirtualToReal->end()) {
+	N->ops[i] = new SDNode();
+	N->ops[i]->LiteralIndex = LMap->addMember(VI->second);
+	++NI;
+	++i;
+	continue;
+      }
+
       // Is this operand already defined?
       DefList::iterator DI = std::find_if(Defs.begin(), Defs.end(), 
 					  DefineName(*NI));
@@ -435,7 +504,11 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
     delete Outs;
   }
   // Now, we must return the last definition, i.e., the root of the DAG.
-  if (NoDefNode != NULL)
+  if (NoDefNode != 0 && LastProcessedNode != NoDefNode) {
+    LastProcessedNode->Chain = NoDefNode;
+    return LastProcessedNode;
+  }
+  if (NoDefNode != 0)
     return NoDefNode;
   return LastProcessedNode;
 }
@@ -745,35 +818,60 @@ std::string PatternTranslator::genEmitSDNode(SearchResult *SR,
 /// will be generated.
 
 void PatternTranslator::genEmitSDNode(SDNode* N, 
-					 SDNode* LLVMDAG,
-					 const list<unsigned>& pathToNode,
-				         const OpTransLists* OTL,
-					 std::ostream &S) {  
+				      SDNode* LLVMDAG,
+				      const list<unsigned>& pathToNode,
+				      const OpTransLists* OTL,
+				      std::ostream &S,
+				      const list<unsigned>* InFlag,
+				      bool createOutFlag
+) {  
   map<string, string> TempToVirtual;
   const LLVMNodeInfo *Info = NULL;
   bool ChainTail = true; // Turns false if we need to chain a node
   
-  if (pathToNode.empty()) 
-    Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
+  Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
      
   // Depth first
   assert (N->RefInstr != NULL && "Must be valid instruction");    
   if (N->NumOperands != 0) {
-    for (unsigned i = 0; i < N->NumOperands; ++i) {
-      if (N->ops[i]->RefInstr != NULL) {
-	list<unsigned> childpath = pathToNode;	
-	childpath.push_back(i);
-	genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S);	
-      }
-    }
     // Check for chain
     if (N->Chain) {
       assert (N->Chain->RefInstr != NULL && "Chain must be an instruction");
       ChainTail = false;
       list<unsigned> childpath = pathToNode;      
       childpath.push_back(N->NumOperands);
-      genEmitSDNode(N->Chain, LLVMDAG, childpath, OTL, S);
+      // Sets createOutFlag to true, so the sibling nodes can use
+      // it as flag operand 
+      genEmitSDNode(N->Chain, LLVMDAG, childpath, OTL, S, 0, true);
     }    
+    // Children
+    for (unsigned i = 0; i < N->NumOperands; ++i) {
+      if (N->ops[i]->RefInstr != NULL) {
+	list<unsigned> childpath = pathToNode;	
+	childpath.push_back(i);
+	// Pass N->Chain as flag for other operands, so we correctly signal
+	// the instruction scheduler to put these insns in order.
+	if (N->Chain) {
+	  if (i == 0) {
+	    list<unsigned> *chainpath = new list<unsigned>(pathToNode);
+	    bool last = (i == (N->NumOperands-1))? true: false;
+	    chainpath->push_back(N->NumOperands);	    
+	    genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S, chainpath,
+			  !last);
+	    delete chainpath;
+	  } else {
+	    list<unsigned> *chainpath = new list<unsigned>(pathToNode);
+	    bool last = (i == (N->NumOperands-1))? true: false;
+	    chainpath->push_back(i-1);
+	    genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S, chainpath,
+			  !last);
+	    delete chainpath;
+	  }
+	}
+	else
+	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S);
+      }
+    }
   }
   
   // Declare our leaf nodes. Non-leaf nodes are already declared
@@ -786,12 +884,10 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
   
   const string NodeName = buildNodeName(pathToNode);
   const int OutSz = N->RefInstr->getOutSize();  
-  const bool HasChain = (pathToNode.empty() && Info->HasChain) || OutSz <= 0;
+  const bool HasChain = Info->HasChain;
   const bool HasInFlag = (pathToNode.empty() && Info->HasInFlag);
   const bool HasOutFlag = (pathToNode.empty() && Info->HasOutFlag);
   
-  assert ((ChainTail || HasChain) && "If this node chains another node, it"
-           " must have chain operand!");
   // Declare our operand vector
   if (N->NumOperands > 0) {
     S << "  SDValue Ops" << NodeName << "[] = {";        
@@ -804,7 +900,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
     }    
     if (HasChain && ChainTail) {
       S << ", N.getOperand(0)";
-    } else if (HasChain && !ChainTail) {
+    } else if (!ChainTail) {
       list<unsigned> childpath = pathToNode;
       S << ", ";
       childpath.push_back(N->NumOperands);
@@ -815,14 +911,17 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
       S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")"; 
     else if (HasInFlag) 
       S << ", N.getOperand(" << LLVMDAG->NumOperands << ")"; 
+    else if (InFlag) {
+      S << ", " << buildNodeName(*InFlag) << "_Flag";
+    }
     S << "};" << endl;
   } else {
-    if (HasChain || HasInFlag)
+    if (!ChainTail || HasChain || HasInFlag)
       S << "  SDValue Ops" << NodeName << "[] = {";
     // HasChain? If yes, we must receive it as the first operand
     if (HasChain && ChainTail)      
       S << "N.getOperand(0)";
-    else if (HasChain && !ChainTail) {
+    else if (!ChainTail) {
       list<unsigned> childpath = pathToNode;
       childpath.push_back(N->NumOperands);
       S << buildNodeName(childpath);
@@ -832,7 +931,15 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
       S << ", N.getOperand(" << LLVMDAG->NumOperands+1 << ")";
     else if (HasInFlag && !HasChain)
       S << "N.getOperand(" << LLVMDAG->NumOperands << ")";
-    if (HasChain || HasInFlag)
+    else {
+      if (InFlag && HasChain) {
+	S << ", " << buildNodeName(*InFlag) << "_Flag";
+      }
+      else if (InFlag && !HasChain) {
+	S << buildNodeName(*InFlag) << "_Flag";
+      }
+    }
+    if (!ChainTail || HasChain || HasInFlag)
       S << "};" << endl;
   }
   
@@ -852,22 +959,25 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
     if (HasChain)
       S << ", MVT::Other";
   }
-  if (HasOutFlag)
+  if (HasOutFlag || createOutFlag)
     S << ", MVT::Flag";
   
   if (N->NumOperands > 0 || HasChain) {
     S << ", Ops" << NodeName << ", ";
     int NumOperands = N->NumOperands;
-    if (HasChain)
+    if (!ChainTail || HasChain)
       ++NumOperands;
-    if (HasInFlag)
+    if (HasInFlag || InFlag)
       ++NumOperands;            
     S << NumOperands;
   }
   
-  if (!pathToNode.empty())
+  if (!pathToNode.empty()) {
     S << "), 0);" << endl;
-  else
+    if (createOutFlag)
+      S << "  SDValue " << NodeName << "_Flag = " 
+	<< "SDValue(" << NodeName << ".getNode(), 1);" << endl;
+  } else
     S << ");" << endl;    
   
   return;
@@ -1153,15 +1263,15 @@ std::string PatternTranslator::genEmitMI(SearchResult *SR, const StringMap& Defs
   RA = RegAlloc::Build(auxiliarRegs, SR->OperandsDefs->begin(),
 			 SR->OperandsDefs->end());  
   OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
-  for (InstrList::const_iterator I = SR->Instructions->begin(),
+  for (InstrList::iterator I = SR->Instructions->begin(),
 	 E = SR->Instructions->end(); I != E; ++I) {
     CnstOperandsList* AllOps = I->first->getOperandsBySemantic();
     CnstOperandsList* Outs = I->first->getOuts();
-    BindingsList* Bindings = I->second->OperandsBindings;
     assert (OI != SR->OperandsDefs->end() && "SearchResult inconsistency");
     NameListType* OpNames = *(OI++);    
-    if (!alreadySorted)
+    if (!alreadySorted) 
       sortOperandsDefs(OpNames, I->second);
+    BindingsList* Bindings = I->second->OperandsBindings;
     assert (Outs->size() <= 1 && "FIXME: Expecting only one definition");
     const Operand *DefOperand = (Outs->size() == 0)? NULL: *(Outs->begin());
     for (unsigned i = 0; i < ident; ++i)

@@ -124,7 +124,9 @@ namespace backendgen {
     void genEmitSDNode(SDNode* N, SDNode* LLVMDAG, 
 			  const std::list<unsigned>& pathToNode,
 			  const OpTransLists* OTL,
-			  std::ostream &S);
+		       std::ostream &S,
+		       const std::list<unsigned>* Flag = 0,
+		       bool createOutFlag = false);
     // Matcher
     void genSDNodeMatcher(const std::string &LLVMDAG, 
 			 std::map<std::string, MatcherCode> &Map,

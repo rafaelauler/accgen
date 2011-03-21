@@ -45,10 +45,9 @@ void TemplateManager::CreateM4File()
   string *Funcs, *Switch, *Headers;
   const Register* LR = RegisterClassManager.getReturnRegister();
   const Register* FP = RegisterClassManager.getFramePointer();
-  const Register* PC = RegisterClassManager.getProgramCounter();
   const Register* SP = RegisterClassManager.getStackPointer();
   
-  assert (LR != NULL && FP !=  NULL && PC != NULL && SP != NULL &&
+  assert (LR != NULL && FP !=  NULL && SP != NULL &&
           "Missing basic abi info in model file");
   int PCOffset = RegisterClassManager.getPCOffset();
   std::transform(ArchName.begin(), ArchName.end(), 
@@ -67,12 +66,11 @@ void TemplateManager::CreateM4File()
   O << "m4_define(`__arch_in_caps__',`" << ArchNameCaps << "')m4_dnl\n"; 
   O << "m4_define(`__nregs__',`" << NumRegs << "')m4_dnl\n"; 
   O << "m4_define(`__wordsize__',`" << WordSize << "')m4_dnl\n"; 
-	O << "m4_define(`__comment_char__',`" << CommentChar << "')m4_dnl\n"; 
+  O << "m4_define(`__comment_char__',`" << CommentChar << "')m4_dnl\n"; 
   O << "m4_define(`__type_char_specifier__',`" << TypeCharSpecifier 
     << "')m4_dnl\n"; 
   O << "m4_define(`__ra_register__',`" << ArchName << "::"
     << LR->getName() << "')m4_dnl\n";
-  O << "m4_define(`__pc_asm__',`" << PC->getName() << "')m4_dnl\n";
   O << "m4_define(`__frame_register__',`" << ArchName <<  "::"
     << FP->getName() << "')m4_dnl\n";
   O << "m4_define(`__stackpointer_register__',`" << ArchName <<  "::"
@@ -122,6 +120,8 @@ void TemplateManager::CreateM4File()
   O << generateCopyRegPatterns(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__is_move__',`";
   O << generateIsMove() << "')m4_dnl\n";
+  O << "m4_define(`__global_address_logic__',`";
+  O << generateGlobalAddressLogic() << "')m4_dnl\n";
   O << "m4_define(`__eliminate_call_frame_pseudo_positive__',`";
   O << generateEliminateCallFramePseudo(std::cout, true) << "')m4_dnl\n";  
   O << "m4_define(`__eliminate_call_frame_pseudo_negative__',`";
@@ -132,6 +132,8 @@ void TemplateManager::CreateM4File()
   O << generateEmitEpilogue(std::cout) << "')m4_dnl\n";
   O << "m4_define(`__emit_nop__',`";
   O << generateEmitNOP(std::cout) << "')m4_dnl\n";
+  O << "m4_define(`__identify_nop__',`";
+  O << generateIsNOP() << "')m4_dnl\n";
   O << "m4_define(`__insert_branch__',`";
   O << generateInsertBranch() << "')m4_dnl\n";
   O << "m4_define(`__emit_select_cc__',`";
@@ -280,24 +282,24 @@ string TemplateManager::generateReservedRegsList() {
 	 E = RegisterClassManager.getReservedEnd(); I != E; ++I) {
     SS << "  Reserved.set(" << ArchName << "::" << (*I)->getName() << ");"
        << endl;
-    if (PC->getName() == (*I)->getName()) {
+    if (PC != 0 && PC->getName() == (*I)->getName()) {
       isPCReserved = true;
-    } else if (LR->getName() == (*I)->getName()) {
+    } else if (LR != 0 && LR->getName() == (*I)->getName()) {
       isLRReserved = true;
-    } else if (FP->getName() == (*I)->getName()) {
+    } else if (FP != 0 && FP->getName() == (*I)->getName()) {
       isFPReserved = true;
     }
   }
   // Guarantee that these registers are always reserved
-  if (!isPCReserved) {
+  if (PC != 0 && !isPCReserved) {
     SS << "  Reserved.set(" << ArchName << "::" << PC->getName() << ");" 
        << endl;
   }
-  if (!isLRReserved) {
+  if (LR != 0 && !isLRReserved) {
     SS << "  Reserved.set(" << ArchName << "::" << LR->getName() << ");" 
        << endl;
   }
-  if (!isFPReserved) {
+  if (FP != 0 && !isFPReserved) {
     SS << "  Reserved.set(" << ArchName << "::" << FP->getName() << ");" 
        << endl;
   }
@@ -406,73 +408,73 @@ string TemplateManager::generateInstructionsDefs() {
     // Here we print defs and uses for this instruction
     CnstOperandsList *Defs = (*I)->getDefs(), *Uses = (*I)->getUses();
     bool isCall = (*I)->isCall(), isReturn = (*I)->isReturn(),
-			isJump = (*I)->isJump(), hasDelay = (*I)->HasDelaySlot();
+      isJump = (*I)->isJump(), hasDelay = (*I)->HasDelaySlot();
     if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn
-				|| isJump || hasDelay) {
+	|| isJump || hasDelay) {
       SS << "let ";
-			if (hasDelay) {
-				SS << "hasDelaySlot = 1";
-				if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn
-						|| isJump)
-					SS << ", ";
-			}
+      if (hasDelay) {
+	SS << "hasDelaySlot = 1";
+	if (Defs->size() > 0 || Uses->size() > 0 || isCall || isReturn
+	    || isJump)
+	  SS << ", ";
+      }
       if (isCall) {
-				SS << "isCall = 1, ";
+	SS << "isCall = 1, ";
       } else if (isJump) {
-				SS << "isBranch = 1, isTerminator = 1";
-				if (Defs->size() > 0 || Uses->size() > 0)
-					SS << ", ";
+	SS << "isBranch = 1, isTerminator = 1";
+	if (Defs->size() > 0 || Uses->size() > 0)
+	  SS << ", ";
       } else if (isReturn) {
-				SS << "isReturn = 1, isTerminator = 1";
-				if (Defs->size() > 0 || Uses->size() > 0)
-					SS << ", ";
+	SS << "isReturn = 1, isTerminator = 1";
+	if (Defs->size() > 0 || Uses->size() > 0)
+	  SS << ", ";
       }
       if (Defs->size() > 0 || isCall) {
-				SS << "Defs = [";
-				for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
-							 E2 = Defs->end(); I2 != E2; ++I2) {
-					if (I2 != Defs->begin())
-						SS << ",";	  
-					SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
-				}
-				if (isCall) {
-					std::list<const Register*>* RList = 
-						RegisterClassManager.getCallerSavedRegs();
-					for (std::list<const Register*>::const_iterator I2 =
-								 RList->begin(), E2 = RList->end(); I2 != E2; ++I2) {
-						if (I2 != RList->begin() || Defs->size() != 0)
-							SS << ",";	  
-						SS << (*I2)->getName();
-					}
-					delete RList;
-				}
-				SS << "]";
-				if (Uses->size() > 0 || isCall) SS << ", ";
+	SS << "Defs = [";
+	for (CnstOperandsList::const_iterator I2 = Defs->begin(), 
+	       E2 = Defs->end(); I2 != E2; ++I2) {
+	  if (I2 != Defs->begin())
+	    SS << ",";	  
+	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
+	}
+	if (isCall) {
+	  std::list<const Register*>* RList = 
+	    RegisterClassManager.getCallerSavedRegs();
+	  for (std::list<const Register*>::const_iterator I2 =
+		 RList->begin(), E2 = RList->end(); I2 != E2; ++I2) {
+	    if (I2 != RList->begin() || Defs->size() != 0)
+	      SS << ",";	  
+	    SS << (*I2)->getName();
+	  }
+	  delete RList;
+	}
+	SS << "]";
+	if (Uses->size() > 0 || isCall) SS << ", ";
       }
       if (Uses->size() > 0 || isCall) {
-				SS << "Uses = [";
-				for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
-							 E2 = Uses->end(); I2 != E2; ++I2) {
-					if (I2 != Uses->begin())
-						SS << ",";	  
-					SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
-				}
-				if (isCall) {
-					std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
-						.getCCBegin();
-					while (I2 != RegisterClassManager.getCCEnd() && 
-								 ((*I2)->IsReturnConvention || (*I2)->UseStack)) ++I2;
-					if (I2 != RegisterClassManager.getCCEnd() && (*I2)->getBegin() 
-							!= (*I2)->getEnd()) {
-						for (std::list<const Register*>::const_iterator I3 =
-									 (*I2)->getBegin(), E3 = (*I2)->getEnd(); I3 != E3; ++I3) {
-							if (I3 != (*I2)->getBegin() || Uses->size() != 0)
-								SS << ",";	  
-							SS << (*I3)->getName();
-						}
-					}
-				}
-				SS << "]";
+	SS << "Uses = [";
+	for (CnstOperandsList::const_iterator I2 = Uses->begin(), 
+	       E2 = Uses->end(); I2 != E2; ++I2) {
+	  if (I2 != Uses->begin())
+	    SS << ",";	  
+	  SS << RegisterClassManager.getRegister((*I2)->getOperandName())->getName();      
+	}
+	if (isCall) {
+	  std::list<CallingConvention*>::const_iterator I2 = RegisterClassManager
+	    .getCCBegin();
+	  while (I2 != RegisterClassManager.getCCEnd() && 
+		 ((*I2)->IsReturnConvention || (*I2)->UseStack)) ++I2;
+	  if (I2 != RegisterClassManager.getCCEnd() && (*I2)->getBegin() 
+	      != (*I2)->getEnd()) {
+	    for (std::list<const Register*>::const_iterator I3 =
+		   (*I2)->getBegin(), E3 = (*I2)->getEnd(); I3 != E3; ++I3) {
+	      if (I3 != (*I2)->getBegin() || Uses->size() != 0)
+		SS << ",";	  
+	      SS << (*I3)->getName();
+	    }
+	  }
+	}
+	SS << "]";
       }
       SS << " in\n";
     }
@@ -635,7 +637,10 @@ class UpdateSizeFunctor {
 };
 
 SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
-					std::ostream &Log, int TID=0) {
+						  std::ostream &Log,
+						  int TID = 0,
+						  unsigned MaxDepth = 
+						  SEARCH_DEPTH) {
   Search S(RuleManager, InstructionManager);
   unsigned SearchDepth = INITIAL_DEPTH;
   SearchResult *R = NULL;
@@ -644,7 +649,7 @@ SearchResult* TemplateManager::FindImplementation(const expression::Tree *Exp,
   // Increasing search depth loop - first try with low depth to speed up
   // easy matches
   while (R == NULL || R->Instructions->size() == 0) {
-    if (SearchDepth >= SEARCH_DEPTH)
+    if (SearchDepth >= MaxDepth)
       break;
     if (TID != 0)
       Log << "Thread " << TID << ": ";
@@ -1205,10 +1210,25 @@ string TemplateManager::generateEmitNOP(std::ostream &Log) {
   StringMap Defs;
   SS << PatTrans.genEmitMI(SR, Defs, &LMap, false, false, &AuxiliarRegs, 6, 
 													 NULL, "MBB", "J", "TII->get");
-  delete SR;
+  InferenceResults.NopSR = SR;
   delete Exp;
   return SS.str();
 }
+
+string TemplateManager::generateIsNOP() {
+  stringstream SS;
+  StringMap Defs;
+  
+  assert (InferenceResults.NopSR != NULL && 
+	  "generateEmitNOP() must be run before generateIsNOP()");
+
+  SS << PatTrans.genIdentifyMI(InferenceResults.NopSR, Defs, &LMap,
+			       "return true;", "MI");  
+  SS << endl;
+  SS << "return false;";
+  return SS.str();
+}
+
 
 string TemplateManager::generateSelectCCTGenPatts() {  
   stringstream SS;
@@ -1350,7 +1370,7 @@ string TemplateManager::generateCopyRegPatterns(std::ostream &Log) {
          << endl;
       SS << "     && SrcRC == __arch__`'::" << (*I2)->getName() 
          << "RegisterClass) {" << endl;
-      SearchResult *SR = FindImplementation(Exp, Log);
+      SearchResult *SR = FindImplementation(Exp, Log, 0, INITIAL_DEPTH+1);
       if (SR == NULL) {
 	SS << "    // Could not infer code to make this transfer" << endl;
 	SS << "    return false;" << endl;
@@ -1387,6 +1407,40 @@ string TemplateManager::generateIsMove() {
   }
   SS << endl;
   SS << "return false;";
+  return SS.str();
+}
+
+// This member function is responsible for generating the mechanism to load
+// global addresses. In the generated backend, this is done at the latest
+// stage. Particularly, at assembly print time. In consequence, several
+// restrictions apply. For example, we can't generate code, but only discover
+// where the PC relative instruction is and calculate the appropriate offset
+// to index the global values table.
+// The generated code goes within XXXAsmPrinter::printGlobalValue()
+string TemplateManager::generateGlobalAddressLogic() {
+  stringstream SS;
+  SearchResult *SR = InferenceResults.GlobalAddressSR;
+  // Obtain the pc-relative instruction used in GlobalAddress pattern
+  assert (SR != NULL && "generateGlobalAddressLogic() must be called after"
+	  " pattern generation");
+  
+  const Instruction* instr = 0;
+  for (InstrList::iterator I = SR->Instructions->begin(),
+	 E = SR->Instructions->end(); I != E; ++I) {    
+    if (I->first->isPcRelative()) {
+      instr = I->first;
+      break;
+    }
+  }
+
+  assert (instr != 0 && "GlobalAddress pattern implementation is missing"
+	  " a PC relative instruction.");
+
+  SS << generateIdent(8) << "if (I2->getOpcode() == __arch__`'::" << 
+    instr->getLLVMName() << ") {" << endl;
+  SS << generateIdent(10) << "found = true;" << endl;
+  SS << generateIdent(8) << "}" << endl;  
+
   return SS.str();
 }
 
@@ -1590,6 +1644,8 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
       InferenceResults.BranchCond9SR = SR;
     else if (I->Name == "BRCOND10")
       InferenceResults.BranchCond10SR = SR;
+    else if (I->Name == "GLOBALADDRESS")
+      InferenceResults.GlobalAddressSR = SR;
     else
       delete SR;
 #ifdef PARALLEL_SEARCH
@@ -1653,6 +1709,8 @@ void TemplateManager::generateSimplePatterns(std::ostream &Log,
 	 "Missing built-in pattern BRCOND9");
   assert(InferenceResults.BranchCond10SR != NULL && 
 	 "Missing built-in pattern BRCOND10");
+  assert(InferenceResults.GlobalAddressSR != NULL && 
+	 "Missing built-in pattern GLOBALADDRESS");
   //Update output variables
   *EmitFunctions = new std::string(SSfunc.str());
   *SwitchCode = new std::string(SSswitch.str());  

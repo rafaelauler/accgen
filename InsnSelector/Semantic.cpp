@@ -177,6 +177,10 @@ namespace backendgen {
 	  NewType.Type = ReturnOp;
 	else if (TypeName == NopOpStr)
 	  NewType.Type = NopOp;
+	else if (TypeName == PcRelativeOpStr)
+	  NewType.Type = PcRelativeOp;
+	else if (TypeName == GetPcOpStr)
+	  NewType.Type = GetPcOp;
 	else { // User defined operator
 	  NewType.Type = hash<std::string>(TypeName, 0);
 	  if (NewType.Type < LastOp)

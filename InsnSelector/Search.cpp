@@ -184,8 +184,8 @@ namespace backendgen {
     // wanted expression and E2 is the implementation proposal
     if ((isOperator = E1->isOperator()) == E2->isOperator() &&
 	((isOperator && (E1->getType() == E2->getType())) ||
-	(!isOperator && dynamic_cast<const Operand*>(E1)->getDataType() ==
-	                dynamic_cast<const Operand*>(E2)->getDataType())) &&
+	 (!isOperator && dynamic_cast<const Operand*>(E1)->getDataType() ==
+	                 dynamic_cast<const Operand*>(E2)->getDataType())) &&
 	E1->getSize() <= E2->getSize())
       {
 	// Leaf?
@@ -195,7 +195,8 @@ namespace backendgen {
 	  if ((C1 == NULL && C2 != NULL) || (C1 != NULL && C2 == NULL && 
 	    dynamic_cast<const ImmediateOperand*>(E2) == NULL)) 
 	    return false;
-	  if (C1 != NULL && dynamic_cast<const ImmediateOperand*>(E2) != NULL) {	    
+	  if (C1 != NULL && dynamic_cast<const ImmediateOperand*>(E2) != NULL)
+	    {
 	    if (VR != NULL) {
 	      std::stringstream S;
 	      S << C1->getConstValue();
@@ -211,7 +212,18 @@ namespace backendgen {
 	    if (C1->getConstValue() != C2->getConstValue())
 	      return false;
 	  }
+
+	  // RegisterOperand handling
+	  const RegisterOperand* RO1 = 
+	    dynamic_cast<const RegisterOperand*>(E1);
+	  const RegisterOperand* RO2 =
+	    dynamic_cast<const RegisterOperand*>(E2);
+	  if (RO1 != NULL && RO2 != NULL) {
+	    if (RO1->getRegisterClass() != RO2->getRegisterClass())
+	      return false;
+	  }
 	  
+
 	  // Immediate handling
 	  const ImmediateOperand* I1 = 
 	    dynamic_cast<const ImmediateOperand*>(E1);
