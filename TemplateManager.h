@@ -128,6 +128,7 @@ class TemplateManager {
   std::string generateCopyRegPatterns(std::ostream &Log);
   std::string generateIsMove();
   std::string generateGlobalAddressLogic();
+  std::string generateGlobalImmBeforePc();
   SearchResult* FindImplementation(const expression::Tree *Exp,
 				   std::ostream &Log, int TID, 
 				   unsigned MaxDepth);

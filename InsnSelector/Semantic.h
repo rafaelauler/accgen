@@ -316,6 +316,7 @@ namespace backendgen {
       int getPCOffset() const { return PCOffset; }
       unsigned getAlignment() const { return Alignment; }
       bool getGrowsUp() const { return GrowsUp; }
+      bool isRegReserved(const Register *Reg) const;
       // ---
     private:
       std::set<RegisterClass *> RegClasses;
@@ -571,54 +572,67 @@ namespace backendgen {
       // Static utils - Pattern Generation
       static const Tree* genCopyRegToRegPat(OperatorTableManager& OpMan,
 					    OperandTableManager& OM,
-	RegClassManager& Man,
-	const std::string& DestRC, const std::string& Dest,
-	const std::string& SrcRC, const std::string& Src);
+					    RegClassManager& Man,
+					    const std::string& DestRC, const std::string& Dest,
+					    const std::string& SrcRC, const std::string& Src);
+
       static const Tree* 
       genCopyAddSubImmPat(OperatorTableManager& OpMan,
-													OperandTableManager& OM,
-													RegClassManager& RegMan,
-													bool isAddition,
-													const std::string& DestRC,
-													const std::string& Dest,
-													const std::string& SrcRC,
-													const std::string& Src,
-													const std::string& Imm);
-			static const Tree*
-			genIncRegPat(OperatorTableManager& OpMan,
-									 OperandTableManager& OM,
-									 RegClassManager& RegMan,
-									 const std::string& DestRC,
-									 const std::string& Dest);
+			  OperandTableManager& OM,
+			  RegClassManager& RegMan,
+			  bool isAddition,
+			  const std::string& DestRC,
+			  const std::string& Dest,
+			  const std::string& SrcRC,
+			  const std::string& Src,
+			  const std::string& Imm);
+
+      static const Tree*
+      genIncRegPat(OperatorTableManager& OpMan,
+		   OperandTableManager& OM,
+		   RegClassManager& RegMan,
+		   const std::string& DestRC,
+		   const std::string& Dest);
+
       static const Tree*
       genNegRegPat(OperatorTableManager& OpMan,
-									 OperandTableManager& OM,
-									 RegClassManager& RegMan,
-									 const std::string& DestRC,
-									 const std::string& Dest,
-									 const std::string& Imm);
-			static const Tree*
-			genCallPat(OperatorTableManager& OpMan,
-								 OperandTableManager& OM,															
-								 const std::string& Func);
-			static const Tree*
-			genZeroRegPat(OperatorTableManager& OpMan,
-										OperandTableManager& OM,
-										RegClassManager& RegMan,
-										const std::string& DestRC,
-										const std::string& Dest);
-			static const Tree*
-			genBranchLtImmPat(OperatorTableManager& OpMan,
-												OperandTableManager& OM,
-												RegClassManager& RegMan,
-												const std::string& ValRC,
-												const std::string& Val,
-												const std::string& BranchTgt,
-												ConstType Threshold);
-			static const Tree*
-			genNopPat(OperatorTableManager& OpMan,
-								OperandTableManager& OM);
+		   OperandTableManager& OM,
+		   RegClassManager& RegMan,
+		   const std::string& DestRC,
+		   const std::string& Dest,
+		   const std::string& Imm);
 
+      static const Tree*
+      genCallPat(OperatorTableManager& OpMan,
+		 OperandTableManager& OM,
+		 const std::string& Func);
+
+      static const Tree*
+      genMoveImmPat(OperatorTableManager& OpMan,
+		    OperandTableManager& OM,
+		    RegClassManager& RegMan,
+		    const std::string& DestRC,
+		    const std::string& Dest,
+		    ConstType Val);
+
+      static const Tree*
+      genZeroRegPat(OperatorTableManager& OpMan,
+		    OperandTableManager& OM,
+		    RegClassManager& RegMan,
+		    const std::string& DestRC,
+		    const std::string& Dest);
+      static const Tree*
+      genBranchLtImmPat(OperatorTableManager& OpMan,
+			OperandTableManager& OM,
+			RegClassManager& RegMan,
+			const std::string& ValRC,
+			const std::string& Val,
+			const std::string& BranchTgt,
+			ConstType Threshold);
+      static const Tree*
+      genNopPat(OperatorTableManager& OpMan,
+		OperandTableManager& OM);
+	
 
     };
 

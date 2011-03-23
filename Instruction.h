@@ -71,7 +71,7 @@ class Instruction {
     Name(name), OperandFmts(operandFmts), Mnemonic(Mnemonic), IF(insnFormat) {
     processOperandFmts();
     OrderNum = 0;    
-		hasDelaySlot = false;
+    hasDelaySlot = false;
   }
   void setCost(const CostType Cost) {this->Cost = Cost;}
   ~Instruction();
@@ -114,12 +114,12 @@ class Instruction {
   std::string parseOperandsFmts();
   void emitAssembly(std::list<std::string> Operands, SemanticIterator SI,
 		    std::ostream& S) const;
-	void setHasDelaySlot(bool val) {
-		hasDelaySlot = val;
-	}
-	bool HasDelaySlot() const {
-		return hasDelaySlot;
-	}
+  void setHasDelaySlot(bool val) {
+    hasDelaySlot = val;
+  }
+  bool HasDelaySlot() const {
+    return hasDelaySlot;
+  }
 
   unsigned OrderNum; // Order of appearance in archc isa file
  private:
@@ -127,7 +127,7 @@ class Instruction {
   const std::string Name;
   std::string LLVMName;
   CostType Cost;
-	bool hasDelaySlot;
+  bool hasDelaySlot;
   // ArchC related information
   std::string OperandFmts; 
   const std::string Mnemonic;

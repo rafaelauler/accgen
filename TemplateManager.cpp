@@ -122,6 +122,8 @@ void TemplateManager::CreateM4File()
   O << generateIsMove() << "')m4_dnl\n";
   O << "m4_define(`__global_address_logic__',`";
   O << generateGlobalAddressLogic() << "')m4_dnl\n";
+  O << "m4_define(`__global_imm_before_pc__',`";
+  O << generateGlobalImmBeforePc() << "')m4_dnl\n";
   O << "m4_define(`__eliminate_call_frame_pseudo_positive__',`";
   O << generateEliminateCallFramePseudo(std::cout, true) << "')m4_dnl\n";  
   O << "m4_define(`__eliminate_call_frame_pseudo_negative__',`";
@@ -1442,6 +1444,44 @@ string TemplateManager::generateGlobalAddressLogic() {
   SS << generateIdent(8) << "}" << endl;  
 
   return SS.str();
+}
+
+// Decides which algorithm to use in XXXAsmPrinter.cpp to count the
+// distance of PC-relative instruction to the referred global value.
+// The first one is used if the globaladdress pattern was implemented
+// in the target machine using the immediate before the pc-relative
+// instruction (or at the same instruction). 
+// The second algorithm is used in the other situation.
+string TemplateManager::generateGlobalImmBeforePc() {
+  SearchResult *SR = InferenceResults.GlobalAddressSR;
+  assert (SR != NULL && "generateGlobalImmBeforePc() must be called after"
+	  " pattern generation");
+
+  // Determines which appears first in pattern implementation instruction
+  // list: immediate or pc-relative instruction.
+  bool imm = false;
+  OperandsDefsType::const_iterator OI = SR->OperandsDefs->begin();
+  for (InstrList::iterator I = SR->Instructions->begin(),
+	 E = SR->Instructions->end(); I != E; ++I) {    
+    NameListType* OpNames = *(OI++);
+    for (NameListType::const_iterator NI = OpNames->begin(), 
+	   NE = OpNames->end(); NI != NE; ++NI) {
+      if (*NI == "addr") {
+	imm = true;
+	break;
+      }
+    }
+    if (imm)
+      break;
+    
+    if (I->first->isPcRelative()) {      
+      break;
+    }
+  }
+
+  if (imm)
+    return string("1");
+  return string("0");  
 }
 
 // In this member function, a LLVM DAG String (that is, a LLVM SelectionDAG

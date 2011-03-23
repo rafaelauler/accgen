@@ -297,10 +297,17 @@ printGlobalValue(const MachineInstr *MI, int opNum)
   index *= (__wordsize__ /8);
   
   int offset = 0;
+  // First preprocessor #if contains code with the following algorithm:
   // Stage1 is trying to find this instruction in the MBB.
   // Stage2 is trying to traverse the pattern and find the use of PC register
+  
+  // The "#else" case inverts stage1 and stage2, for architecture in which
+  // the pattern obtains PC before imm. The generator already chose the
+  // correct algorithm if this source was patched.
+  
   // Count counts the distance of PC reg. usage to the target, in order to
-  // correctly build a pc-relative offset.
+  // correctly build a pc-relative offset.  
+`#if '__global_imm_before_pc__`'
   bool stage1 = true, stage2=false, count = false;
   int curDefReg = -1;
   for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
@@ -317,14 +324,7 @@ printGlobalValue(const MachineInstr *MI, int opNum)
 	  count = true;
 	} else {
 	  bool found = false;
-	  for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
-	    if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
-	      if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
-		found = true;
-		break;
-	      }
-	    }
-	  }
+__global_address_logic__
 	  if (found) {
 	    stage2= false;
 	    count = true;
@@ -334,14 +334,6 @@ printGlobalValue(const MachineInstr *MI, int opNum)
       if (stage2 && (I2->findRegisterUseOperandIdx((unsigned)curDefReg) != -1)) {
 	bool found = false;
 __global_address_logic__
-//	for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
-//	  if (I2->getOperand(i).getType() == MachineOperand::MO_GlobalAddress) {
-//	    if (TM.getInstrInfo()->get(I2->getOpcode()).OpInfo[i].RegClass != 0) {
-//	      found = true;
-//	      break;
-//	    }
-//	  }
-//	}
 	if (found) {
 	  count = true;
 	  stage2 = false;
@@ -359,6 +351,72 @@ __global_address_logic__
       }
     }
   }
+#else
+  std::set<unsigned> UsedRegs;   
+  for (unsigned i = 1, e= MI->getNumOperands();i < e; ++i) {
+    if (MI->getOperand(i).getType() == MachineOperand::MO_Register) {
+      UsedRegs.insert(MI->getOperand(i).getReg());
+    }
+  }
+  bool count = false, method2 = false;
+  const MachineInstr *lastcandidate = 0;
+  for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
+       I != E; ++ I) {
+    for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {    
+      if (!count && (&(*I2) == MI)) {
+	method2 = true;
+	break;
+      }
+      if (!count
+	  && I2->getNumOperands() > 0
+	  && I2->getOperand(0).isReg() 
+	  && UsedRegs.count(I2->getOperand(0).getReg()) > 0) {      
+	bool found = false;
+__global_address_logic__
+	if (found) {
+	  count = true;
+	} else {
+	  for (unsigned i = 0, e= I2->getNumOperands();i != e; ++i) {
+	    if (I2->getOperand(i).getType() == MachineOperand::MO_Register) {
+	      UsedRegs.insert(I2->getOperand(i).getReg());
+	    }
+	  }
+	}
+      } else if (!count 
+	&& I2->getNumOperands() > 0 
+	&& !I2->getOperand(0).isReg()) {
+	bool found = false;
+__global_address_logic__
+	if (found)
+	  lastcandidate = &(*I2);
+      }
+      if (count) {
+	offset+= InsnSizeTable[I2->getDesc().Opcode];
+      }
+    }
+    if (method2)
+      break;
+  }
+  // If we cound't find the pcrelative insn traversing use-def chain, then
+  // we use the last pcrelative instruction seen since imm-insn (lastcandidate)
+  if (method2) {
+    assert (lastcandidate != 0 
+            && "acgenllvmbe: GlobalAddress pattern is broken");
+    count = false;
+    for (MachineFunction::const_iterator I = MF->begin(), E = MF->end();
+       I != E; ++ I) {
+      for (MachineBasicBlock::const_iterator I2 = I->begin(), E2 = I->end();
+	 I2 != E2; ++I2) {    
+	if (!count && (&(*I2) == lastcandidate)) 
+	  count = true;
+	if (count) {
+	  offset+= InsnSizeTable[I2->getDesc().Opcode];
+	}
+      }
+    }
+  }
+#endif
   offset = offset / 8;
   offset = offset + index + (__pc_offset__);
   std::stringstream SS;
@@ -381,7 +439,10 @@ printOperand(const MachineInstr *MI, int opNum)
     break;
 
   case MachineOperand::MO_Immediate:
-    O << (int)MO.getImm();
+    if (TM.getInstrInfo()->get(MI->getOpcode()).OpInfo[opNum].RegClass != 0)
+      printLiteral(MI, opNum);
+    else
+      O << (int)MO.getImm();
     break;
   case MachineOperand::MO_MachineBasicBlock:
     printBasicBlockLabel(MO.getMBB());
