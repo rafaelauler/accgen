@@ -314,7 +314,7 @@ void DebugInsn() {
 }
 
 void BuildInsn(bool Debug) {
-  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
+  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list_original_order();
   ac_operand_list *operand;
   ac_asm_insn_field *field;
 
@@ -354,7 +354,7 @@ void BuildInsn(bool Debug) {
 }
 
 void print_insns() {
-  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list();
+  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list_original_order();
   ac_operand_list *operand;
   ac_asm_insn_field *field;
 
@@ -385,7 +385,7 @@ void print_insns() {
 
 // FIXME: This function seems to propose an impossible task
 void DeallocateACParser() {
-  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list(), *ppinsn;
+  ac_asm_insn *pinsn = ac_asm_get_asm_insn_list_original_order(), *ppinsn;
   ac_operand_list *operand, *poperand;
   ac_asm_insn_field *field, *pfield;
   for (; pinsn != NULL; pinsn = ppinsn) {    

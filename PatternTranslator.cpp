@@ -828,6 +828,7 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
   map<string, string> TempToVirtual;
   const LLVMNodeInfo *Info = NULL;
   bool ChainTail = true; // Turns false if we need to chain a node
+  bool LeafNode = true; // Turns false if it has a child operator node
   
   Info = LLVMNodeInfoMan::getReference()->getInfo(*LLVMDAG->OpName);
      
@@ -841,37 +842,58 @@ void PatternTranslator::genEmitSDNode(SDNode* N,
       list<unsigned> childpath = pathToNode;      
       childpath.push_back(N->NumOperands);
       // Sets createOutFlag to true, so the sibling nodes can use
-      // it as flag operand 
-      genEmitSDNode(N->Chain, LLVMDAG, childpath, OTL, S, 0, true);
+      // it as flag operand       
+      // Also handle the case in which InFlag != 0, passing it to the
+      // chain.
+      genEmitSDNode(N->Chain, LLVMDAG, childpath, OTL, S, InFlag, true);
+      InFlag = 0;
     }    
     // Children
+    // First build a vector of children which are operators (the ones we
+    // should visit).
+    vector<int> OperatorChildren;
     for (unsigned i = 0; i < N->NumOperands; ++i) {
       if (N->ops[i]->RefInstr != NULL) {
-	list<unsigned> childpath = pathToNode;	
-	childpath.push_back(i);
-	// Pass N->Chain as flag for other operands, so we correctly signal
-	// the instruction scheduler to put these insns in order.
-	if (N->Chain) {
-	  if (i == 0) {
-	    list<unsigned> *chainpath = new list<unsigned>(pathToNode);
-	    bool last = (i == (N->NumOperands-1))? true: false;
-	    chainpath->push_back(N->NumOperands);	    
-	    genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S, chainpath,
-			  !last);
-	    delete chainpath;
-	  } else {
-	    list<unsigned> *chainpath = new list<unsigned>(pathToNode);
-	    bool last = (i == (N->NumOperands-1))? true: false;
-	    chainpath->push_back(i-1);
-	    genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S, chainpath,
-			  !last);
-	    delete chainpath;
-	  }
-	}
-	else
-	  genEmitSDNode(N->ops[i], LLVMDAG, childpath, OTL, S);
+	LeafNode = false;
+	OperatorChildren.push_back(i);
       }
     }
+    for (int i = 0, e = OperatorChildren.size(); i != e; ++i) {
+      list<unsigned> childpath = pathToNode;	
+      childpath.push_back(OperatorChildren[i]);
+      // Pass N->Chain as flag for other operands, so we correctly signal
+      // the instruction scheduler to put these insns in order.
+      // In the other case, we are being passed a Flag. But if we have 
+      // children, they need to handle this, not non-leaf nodes.
+      if (N->Chain || InFlag) {
+	if (i == 0) {
+	  list<unsigned> *chainpath = new list<unsigned>(pathToNode);
+	  bool last = (i == (e-1))? true: false;
+	  // Path to the chain node
+	  chainpath->push_back(N->NumOperands);	    
+	  // if it has Flag, it doesn't have chain. so we pass the flag
+	  // to the first child node and ignore chainpath list.
+	  if (InFlag)
+	    genEmitSDNode(N->ops[OperatorChildren[i]], LLVMDAG, childpath,
+			  OTL, S, InFlag, !last);
+	  else
+	    genEmitSDNode(N->ops[OperatorChildren[i]], LLVMDAG, childpath,
+			  OTL, S, chainpath, !last);
+	  delete chainpath;
+	} else {
+	  list<unsigned> *chainpath = new list<unsigned>(pathToNode);
+	  bool last = (i == (e-1))? true: false;
+	  chainpath->push_back(OperatorChildren[i-1]);
+	  genEmitSDNode(N->ops[OperatorChildren[i]], LLVMDAG, childpath, 
+			OTL, S, chainpath, !last);
+	  delete chainpath;
+	}
+      } else 
+	genEmitSDNode(N->ops[OperatorChildren[i]], LLVMDAG, childpath, OTL, S);
+    }  
+    // if it has children, remove InFlag (its first child already received it.
+    if (!LeafNode)
+      InFlag = 0;
   }
   
   // Declare our leaf nodes. Non-leaf nodes are already declared
