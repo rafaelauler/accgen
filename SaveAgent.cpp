@@ -107,8 +107,8 @@ void SaveAgent::SaveRecord(SearchResult* SR, const string &Name) {
     File << "; ; ";
   }
   File << "ENDOFSTREAM A \n";
-  for (VirtualToRealMap::const_iterator I = SR->VirtualToReal->begin(),
-    E = SR->VirtualToReal->end(); I != E; ++I) {
+  for (VirtualToRealMap::const_iterator I = SR->ST->getVR()->begin(),
+	   E = SR->ST->getVR()->end(); I != E; ++I) {
     File << I->first << " " << I->second << " ";
   }
   File << "ENDOFSTREAM A \n";
@@ -242,8 +242,7 @@ SearchResult* SaveAgent::LoadRecord(const string &Name) {
   File.ignore(std::numeric_limits<int>::max(), '\n');
   
   // Loading VirtualToReal
-  VirtualToRealMap *VirtualToReal = new VirtualToRealMap();
-  SR->VirtualToReal = VirtualToReal;  
+  VirtualToRealMap *VirtualToReal = SR->ST->getVR();
   while (File >> buf1 >> buf2) {
     if (!buf1.compare("ENDOFSTREAM")) 
       break;

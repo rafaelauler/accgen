@@ -42,14 +42,55 @@ namespace backendgen {
   // in its semantics.
   typedef std::pair<std::string, std::string> RegPair;
   typedef std::list<RegPair> VirtualToRealMap;
+  // This list stores a mapping of virtual registers to their register
+  // classes, if this needs to be enforced in the search.
+  typedef std::pair<std::string, const RegisterClass*> VCPair;
+  typedef std::list<VCPair> VirtualClassesMap;
   // This list stores the rules applied to the searched expression for
   // debugging reasons.
   typedef std::list<unsigned> RulesAppliedList;
   // This pair stores the instruction and the specific semantic of that
   // instruction that matched our purposes in the search. (Remember
   // an instruction may have many semantic trees describing its behaviour).
-  typedef std::list<std::pair<const Instruction*, SemanticIterator> > InstrList;
+  typedef std::list<std::pair<const Instruction*, SemanticIterator> >
+  InstrList;
   typedef std::list<OperandTransformationList> OpTransLists;
+
+  // This class encapsulates restrictions imposed to the search algorithm.
+  // The virtual-to-real list says which tree leafs (operands) are already
+  // bound. The virtual-classes says which tree leafs (operands) are
+  // restricted to use a specific register class.
+  class SearchRestrictions {
+    VirtualToRealMap* VR;
+    VirtualClassesMap* VC;
+  public:
+    SearchRestrictions(VirtualToRealMap* vr=0,
+		       VirtualClassesMap* vc = 0);
+    ~SearchRestrictions();
+    VirtualToRealMap* getVR() {
+      return VR;
+    }
+    VirtualClassesMap* getVC() {
+      return VC;
+    }
+
+    void setVR(VirtualToRealMap* e);
+    void setVC(VirtualClassesMap* e);
+    bool AddToVRList(RegPair Element);
+    void MergeVRList(const VirtualToRealMap* Source);
+    bool AddToVCList(VCPair Element);
+    void MergeVCList(const VirtualClassesMap* Source);
+    void Merge(const SearchRestrictions* Source);    
+
+    // Const member functions
+    bool LookupVR(const std::string& Key, const std::string* Result) const;
+    bool HasConflictingVRDefinitions(const VirtualToRealMap* B) const;
+    bool LookupVC(const std::string& Key, const RegisterClass* Result) const;
+    bool HasConflictingVCDefinitions(const VirtualClassesMap* B) const;
+    bool HasConflictingDefinitions(const SearchRestrictions* B) const;
+    const VirtualToRealMap* getVR() const;
+    const VirtualClassesMap* getVC() const;
+  };
 
   // Our functor (unary predicate) to decide if an element is member
   // of a VirtualToReal list
@@ -74,7 +115,7 @@ namespace backendgen {
     OperandsDefsType *OperandsDefs;    
     RulesAppliedList *RulesApplied;
     OpTransLists *OpTrans;
-    VirtualToRealMap *VirtualToReal;
+    SearchRestrictions* ST;
     SearchResult();
     ~SearchResult();
     void FilterAssignedNames();
@@ -129,18 +170,19 @@ namespace backendgen {
     SearchResult* TransformExpression(const Tree* Expression,
 				      const Tree* InsnSemantic, 
 				      unsigned CurDepth,
-				      const VirtualToRealMap* VR);
+				      const SearchRestrictions* ST);
     SearchResult* ApplyDecompositionRule(const Rule *R, const Tree* Expression,
 					 const Tree* Goal, Tree *& MatchedGoal,
 					 unsigned CurDepth, 
-					 const VirtualToRealMap* VR);
+					 const SearchRestrictions* ST);
     bool TransformExpressionAux(const Tree* Transformed,
 				const Tree* InsnSemantic, SearchResult* Result,
-				unsigned CurDepth, const VirtualToRealMap *VR);
+				unsigned CurDepth, 
+				const SearchRestrictions *ST);
   public:
     Search(TransformationRules& RulesMgr, InstrManager& InstructionsMgr);
     SearchResult* operator() (const Tree* Expression, unsigned CurDepth,
-			      const VirtualToRealMap* VR);
+			      const SearchRestrictions* ST);
     unsigned getMaxDepth() { return MaxDepth; }
     void setMaxDepth(unsigned MaxDepth) { this->MaxDepth = MaxDepth; }
   };

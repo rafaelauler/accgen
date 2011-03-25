@@ -62,51 +62,6 @@ namespace backendgen {
 	    (T1.Size <= T2.Size || T1.Size == 0 || T2.Size == 0));
   }
 
-  // VirtualToRealMap related auxiliary functions
-
-  // This auxiliary function adds an element to a Virtual-to-Real register
-  // mapping. But if the virtual register is already mapped, returns false.
-  inline
-  bool AddToVRList(VirtualToRealMap *VR, RegPair Element) {
-    for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
-	 I != E; ++I) {
-      if (I->first == Element.first && I->second != Element.second)
-	return false;
-      else if (I->first == Element.first && I->second == Element.second)
-	return true;
-    }
-    VR->push_back(Element);
-    return true;
-  }
-
-  // Predicate function used to determine if two SearchResults define the
-  // same virtual register in their VirtualToRealMap. If this happens,
-  // the result may not be merged.
-  inline
-  bool HasConflictingVRDefinitions(const VirtualToRealMap* A, 
-				   const VirtualToRealMap* B)
-  {
-    if (A == NULL || B == NULL)
-      return false;
-
-    for (VirtualToRealMap::const_iterator I = A->begin(), E = A->end();
-	 I != E; ++I) {
-      for (VirtualToRealMap::const_iterator I2 = B->begin(), E2 = B->end();
-	   I2 != E2; ++ I2) {
-	if (I->first == I2->first && I->second != I2->second)
-	  return true;
-      }
-    }
-
-    return false;
-  }
-  
-  inline 
-  void MergeVRList(VirtualToRealMap* Destination, const VirtualToRealMap* Source){
-    if (Source != 0) 
-      Destination->insert(Destination->begin(), Source->begin(), Source->end());
-  }
-
   // Miscellaneous auxiliary functions
   
   // Special comparison function used in TransformationCache in order to assert
@@ -176,9 +131,10 @@ namespace backendgen {
   // RR is a pointer to a list of real registers used by E2 while matching
   // with E1's generic registers. If RR is NULL, this list is not updated.
   template <bool JustTopLevel>
-  bool Compare (const Tree *E1, const Tree *E2, VirtualToRealMap *VR)
+  bool Compare (const Tree *E1, const Tree *E2, SearchRestrictions *ST)
   {
     bool isOperator;
+
     // Notes: We match if E2 implements the same operation with
     // greater data size - this means we imply that E1 is the
     // wanted expression and E2 is the implementation proposal
@@ -197,10 +153,10 @@ namespace backendgen {
 	    return false;
 	  if (C1 != NULL && dynamic_cast<const ImmediateOperand*>(E2) != NULL)
 	    {
-	    if (VR != NULL) {
+	    if (ST != NULL) {
 	      std::stringstream S;
 	      S << C1->getConstValue();
-	      return AddToVRList(VR, std::make_pair(C1->getOperandName(),
+	      return ST->AddToVRList(std::make_pair(C1->getOperandName(),
 		S.str()));
 	    } else {
 	      return false;
@@ -222,7 +178,32 @@ namespace backendgen {
 	    if (RO1->getRegisterClass() != RO2->getRegisterClass())
 	      return false;
 	  }
-	  
+	  // if semantic (RO2) is a register, check for specific registers
+	  // being used and check if their reg. classes match
+	  if (RO2 != NULL) {
+	    const std::string *Name = 0;
+	    if (ST != NULL) {
+	      if (ST->LookupVR(dynamic_cast<const Operand*>(E1)
+			       ->getOperandName(),
+			       Name)) {
+		if (!RO2->getRegisterClass()->hasRegisterName(*Name))
+		  return false;
+	      }	      
+	      const RegisterClass *rclass = 0;
+	      if (ST->LookupVC(dynamic_cast<const Operand*>(E1)
+			       ->getOperandName(),
+			       rclass)) {
+		if (!(RO2->getRegisterClass() != rclass))
+		  return false;
+	      }	else {
+		ST->AddToVCList(std::make_pair(dynamic_cast<
+					       const Operand*>(E1)
+					       ->getOperandName(),
+					       RO2->
+					       getRegisterClass()));
+	      }
+	    }
+	  }	  
 
 	  // Immediate handling
 	  const ImmediateOperand* I1 = 
@@ -242,13 +223,13 @@ namespace backendgen {
 	      return false;
 	    // It will return true only if the virtual register (specified
 	    // by E1) is not already mapped to a different real reg.
-	    if (VR != NULL) {
-	      return AddToVRList(VR, std::make_pair(O1->getOperandName(),
+	    if (ST != NULL) {
+	      return ST->AddToVRList(std::make_pair(O1->getOperandName(),
 						    O2->getOperandName()));
 	    } else {
 	      return false;
 	    }
-	  	    
+	    
 	  }
 	  // If both are specific references, they must match ref. names
 	  if (O2->isSpecificReference() && O1->isSpecificReference() && 
@@ -267,7 +248,7 @@ namespace backendgen {
 	const Operator *O1 = dynamic_cast<const Operator*>(E1),
 	  *O2 = dynamic_cast<const Operator*>(E2);
 	for (int I = 0, E = O1->getArity(); I != E; ++I) {
-	  if (!Compare<false>((*O1)[I], (*O2)[I], VR)) {
+	  if (!Compare<false>((*O1)[I], (*O2)[I], ST)) {
 	    match = false;
 	    break;
 	  }
@@ -298,7 +279,7 @@ namespace backendgen {
     Cost = INT_MAX;
     OperandsDefs = new OperandsDefsType();
     RulesApplied = new RulesAppliedList();
-    VirtualToReal = new VirtualToRealMap();
+    ST = new SearchRestrictions();
     OpTrans = new OpTransLists();
   }
 
@@ -311,7 +292,7 @@ namespace backendgen {
       }
     delete OperandsDefs;
     delete RulesApplied;
-    delete VirtualToReal;
+    delete ST;
     delete OpTrans;
   }
 
@@ -319,7 +300,7 @@ namespace backendgen {
   // to a real register (if it is preassigned, it is not an assembly
   // operand).
   void SearchResult::FilterAssignedNames() {
-    VirtualToRealMap* VR = this->VirtualToReal;
+    VirtualToRealMap* VR = this->ST->getVR();
     if (VR == NULL)
       return;
     for (OperandsDefsType::iterator It = OperandsDefs->begin(), 
@@ -339,7 +320,7 @@ namespace backendgen {
   // to Expression inputs. In this case, we may be trying to enforce 
   // restrictions on the expression that the SearchEngine user does not want. 
   bool SearchResult::CheckVirtualToReal(const Tree *Exp) const {
-    VirtualToRealMap* VR = this->VirtualToReal;
+    VirtualToRealMap* VR = this->ST->getVR();
     if (VR == NULL)
       return true;
     return ApplyToLeafs<const Tree*, const Operator*, IsInVRFunctor>
@@ -348,7 +329,7 @@ namespace backendgen {
 
   VirtualToRealMap::const_iterator 
   SearchResult::VRLookupName(std::string S) const {
-    VirtualToRealMap* VR = this->VirtualToReal;
+    VirtualToRealMap* VR = this->ST->getVR();
     for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
 	 I != E; ++I) {
       if (I->first == S)
@@ -374,6 +355,7 @@ namespace backendgen {
       }
       S << "\n";
     }
+    VirtualToRealMap* VirtualToReal = ST->getVR();
     if (VirtualToReal != NULL) {
 	S << "\nVirtual to Real mapping list:\n";    
 	for (VirtualToRealMap::const_iterator I = VirtualToReal->begin(),
@@ -445,6 +427,197 @@ namespace backendgen {
     }
     return NULL;
   }
+
+  // SearchRestrictions member functions
+
+  // Constructor
+  SearchRestrictions::SearchRestrictions(VirtualToRealMap* vr,
+					 VirtualClassesMap* vc){
+    VR = vr;
+    VC = vc;
+    if (VR == 0)
+      VR = new VirtualToRealMap();
+    if (VC == 0)
+      VC = new VirtualClassesMap();
+  }
+
+  SearchRestrictions::~SearchRestrictions() {
+    setVR(0);
+    setVC(0);
+  }
+
+  const VirtualToRealMap* SearchRestrictions::getVR() const {
+    return VR;
+  }
+  
+  const VirtualClassesMap* SearchRestrictions::getVC() const {
+    return VC;
+  }
+
+  void SearchRestrictions::setVR(VirtualToRealMap* e) {
+    if (VR)
+      delete VR;
+    VR = e;
+  }
+
+  void SearchRestrictions::setVC(VirtualClassesMap* e) {
+    if (VC)
+      delete VC;
+    VC = e;
+  }
+  // SearchRestrictions' VirtualToRealMap related auxiliary functions
+
+  // This auxiliary function adds an element to a Virtual-to-Real register
+  // mapping. But if the virtual register is already mapped, returns false.
+  inline
+  bool SearchRestrictions::AddToVRList(RegPair Element) {
+    if (!VR)
+      VR = new VirtualToRealMap();
+    for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	 I != E; ++I) {
+      if (I->first == Element.first && I->second != Element.second)
+	return false;
+      else if (I->first == Element.first && I->second == Element.second)
+	return true;
+    }
+    VR->push_back(Element);
+    return true;
+  }
+
+  inline
+  bool SearchRestrictions::LookupVR(const std::string& Key,
+				    const std::string* Result) const {
+    for (VirtualToRealMap::const_iterator I = VR->begin(), E = VR->end();
+	 I != E; ++I) {
+      if (I->first == Key) {
+	Result = &I->second;
+	return true;
+      }
+    }
+    Result = 0;
+    return false;
+  }
+    
+
+  // Predicate function used to determine if two SearchResults define the
+  // same virtual register in their VirtualToRealMap. If this happens,
+  // the result may not be merged.
+  inline
+  bool SearchRestrictions::HasConflictingVRDefinitions(const 
+						       VirtualToRealMap* B)
+    const
+  {
+    const VirtualToRealMap *A = VR;
+    if (A == NULL || B == NULL)
+      return false;
+
+    for (VirtualToRealMap::const_iterator I = A->begin(), E = A->end();
+	 I != E; ++I) {
+      for (VirtualToRealMap::const_iterator I2 = B->begin(), E2 = B->end();
+	   I2 != E2; ++ I2) {
+	if (I->first == I2->first && I->second != I2->second)
+	  return true;
+      }
+    }
+
+    return false;
+  }
+
+  inline
+  bool SearchRestrictions::HasConflictingDefinitions(const 
+						     SearchRestrictions* B)
+    const {
+    if (this == NULL)
+      return false;
+    if (B == NULL)
+      return false;
+    return (HasConflictingVRDefinitions(B->getVR()) ||
+	    HasConflictingVCDefinitions(B->getVC()));
+  }
+
+  
+  inline 
+  void SearchRestrictions::MergeVRList(const VirtualToRealMap* Source){
+    VirtualToRealMap *Destination = VR;
+    if (Source != 0) 
+      Destination->insert(Destination->begin(), Source->begin(),
+			  Source->end());
+  }
+
+  // SearchRestrictions' VirtualClassesMap related auxiliary functions
+
+  inline
+  bool SearchRestrictions::AddToVCList(VCPair Element) {
+    if (!VC)
+      VC = new VirtualClassesMap();
+    for (VirtualClassesMap::const_iterator I = VC->begin(), E = VC->end();
+	 I != E; ++I) {
+      if (I->first == Element.first && I->second != Element.second)
+	return false;
+      else if (I->first == Element.first && I->second == Element.second)
+	return true;
+    }
+    VC->push_back(Element);
+    return true;
+  }
+
+  // Predicate function used to determine if two SearchResults define the
+  // same virtual register in their VirtualToRealMap. If this happens,
+  // the result may not be merged.
+  inline
+  bool SearchRestrictions::HasConflictingVCDefinitions(const 
+						       VirtualClassesMap* B)
+  const
+  {
+    const VirtualClassesMap *A = VC;
+    if (A == NULL || B == NULL)
+      return false;
+
+    for (VirtualClassesMap::const_iterator I = A->begin(), E = A->end();
+	 I != E; ++I) {
+      for (VirtualClassesMap::const_iterator I2 = B->begin(), E2 = B->end();
+	   I2 != E2; ++ I2) {
+	if (I->first == I2->first && I->second != I2->second)
+	  return true;
+      }
+    }
+
+    return false;
+  }
+
+  inline
+  bool SearchRestrictions::LookupVC(const std::string& Key,
+				    const RegisterClass* Result) const {
+    for (VirtualClassesMap::const_iterator I = VC->begin(), E = VC->end();
+	 I != E; ++I) {
+      if (I->first == Key) {
+	Result = I->second;
+	return true;
+      }
+    }
+    Result = 0;
+    return false;
+  }
+
+  inline 
+  void SearchRestrictions::MergeVCList(const VirtualClassesMap* Source){
+    VirtualClassesMap *Destination = VC;
+    if (Source != 0) 
+      Destination->insert(Destination->begin(), Source->begin(),
+			  Source->end());
+  }
+
+  inline 
+  void SearchRestrictions::Merge(const SearchRestrictions* Source){
+    if (Source != 0) {
+      MergeVRList(Source->getVR());
+      MergeVCList(Source->getVC());
+    }
+  }
+
+
+
+
 
   // Search member functions
 
@@ -604,8 +777,11 @@ namespace backendgen {
 				      *(Source->RulesApplied));    
     Destination->OpTrans->splice(Destination->OpTrans->begin(),
 				 *(Source->OpTrans));    
-    Destination->VirtualToReal->splice(Destination->VirtualToReal->begin(),
-				      *(Source->VirtualToReal));
+    Destination->ST->getVR()->splice(Destination->ST->getVR()->begin(),
+				     *(Source->ST->getVR()));
+    Destination->ST->getVC()->splice(Destination->ST->getVC()->begin(),
+				     *(Source->ST->getVC()));
+
     // Now merge cost
 
     // If Destination doesn't have a solution yet, set its cost to zero
@@ -654,7 +830,7 @@ namespace backendgen {
 					       const Tree* Goal,
 					       Tree *& MatchedGoal,
 					       unsigned CurDepth,
-					       const VirtualToRealMap *VR)
+					       const SearchRestrictions *ST)
   {
     if (!R->Decomposition && !R->Composition)
       return NULL;
@@ -664,7 +840,8 @@ namespace backendgen {
       return NULL;
 
     SearchResult* CandidateSolution = new SearchResult();
-    MergeVRList(CandidateSolution->VirtualToReal, VR);
+    if (ST != NULL)
+      CandidateSolution->ST->MergeVRList(ST->getVR());
 
     for (std::list<Tree*>::reverse_iterator I = DecomposeList->rbegin(),
 	   E = DecomposeList->rend(); I != E; ++I)
@@ -673,22 +850,21 @@ namespace backendgen {
 	// XXX: Need a better checking of goal! Sometimes a wrong tree
 	// will be matched as goal and all is lost!
 	if (Goal != NULL) {
-	  VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
-	  MergeVRList(VirtualBindings, CandidateSolution->VirtualToReal);
-	  if (Compare<true>(Goal, *I, VirtualBindings) == true &&
-	      !HasConflictingVRDefinitions(CandidateSolution->VirtualToReal,
-					   VirtualBindings) &&
-	      MatchedGoal == NULL) {	    
-	    delete CandidateSolution->VirtualToReal;
-	    CandidateSolution->VirtualToReal = VirtualBindings;
+	  SearchRestrictions *STnew = new SearchRestrictions();
+	  STnew->MergeVRList(CandidateSolution->ST->getVR());
+	  if (Compare<true>(Goal, *I, STnew) == true
+	      && !STnew->HasConflictingDefinitions(CandidateSolution->ST) 
+	      && MatchedGoal == NULL) {	    
+	    delete CandidateSolution->ST;
+	    CandidateSolution->ST = STnew;
 	    MatchedGoal = (*I)->clone();
 	    continue;
 	  } else {
-	    delete VirtualBindings;
+	    delete STnew;
 	  }
 	}
 	SearchResult* ChildResult = (*this)(*I, CurDepth + 1, 
-					    CandidateSolution->VirtualToReal);
+					    CandidateSolution->ST);
 	// Failed to find an implementatin for this child?
 	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {
 	  delete CandidateSolution;	  
@@ -716,25 +892,26 @@ namespace backendgen {
 				      const Tree* InsnSemantic,
 				      SearchResult* Result,
 				      unsigned CurDepth,
-				      const VirtualToRealMap *VR) {    
+				      const SearchRestrictions *ST) {    
     // First check the top level node
-    VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
-    if (!(Compare<true>(Transformed, InsnSemantic, VirtualBindings) &&
-        !HasConflictingVRDefinitions(VR, VirtualBindings))) {
-      delete VirtualBindings;
+    SearchRestrictions *STnew = new SearchRestrictions();
+    if (!(Compare<true>(Transformed, InsnSemantic, STnew) &&
+        !ST->HasConflictingDefinitions(STnew))) {
+      delete STnew;
       return false;
     }
     
     // Transformation revealed that these expressions match directly
     if (Transformed->isOperand()) {
       Result->Cost = 0;
-      delete Result->VirtualToReal;
-      Result->VirtualToReal = VirtualBindings;
-      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Transformed,
-							   VirtualBindings));
+      delete Result->ST;
+      Result->ST = STnew;
+      UpdateCurrentOperandDefinition(Result, 
+				     ExtractLeafsNames(Transformed,
+						       STnew->getVR()));
       return true;
     }
-    delete VirtualBindings;
+    delete STnew;
 
     // Now check for guarded assignments before delving into each children
     // of this operator
@@ -743,12 +920,12 @@ namespace backendgen {
     // Now for every operator, prove their children equal
     const Operator* O = dynamic_cast<const Operator*>(Transformed);
     const Operator* OIns = dynamic_cast<const Operator*>(InsnSemantic);
-    MergeVRList(TempResults->VirtualToReal, VR);
+    TempResults->ST->Merge(ST);
     for (int I = 0, E = O->getArity(); I != E; ++I) 
       {
 	SearchResult* SRChild = 
 	  TransformExpression((*O)[I], (*OIns)[I], CurDepth+1,
-			      TempResults->VirtualToReal);
+			      TempResults->ST);
 	
 	// Failed
 	if (SRChild->Cost == INT_MAX) {
@@ -777,7 +954,7 @@ namespace backendgen {
   SearchResult* Search::TransformExpression(const Tree* Expression,
 					    const Tree* InsnSemantic,
 					    unsigned CurDepth, 
-					    const VirtualToRealMap *VR)
+					    const SearchRestrictions *ST)
   {   
     //DbgIndent(CurDepth);
     Dbg(for (unsigned i = 0; i < CurDepth; ++i) std::cerr << "*";);
@@ -818,19 +995,20 @@ namespace backendgen {
 #endif
 
     // See if we already have a match
-    VirtualToRealMap *VirtualBindings = new VirtualToRealMap();
-    if (Compare<false>(Expression, InsnSemantic, VirtualBindings) == true &&
-	!HasConflictingVRDefinitions(VR, VirtualBindings)) {
+    SearchRestrictions *STnew = new SearchRestrictions();
+    if (Compare<false>(Expression, InsnSemantic, STnew) == true &&
+	!ST->HasConflictingDefinitions(STnew)) {
       DbgIndent(CurDepth);
       DbgPrint("Already matches!\n");
       Result->Cost = 0;
-      delete Result->VirtualToReal;
-      Result->VirtualToReal = VirtualBindings;
-      UpdateCurrentOperandDefinition(Result, ExtractLeafsNames(Expression,
-							  VirtualBindings));
+      delete Result->ST;
+      Result->ST = STnew;
+      UpdateCurrentOperandDefinition(Result, 
+				     ExtractLeafsNames(Expression,
+						       STnew->getVR()));
       return Result;
     }      
-    delete VirtualBindings;
+    delete STnew;
 
     DbgIndent(CurDepth);
     DbgPrint("Trying to transform children without applying any rule");   
@@ -838,7 +1016,7 @@ namespace backendgen {
 
     // See if we obtain success without applying a transformation
     // at this level
-    if (TransformExpressionAux(Expression, InsnSemantic, Result, CurDepth, VR) 
+    if (TransformExpressionAux(Expression, InsnSemantic, Result, CurDepth, ST) 
 	== true)      	
 	return Result;
       
@@ -896,7 +1074,7 @@ namespace backendgen {
 	  // transformations because of a call to TransformExpressionAux 
 	  // early in this function.
 	  SearchResult* SRChild = 
-	    TransformExpression(Transformed, InsnSemantic, CurDepth+1, VR);
+	    TransformExpression(Transformed, InsnSemantic, CurDepth+1, ST);
 	  // If success
 	  if (SRChild != NULL && SRChild->Cost != INT_MAX) {
 	    delete Result;
@@ -920,7 +1098,7 @@ namespace backendgen {
 	  // This may involve recursive calls to this function (to transform
 	  // and adapt the children nodes).
 	  if (TransformExpressionAux(Transformed, InsnSemantic, Result, 
-				     CurDepth, VR) == true)
+				     CurDepth, ST) == true)
 	    {	      
 	      Result->RulesApplied->push_back(I->RuleID);
 	      if (Forward)
@@ -946,7 +1124,7 @@ namespace backendgen {
 	Tree* Transformed = NULL;
 	SearchResult* ChildResult = 
 	  ApplyDecompositionRule(&*I, Expression, InsnSemantic, Transformed,
-				 CurDepth, VR);
+				 CurDepth, ST);
 	
 	//Failed
 	if (ChildResult == NULL || ChildResult->Cost == INT_MAX) {	  
@@ -955,7 +1133,7 @@ namespace backendgen {
 	  continue;
 	}
 	
-	MergeVRList(ChildResult->VirtualToReal, VR);
+	ChildResult->ST->Merge(ST);
 	
 	// Now we decomposed and have a implementation of the remaining
 	// trees. We just need to assert that the transformed tree
@@ -965,7 +1143,7 @@ namespace backendgen {
 	// This may involve recursive calls to this function (to transform
 	// and adapt the children nodes).
 	if (TransformExpressionAux(Transformed, InsnSemantic, Result,
-				 CurDepth, ChildResult->VirtualToReal) == true)
+				   CurDepth, ChildResult->ST) == true)
 	  {
 	    DbgIndent(CurDepth);
 	    DbgPrint("Decomposition was successful\n");	    
@@ -1003,7 +1181,7 @@ namespace backendgen {
   // to real registers, so we need to avoid redefinitions when searching
   // for an implementation of Expression.
   SearchResult* Search::operator() (const Tree* Expression, unsigned CurDepth,
-				    const VirtualToRealMap* VR)
+				    const SearchRestrictions *ST)
   {
     DbgIndent(CurDepth);
     DbgPrint("Search started on ");
@@ -1030,24 +1208,25 @@ namespace backendgen {
 	for (SemanticIterator I2 = (*I)->getBegin(), 
 	       E2 = (*I)->getEnd(); I2 != E2; ++I2)
 	  {
-	    VirtualToRealMap* VirtualBindings = new VirtualToRealMap();
+	    SearchRestrictions* STnew = new SearchRestrictions();
 	    if (Compare<false>(Expression, I2->SemanticExpression,
-			       VirtualBindings) && 
-		!HasConflictingVRDefinitions(VirtualBindings, VR) &&
+			       STnew) && 
+		!STnew->HasConflictingDefinitions(ST) &&
 		Result->Cost >= (*I)->getCost())
 	      {
 		delete Result;		
 		Result = new SearchResult();
 		Result->Cost = (*I)->getCost();
 		Result->Instructions->push_back(std::make_pair(*I,I2));
-		delete Result->VirtualToReal;
-		Result->VirtualToReal = VirtualBindings;
+		delete Result->ST;
+		Result->ST = STnew;
 		UpdateCurrentOperandDefinition(Result, 
-					       ExtractLeafsNames(Expression,
-						VirtualBindings));
+					       ExtractLeafsNames
+					       (Expression,
+						STnew->getVR()));
 		break;
 	      } else {
-	      delete VirtualBindings;
+	      delete STnew;
 	    }
 	  }
       }
@@ -1077,7 +1256,7 @@ namespace backendgen {
 	SearchResult* CandidateSolution = ApplyDecompositionRule(&*I, 
 								 Expression,
 								 NULL, dummy,
-								 CurDepth, VR);
+								 CurDepth, ST);
 
 	if (CandidateSolution == NULL)
 	  continue;
@@ -1115,7 +1294,7 @@ namespace backendgen {
 	  {
 	    SearchResult* CandidateSolution = 
 	      TransformExpression(Expression, I1->SemanticExpression,
-				  CurDepth, VR);
+				  CurDepth, ST);
 
 	    // Failed
 	    if (CandidateSolution->Cost == INT_MAX) {

@@ -60,11 +60,11 @@ SDNode::~SDNode() {
 }
 
 void SDNode::SetOperands(unsigned num) {
+  list<SDNode*> oldOperands;
   if (ops != NULL) {
     assert (NumOperands > 0 && "DAG inconsistency");
     for (unsigned i = 0; i < NumOperands; ++i) {
-      assert (ops[i] != NULL && "DAG inconsistency");
-      delete ops[i];
+      oldOperands.push_back(ops[i]);
     }
     delete [] ops;
     ops = NULL;
@@ -72,6 +72,20 @@ void SDNode::SetOperands(unsigned num) {
   if (num > 0) {
     ops = new SDNode*[num];
   }
+  unsigned i;
+  list<SDNode*>::iterator I;
+  for (I = oldOperands.begin(), i = 0; 
+       I != oldOperands.end() && i < num; ++I, ++i) {
+    ops[i] = *I;
+  }
+  // set remaining positions to NULL/0
+  for (; i < num; ++i) 
+    ops[i] = NULL;
+  // delete remaining operands (not used in the new list)
+  for (; I != oldOperands.end(); ++I) {
+    if (*I)
+      delete *I;
+  }  
   NumOperands = num;
 }
 
@@ -302,7 +316,7 @@ void bindOperands(SearchResult *SR, NameListType *OpNames,
       continue;
     }
     VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI);
-    if (VI == SR->VirtualToReal->end()) {
+    if (VI == SR->ST->getVR()->end()) {
       ++index;
       ++NI;
       ++I;
@@ -462,7 +476,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
       // Is this operand a virtual register bound to a real register
       // in VirtualToReal?
       VirtualToRealMap::const_iterator VI = SR->VRLookupName(*NI);
-      if (VI != SR->VirtualToReal->end()) {
+      if (VI != SR->ST->getVR()->end()) {
 	N->ops[i] = new SDNode();
 	N->ops[i]->LiteralIndex = LMap->addMember(VI->second);
 	++NI;
@@ -497,7 +511,7 @@ SDNode* PatternTranslator::generateInsnsDAG(SearchResult *SR,
       ++i;
     }
     // Correct the number of operands for actual number of operands
-    N->NumOperands = i;
+    N->SetOperands(i);
     LastProcessedNode = N;
     // Housekeeping
     delete AllOps;

@@ -329,12 +329,12 @@ namespace backendgen {
       return Registers.insert(Reg).second;
     }
 
-    bool RegisterClass::hasRegister(const Register *Reg) {
+    bool RegisterClass::hasRegister(const Register *Reg) const {
       Register *Reg2 = const_cast<Register*>(Reg);
       return (Registers.find(Reg2) != Registers.end());
     }
 
-    bool RegisterClass::hasRegisterName(const std::string &RegName) {
+    bool RegisterClass::hasRegisterName(const std::string &RegName) const {
       for (ConstIterator I = getBegin(), E = getEnd(); I != E; ++I) {
 	Register *Element = *I;
 	if (Element->getAssemblyName() == RegName)

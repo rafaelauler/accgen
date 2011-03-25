@@ -229,8 +229,8 @@ namespace backendgen {
       RegisterClass(const std::string &ClassName);
       RegisterClass(const std::string &ClassName, const OperandType &OpType);
       bool addRegister(Register *Reg);
-      bool hasRegister(const Register *Reg);
-      bool hasRegisterName(const std::string &RegName);
+      bool hasRegister(const Register *Reg) const;
+      bool hasRegisterName(const std::string &RegName) const;
       const std::string &getName() const;
       OperandType getOperandType() const;
       ConstIterator getBegin() const;
