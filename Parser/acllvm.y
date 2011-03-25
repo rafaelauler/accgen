@@ -192,6 +192,7 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 		       InstructionManager.getInstruction
 		       ($3, InsnOccurrencesMap[$3]++);
 		     if (Instr == NULL) {
+		       HasError = true;
 		       if (InsnOccurrencesMap[$3] > 2) {
 			 std::cerr << "Line " << getLineNumber() << 
 			   ": Excessive semantic overload for" <<
@@ -221,6 +222,7 @@ semanticdef:       DEFINE INSTRUCTION ID SEMANTIC AS LPAREN semanticlist
 			   free($3);
 			   //TODO: Clear SemanticStack()
 			   //ClearStack();
+                           HasError = true;
 			   YYERROR;
 			 }
                        Instr->addSemantic(S);
@@ -398,6 +400,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	         std::cerr << "Line " << getLineNumber() << ": Return "
 		           << "register redefinition.\n ";
 		 ClearStack();
+                 HasError = true;
 		 YYERROR;
 	       }
 	       RegisterManager.setReturnRegister(Reg);
@@ -410,6 +413,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	         std::cerr << "Line " << getLineNumber() << ": Program "
 		           << "counter redefinition.\n ";
 		 ClearStack();
+                 HasError = true;
 		 YYERROR;
 	       }
 	       RegisterManager.setProgramCounter(Reg);
@@ -422,6 +426,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	         std::cerr << "Line " << getLineNumber() << ": Stack "
 		           << "pointer redefinition.\n ";
 		 ClearStack();
+                 HasError = true;
 		 YYERROR;
 	       }
 	       RegisterManager.setStackPointer(Reg);
@@ -434,6 +439,7 @@ abistuff:    DEFINE CALLEE SAVE REGISTERS AS LPAREN regdefs RPAREN SEMICOLON
 	         std::cerr << "Line " << getLineNumber() << ": Frame "
 		           << "pointer redefinition.\n ";
 		 ClearStack();
+                 HasError = true;
 		 YYERROR;
 	       }
 	       RegisterManager.setFramePointer(Reg);
@@ -592,6 +598,7 @@ exp:      LPAREN operator explist RPAREN
                           dynamic_cast<Operator*>($2)->getOpType()) << "\""
                           << " arity.\n";
                         ClearStack();
+                        HasError = true;
                         YYERROR;
                       }    
 	              --i;
@@ -613,6 +620,7 @@ exp:      LPAREN operator explist RPAREN
                           dynamic_cast<Operator*>($2)->getOpType()) << "\""
                           << " arity.\n";
                         ClearStack();
+                        HasError = true;
                         YYERROR;
                       }
                       --i;
@@ -637,6 +645,7 @@ exp:      LPAREN operator explist RPAREN
 			std::cerr << "Line " << getLineNumber() << ": Unrecognized"
                           " constant. Value must be integer.\n" ;
 			ClearStack();
+                        HasError = true;
                         YYERROR;
 		      }
                       $$ = new Constant(OperandTable, 

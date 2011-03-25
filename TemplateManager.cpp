@@ -311,10 +311,25 @@ string TemplateManager::generateReservedRegsList() {
 // Generates the register classes set up in ISelLowering.cpp
 string TemplateManager::generateRegisterClassesSetup() {
   stringstream SS;
+  list<RegisterClass*> L;
 
+  // Sort all register classes by number of registers in ascending order
+  // NOTE: This is necessary so the classes with more registers have higher 
+  // priority in pattern usage by LLVM (this is arbitrary decision and may
+  // change in future LLVM versions).
   for (set<RegisterClass*>::const_iterator
 	 I = RegisterClassManager.getBegin(),
 	 E = RegisterClassManager.getEnd(); I != E; ++I) {
+    list<RegisterClass*>::iterator Pos;
+    for (Pos = L.begin(); Pos != L.end(); ++Pos) {
+      if ((*Pos)->getNumRegs() > (*I)->getNumRegs())
+	break;
+    }
+    L.insert(Pos, *I);
+  }
+
+  for (list<RegisterClass*>::const_iterator
+	 I = L.begin(), E = L.end(); I != E; ++I) {
     SS << "  addRegisterClass(MVT::" << InferValueType(*I) << ", "
        << ArchName << "::" << (*I)->getName() << "RegisterClass);\n";
   }
