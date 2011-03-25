@@ -1481,7 +1481,7 @@ string TemplateManager::generateGlobalImmBeforePc() {
     NameListType* OpNames = *(OI++);
     for (NameListType::const_iterator NI = OpNames->begin(), 
 	   NE = OpNames->end(); NI != NE; ++NI) {
-      if (*NI == "addr") {
+      if ((*NI).substr(0,4) == "addr") {
 	imm = true;
 	break;
       }
