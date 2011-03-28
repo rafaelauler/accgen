@@ -1482,14 +1482,25 @@ string TemplateManager::generateGlobalImmBeforePc() {
     for (NameListType::const_iterator NI = OpNames->begin(), 
 	   NE = OpNames->end(); NI != NE; ++NI) {
       if ((*NI).substr(0,4) == "addr") {
-	imm = true;
-	break;
+	// Imm appears first.
+	imm = true;      
       }
     }
-    if (imm)
-      break;
     
-    if (I->first->isPcRelative()) {      
+    if (I->first->isPcRelative()) {
+      // If immediate appeared first, there is still one case where we
+      // should ignore this. If pc-relative is chained (does not have an
+      // output reg connecting it to the root), the SDNode algorithm will
+      // arrange it so as pcrelative appears FIRST. So we handle this
+      // case here.
+      InstrList::iterator next = I;
+      ++next;
+      std::list<const Operand*>* temp = I->first->getOuts();
+      unsigned outsz = temp->size();
+      delete temp;
+      if (imm && outsz == 0 && next != E) {
+	imm = false;	
+      }
       break;
     }
   }
