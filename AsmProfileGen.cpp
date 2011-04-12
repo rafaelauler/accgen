@@ -212,7 +212,7 @@ void AsmProfileGen::RandomizeRegsInitialization(std::ostream &O) {
 						      OperandTable,
 						      RegisterClassManager,
 						      GPRClass->getName(),
-						      (*I)->getName(),
+						      (*I)->getAssemblyName(),
 						      num);
       // Find implementation for initialization expression
       std::cout << "Searching for implementation of:\n ";
