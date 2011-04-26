@@ -1,5 +1,5 @@
 
---- Current limitations
+-- Current limitations
 
 0) Code is hardcoded for big endian machines!
 
