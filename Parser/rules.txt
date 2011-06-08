@@ -232,6 +232,11 @@ define pattern LOADSEXT16 as (
   (transfer a3:regs (sext (memref addr:regs) const:num:16));
 );
 
+define pattern LOADZEXT1 as (
+  "(loadzexti1 i32:$addr)";
+  (transfer a3:regs (zext (memref addr:regs) const:num:8));
+);
+
 define pattern LOADZEXT8 as (
   "(loadzexti8 i32:$addr)";
   (transfer a3:regs (zext (memref addr:regs) const:num:8));
