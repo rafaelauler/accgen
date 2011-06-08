@@ -181,7 +181,7 @@ namespace {
     return SS.str();
   }
   
-  const unsigned NodeNamesSz = 46;
+  const unsigned NodeNamesSz = 47;
   
   const string NodeNames[] = { "load", 
 			       "loadsexti1",
@@ -223,6 +223,7 @@ namespace {
 			       "tglobaladdr",
 			       "globaladdr",
 			       "br",
+			       "brcond",
 			       "brind",
 			       "br_cc",
 			       "condcode",
@@ -271,6 +272,7 @@ namespace {
 			       "ISD::TargetGlobalAddress",
 			       "ISD::GlobalAddress",
 			       "ISD::BR",
+			       "ISD::BRCOND",
 			       "ISD::BRIND",
 			       "ISD::BR_CC",
 			       "ISD::CONDCODE",
@@ -319,6 +321,7 @@ namespace {
 			      NULL, // tglobaladdr
 			      GetGlobalAddress, // globaladdr
 			      NULL, // br
+			      NULL, // brcond
 			      NULL, // brind
 			      NULL, // br_cc
 			      NULL, // condcode
@@ -367,6 +370,7 @@ namespace {
 				  NULL, // tglobaladdr
 				  NULL, // globaladdr
 				  NULL, // br
+				  NULL, // brcond
 				  NULL, // brind
 				  NULL, // br_cc
 				  MatchCondCode, // condcode
@@ -415,6 +419,7 @@ namespace {
 			       false, // tglobaladdr
 			       false, // globaladdr
 			       true,  // br
+			       true,  // brcond
 			       true,  // brind
 			       true,  // br_cc
 			       false, // condcode
@@ -463,6 +468,7 @@ namespace {
 			  false, // tglobaladdr
 			  false, // globaladdr
 			  true,  // br
+			  true,  // brcond
 			  true,  // brind
 			  true,  // br_cc
 			  false, // condcode
@@ -511,6 +517,7 @@ namespace {
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br
+			    false, // brcond
 			    false, // brind
 			    false, // br_cc
 			    false, // condcode
@@ -559,6 +566,7 @@ namespace {
 			    false, // tglobaladdr
 			    false, // globaladdr
 			    false, // br
+			    false, // brcond
 			    false, // brind
 			    false, // br_cc
 			    false, // condcode

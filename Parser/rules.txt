@@ -486,6 +486,11 @@ define pattern BRCOND10 as (
   (cjump const:cond:eq (comp lhs:regs rhs:regs) imm:tgt:int);
 );
 
+define pattern BRCOND11 as (
+  "(brcond i32:$res (basicblock i32:$tgt))";
+  (cjump const:cond:eq (comp res:regs const:byte:1) imm:tgt:int);
+);
+
 // Built-in pattern: Used in XXXInstrInfo::InsertBranch member function
 define pattern BR as (
   "(br (basicblock i32:$tgt))";
