@@ -135,13 +135,12 @@ namespace backendgen {
     struct CacheEntry {
       const Tree *LHS, *RHS;
       unsigned Depth;
+      struct CacheEntry *next;
     };
     // Each entry in the hash table leads to a colision list, capable
     // of holding many elements.
-    typedef std::list<CacheEntry> ColisionList;
-    typedef std::list<CacheEntry>::iterator EntryIterator;
     // The hash table 
-    ColisionList** HashTable;
+    CacheEntry** HashTable;
     const unsigned HASHSIZE;
 
   public:

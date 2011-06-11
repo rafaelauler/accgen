@@ -374,8 +374,10 @@ namespace backendgen {
 
 
   // TransformationCache member functions
+  // prime cache sizes: 1009 10007 103997
+  // power-of-2 sizes: 1024 16384 131072 1048576
   TransformationCache::TransformationCache() : HASHSIZE(1024) {
-    HashTable = new ColisionList* [HASHSIZE];
+    HashTable = new CacheEntry* [HASHSIZE];
     assert (HashTable != NULL && "MemAlloc fail");
     for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
       HashTable[I] = NULL;
@@ -384,14 +386,13 @@ namespace backendgen {
   
   TransformationCache::~TransformationCache() {
     for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
-      if (HashTable[I] != NULL) {
-	for (EntryIterator I2 = HashTable[I]->begin(), E2 = HashTable[I]->end();
-	     I2 != E2; ++I2) {
-	  delete I2->LHS;
-	  delete I2->RHS;
-	}
-	delete HashTable[I];
-	HashTable[I] = NULL;
+      CacheEntry *p = HashTable[I];
+      while (p) {
+        CacheEntry *next = p->next;
+        delete p->LHS;
+        delete p->RHS;
+        delete p;
+        p = next;
       }
     }
     delete [] HashTable;
@@ -399,31 +400,27 @@ namespace backendgen {
 
   inline void TransformationCache::Add(const Tree* Exp, const Tree* Target,
 				       unsigned Depth) {
-    CacheEntry NewEntry = {Exp->clone(), Target->clone(), Depth};
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
-    ColisionList *ColList = HashTable[Hash];    
-    if (ColList == NULL) {
-      ColList = HashTable[Hash] = new ColisionList();    
-    }
-    ColList->push_back(NewEntry);
+    CacheEntry * const NewEntry = new CacheEntry();
+    CacheEntry * const Cur = HashTable[Hash];
+    NewEntry->LHS = Exp->clone();
+    NewEntry->RHS = Target->clone();
+    NewEntry->Depth = Depth;
+    NewEntry->next = Cur;
+    HashTable[Hash] = NewEntry;
     return;
   }
 
   inline TransformationCache::CacheEntry* TransformationCache::LookUp
   (const Tree* Exp, const Tree* Target, unsigned Depth) const {
     unsigned Hash = Exp->getHash(Target->getHash()) % HASHSIZE;
-    ColisionList *ColList = HashTable[Hash];
-    // Miss
-    if (ColList == NULL) {
-      return NULL;
-    }
-    for (ColisionList::iterator I = ColList->begin(), E = ColList->end();
-	 I != E; ++I) {
-      CacheEntry &Entry = *I;
-      if (CacheExactCompare(Entry.LHS, Exp) && 
-	  CacheExactCompare(Target, Entry.RHS) &&
-	  Depth <= Entry.Depth)
-	return &Entry;
+    CacheEntry* p = HashTable[Hash];
+    while (p) {
+      if (Depth <= p->Depth &&
+	  CacheExactCompare(Target, p->RHS) &&
+          CacheExactCompare(p->LHS, Exp))
+	return p;
+      p = p->next;
     }
     return NULL;
   }
