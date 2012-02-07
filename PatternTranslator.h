@@ -151,109 +151,109 @@ namespace backendgen {
 			      unsigned ident = 2,
 			      bool ErasePatt = false);
     std::string genFindMIPatRoot(SearchResult *SR, 
-																 const std::string& InitialMI,
-																 const std::string& OperandName,					   
-																 unsigned ident = 2);
+                                 const std::string& InitialMI,
+                                 const std::string& OperandName,
+                                 unsigned ident = 2);
   };
 
-		// These classes are used to organize the utilization of the small set of 
-		// auxiliary registers in genEmitMI(), using a simple register allocation
-		// algorithm.
-		class RegAllocIt {
-				const Register* physReg;
-				std::string owner;  
-		public:
-				RegAllocIt(const Register* pr): physReg(pr), owner("FREE") {}
-				void SetOwner(const std::string& N) {
-						owner = N;
-				}
-				const std::string& Owner() {
-						return owner;
-				}
-				const std::string& PhysReg() {
-						return physReg->getName();
-				}
-				const Register* getPhysReg() {
-						return physReg;
-				}
-		};
-		struct InsufficientAuxiliarRegsException{};
-		// A list of RegAllocItems
-		class RegAlloc : public std::list<RegAllocIt> {
-				// Keep track of current usable register
-				iterator CurUsableReg;
-				// Keep track of current instruction operands to analyze defs/uses
-				OperandsDefsType::const_iterator CurInsOperands, InsEnd;
-		public:  
-				static RegAlloc* Build(const std::list<const Register*>* AList, 
-															 OperandsDefsType::const_iterator FirstInsn,
-															 OperandsDefsType::const_iterator LastInsn) {
-						RegAlloc* RA = new RegAlloc();
-						for (std::list<const Register*>::const_iterator I = AList->begin(), 
-										 E = AList->end(); I != E; ++I) {
-								RA->push_back(RegAllocIt(*I));
-						}
-						RA->CurUsableReg = RA->begin();
-						RA->CurInsOperands = FirstInsn;
-						RA->InsEnd = LastInsn;
-						return RA;
-				}
-				// Tell the allocator that we are now analyzing the next instructions
-				// in the list. If we arrived at the end of the list, automatically
-				// deallocate itself, as its task has ended.
-				void NextInstruction() {
-						++CurInsOperands;
-						if (CurInsOperands == InsEnd) {
-								delete this;
-						}
-				}
-				bool IsLive(const std::string &VirtReg) {
-						OperandsDefsType::const_iterator I = CurInsOperands, E = InsEnd;
-						++I;
-						for (;I != E; ++I) {
-								NameListType* OpNames = *I;
-								for (NameListType::const_iterator NI = OpNames->begin(),
-												 NE = OpNames->end(); NI != NE; ++NI) {
-										if (*NI == VirtReg)
-												return true;
-								}
-						}
-						return false;
-				}
-				const std::string& getPhysRegister(const std::string &VirtReg) {
-						// First perform a lookup to see if this virtreg is already allocated
-						for (iterator I = begin(), E = end(); I != E; ++I) {
-								if (I->Owner() == VirtReg)
-										return I->PhysReg();
-						}
-						// Need to allocate a new phys reg. to it
-						for (iterator I = begin(), E = end(); I != E; ++I) {
-								if (I->Owner() == "FREE" || !IsLive(I->Owner())) {
-										I->SetOwner(VirtReg);
-										return I->PhysReg();
-								}
-						}
-						throw InsufficientAuxiliarRegsException();
-				}
-				const Register* getPhysRegisterRef(const std::string &VirtReg) {
-						// First perform a lookup to see if this virtreg is already allocated
-						for (iterator I = begin(), E = end(); I != E; ++I) {
-								if (I->Owner() == VirtReg)
-										return I->getPhysReg();
-						}
-						// Need to allocate a new phys reg. to it
-						for (iterator I = begin(), E = end(); I != E; ++I) {
-								if (I->Owner() == "FREE" || !IsLive(I->Owner())) {
-										I->SetOwner(VirtReg);
-										return I->getPhysReg();
-								}
-						}
-						throw InsufficientAuxiliarRegsException();
-				}
-
-		};
-
-
+  // These classes are used to organize the utilization of the small set of 
+  // auxiliary registers in genEmitMI(), using a simple register allocation
+  // algorithm.
+  class RegAllocIt {
+    const Register* physReg;
+    std::string owner;  
+  public:
+    RegAllocIt(const Register* pr): physReg(pr), owner("FREE") {}
+    void SetOwner(const std::string& N) {
+      owner = N;
+    }
+    const std::string& Owner() {
+      return owner;
+    }
+    const std::string& PhysReg() {
+      return physReg->getName();
+    }
+    const Register* getPhysReg() {
+      return physReg;
+    }
+  };
+  struct InsufficientAuxiliarRegsException{};
+  // A list of RegAllocItems
+  class RegAlloc : public std::list<RegAllocIt> {
+    // Keep track of current usable register
+    iterator CurUsableReg;
+    // Keep track of current instruction operands to analyze defs/uses
+    OperandsDefsType::const_iterator CurInsOperands, InsEnd;
+  public:  
+    static RegAlloc* Build(const std::list<const Register*>* AList, 
+                           OperandsDefsType::const_iterator FirstInsn,
+                           OperandsDefsType::const_iterator LastInsn) {
+      RegAlloc* RA = new RegAlloc();
+      for (std::list<const Register*>::const_iterator I = AList->begin(), 
+             E = AList->end(); I != E; ++I) {
+        RA->push_back(RegAllocIt(*I));
+      }
+      RA->CurUsableReg = RA->begin();
+      RA->CurInsOperands = FirstInsn;
+      RA->InsEnd = LastInsn;
+      return RA;
+    }
+    // Tell the allocator that we are now analyzing the next instructions
+    // in the list. If we arrived at the end of the list, automatically
+    // deallocate itself, as its task has ended.
+    void NextInstruction() {
+      ++CurInsOperands;
+      if (CurInsOperands == InsEnd) {
+        delete this;
+      }
+    }
+    bool IsLive(const std::string &VirtReg) {
+      OperandsDefsType::const_iterator I = CurInsOperands, E = InsEnd;
+      ++I;
+      for (;I != E; ++I) {
+        NameListType* OpNames = *I;
+        for (NameListType::const_iterator NI = OpNames->begin(),
+               NE = OpNames->end(); NI != NE; ++NI) {
+          if (*NI == VirtReg)
+            return true;
+        }
+      }
+      return false;
+    }
+    const std::string& getPhysRegister(const std::string &VirtReg) {
+      // First perform a lookup to see if this virtreg is already allocated
+      for (iterator I = begin(), E = end(); I != E; ++I) {
+        if (I->Owner() == VirtReg)
+          return I->PhysReg();
+      }
+      // Need to allocate a new phys reg. to it
+      for (iterator I = begin(), E = end(); I != E; ++I) {
+        if (I->Owner() == "FREE" || !IsLive(I->Owner())) {
+          I->SetOwner(VirtReg);
+          return I->PhysReg();
+        }
+      }
+      throw InsufficientAuxiliarRegsException();
+    }
+    const Register* getPhysRegisterRef(const std::string &VirtReg) {
+      // First perform a lookup to see if this virtreg is already allocated
+      for (iterator I = begin(), E = end(); I != E; ++I) {
+        if (I->Owner() == VirtReg)
+          return I->getPhysReg();
+      }
+      // Need to allocate a new phys reg. to it
+      for (iterator I = begin(), E = end(); I != E; ++I) {
+        if (I->Owner() == "FREE" || !IsLive(I->Owner())) {
+          I->SetOwner(VirtReg);
+          return I->getPhysReg();
+        }
+      }
+      throw InsufficientAuxiliarRegsException();
+    }
+    
+  };
+  
+  
 }
 
 

@@ -376,7 +376,7 @@ namespace backendgen {
   // TransformationCache member functions
   // prime cache sizes: 1009 10007 103997
   // power-of-2 sizes: 1024 16384 131072 1048576
-  TransformationCache::TransformationCache() : HASHSIZE(1024) {
+  TransformationCache::TransformationCache() : HASHSIZE(256) {
     HashTable = new CacheEntry* [HASHSIZE];
     assert (HashTable != NULL && "MemAlloc fail");
     for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
@@ -385,16 +385,19 @@ namespace backendgen {
   }
   
   TransformationCache::~TransformationCache() {
+    unsigned size = 0;
     for (unsigned I = 0, E = HASHSIZE; I != E; ++I) {
       CacheEntry *p = HashTable[I];
       while (p) {
         CacheEntry *next = p->next;
+        size++;
         delete p->LHS;
         delete p->RHS;
         delete p;
         p = next;
       }
     }
+    std::cout << "Transcache size was: " << size << std::endl;
     delete [] HashTable;
   }
 
