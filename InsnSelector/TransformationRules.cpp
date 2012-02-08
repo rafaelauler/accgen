@@ -42,16 +42,16 @@ namespace backendgen {
   // Rule member functions
 
   // Constructor
-  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned ID):
-    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(ID),OpTransList()
+  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned Id):
+    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(Id),OpTransList()
   {
     Composition = FindOperator(LHS, DecompOp);
     Decomposition = FindOperator(RHS, DecompOp);
   }
   
-  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned ID,
+  Rule::Rule(Tree* LHS, Tree* RHS, bool Equivalence, unsigned Id,
 	     OperandTransformationList &OList):
-    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(ID),OpTransList(OList)
+    LHS(LHS),RHS(RHS),Equivalence(Equivalence),RuleID(Id),OpTransList(OList)
   {
     Composition = FindOperator(LHS, DecompOp);
     Decomposition = FindOperator(RHS, DecompOp);

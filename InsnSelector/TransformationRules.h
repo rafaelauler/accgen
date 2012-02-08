@@ -57,9 +57,9 @@ namespace backendgen {
     bool Composition;
     OperandTransformationList OpTransList;
     Rule(expression::Tree* LHS, expression::Tree* RHS, bool Equivalence,
-	 unsigned ID);
+	 unsigned Id);
     Rule(expression::Tree* LHS, expression::Tree* RHS, bool Equivalence,
-	 unsigned ID, OperandTransformationList &OList);
+	 unsigned Id, OperandTransformationList &OList);
     std::list<expression::Tree*>* Decompose(const expression::Tree* Expression)
     const;
     bool ForwardMatch(const expression::Tree* Expression) const;
