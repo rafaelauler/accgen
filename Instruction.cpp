@@ -543,7 +543,15 @@ operand or memory reference.");
     // by side effect compensation algorithms)
     std::list<const Tree*> Queue;
     std::list<unsigned> OperandsIndexes;
-    // First "insert" pre-defined operands bindings for this semantic
+    // Update the OperandsIndexes vector supposing our Operands input
+    // parameter was produced by our getOperandsBySemantic. In that case,
+    // this vector is already sorted according to op index
+    unsigned iv = 0;
+    for (std::list<std::string>::const_iterator I = Operands.begin(),
+      E = Operands.end(); I != E; ++I) {
+      OperandsIndexes.push_back(++iv);
+    }
+    // "insert" pre-defined operands bindings for this semantic
     if (SI->OperandsBindings != NULL) {
       for (BindingsList::const_iterator I = SI->OperandsBindings->begin(),
 	     E = SI->OperandsBindings->end(); I != E; ++I) {
@@ -552,27 +560,7 @@ operand or memory reference.");
 	  Operands.push_front(I->second);
 	}
       }
-    }
-    // Put into queue the top level operator of this semantic.
-    Queue.push_back(SI->SemanticExpression);
-    while(Queue.size() > 0) {
-      const Tree* Element = Queue.front();
-      Queue.pop_front();
-      const Operand* Op = dynamic_cast<const Operand*>(Element);
-      // If operand
-      if (Op != NULL) {
-	if (HasOperandNumber(Op)) 
-	  OperandsIndexes.push_back
-	    (ExtractOperandNumber(Op->getOperandName())); 		
-	continue;
-      }      
-      // Otherwise we have an operator
-      const Operator* O = dynamic_cast<const Operator*>(Element);
-      assert (O != NULL && "Unexpected tree node type");
-      for (int I = 0, E = O->getArity(); I != E; ++I) {
-	Queue.push_back((*O)[I]);
-      }
-    }
+    }    
     // Now we emit assembly with don't cares when we don't know the
     // operand value
     S << Mnemonic;

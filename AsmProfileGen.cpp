@@ -160,7 +160,7 @@ void AsmProfileGen::PrintPatternImpl(SearchResult *SR, std::ostream &O) {
 	*I2 = RA->getPhysRegisterRef(*I2)->getAssemblyName();
 	continue;
       }
-      int val;
+      int val = 0;
       if (ExtractConstValue(*I2, &val)) {
 	stringstream SS;
 	SS << val;
@@ -411,9 +411,10 @@ void AsmProfileGen::GenerateFiles() {
     if ((*I)->getBegin() == (*I)->getEnd())
       continue; // This instructions does not have its behavior described by
     // semantics in compiler_info.ac. Skipping it...
-    if ((*I)->isCall() || (*I)->isJump() || (*I)->isReturn())
-      continue; // Not interested in testing instruction which can change
+    //if ((*I)->isCall() || (*I)->isJump() || (*I)->isReturn())
+    //  continue; // Not interested in testing instruction which can change
     // program flow.
+    // 14/02/12 - generate branch tests
     string filename = WorkingDir;
     filename += "/";
     filename += (*I)->getLLVMName();

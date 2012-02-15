@@ -114,8 +114,6 @@ bool ParseBackendInformation(const char* RuleFileName, const char* BackendFileNa
   FILE *fp = std::tmpfile();
   FILE *rfp = std::fopen(RuleFileName, "r");
   FILE *bfp = std::fopen(BackendFileName, "r");
-  
-  RulesNumLines = CountNumLines(rfp);
 
   if (rfp == NULL) { 
     std::cerr << "Could not open rule information file \"" << RuleFileName 
@@ -127,6 +125,7 @@ bool ParseBackendInformation(const char* RuleFileName, const char* BackendFileNa
 	   << "\".\n";
     exit(EXIT_FAILURE);
   }
+  RulesNumLines = CountNumLines(rfp);
   
   CopyFile(fp, rfp);
   CopyFile(fp, bfp);
